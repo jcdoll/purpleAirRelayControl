@@ -7,6 +7,15 @@
 * Arduino MKR 1010 (https://store-usa.arduino.cc/products/arduino-mkr-wifi-1010)
 * MKR Proto Relay board (https://store-usa.arduino.cc/products/arduino-mkr-relay-proto-shield)
 
+# Instructions
+
+* Stop git from tracking your secrets file
+	* git update-index --skip-worktree arduino_secrets.h
+* Edit arduino_secrets.h to include your personal and private info
+	* wifi network ssid
+	* wifi password
+	* PurpleAir id (e.g. 12345)
+
 # Electronics
 
 Switching hardware:
