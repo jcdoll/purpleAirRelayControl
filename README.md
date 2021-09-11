@@ -59,15 +59,15 @@ Switching hardware:
 		* switch low (force off)
 			* BC and EF are connected (B = low, E = high)
 
-# Operation logic
+# Pseudo-code
 
 threshold = 50
 
-if pin3 && ~pin2
+if pin3 && ~pin4
 	switchState = on
-elseif pin1 & pin2
+elseif pin3 & pin4
 	switchState = purpleAir
-elseif ~pin1 && pin2
+elseif ~pin3 && pin4
 	switchState = off
 else
 	log error due to switch problem and set state to off
