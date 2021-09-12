@@ -1,4 +1,5 @@
 #include "arduino_secrets.h"
+#include <SPI.h>
 #include <WiFiNINA.h>
 #include <ArduinoHttpClient.h>
 #include <Arduino_JSON.h>
@@ -63,7 +64,7 @@ int getAirQuality() {
 		JSONVar myObject = JSON.parse(response);
 		int PM2_5 = atoi(myObject["results"][0]["PM2_5Value"]);
 		Serial.println(PM2_5);
-		return PM2_5
+		return PM2_5;
 	} else {
 		Serial.println("error accessing PurpleAir");
 	}
@@ -83,7 +84,7 @@ int getSwitchState() {
 }
 
 bool getVentilationState(int switchState, int airQuality) {
-	return (switchState == SWITCH_STATE_ON) || (switchState == SWITCH_STATE_PURPLEAIR && airQuality < threshold);
+	return (switchState == SWITCH_STATE_ON) || (switchState == SWITCH_STATE_PURPLEAIR && airQuality < ENABLE_THRESHOLD);
 }
 
 void setRelays(bool ventilate) {

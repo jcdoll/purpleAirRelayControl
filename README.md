@@ -14,6 +14,10 @@
 
 # Instructions
 
+* Install the following libraries from in your Arduino IDE (Tools > Manage Libraries)
+	* WifiNINA
+	* ArduinoHttpClient
+	* Arduino_JSON
 * Stop git from tracking your secrets file
 	* git update-index --skip-worktree arduino_secrets.h
 * Edit arduino_secrets.h to include your personal and private info
