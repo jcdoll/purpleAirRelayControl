@@ -40,10 +40,11 @@ void setup() {
 	// connect to wifi
 	Serial.begin(9600);
 	while (status != WL_CONNECTED) {
-		Serial.print("Attempting to connect to Network named: ");
+		Serial.print("Attempting to connect to WiFi network: ");
 		Serial.println(ssid);
 		status = WiFi.begin(ssid, pass);
 	}
+  Serial.println("Connected, beginning main loop");
 }
 
 void loop() {
@@ -56,6 +57,7 @@ void loop() {
 
 int getAirQuality() {
 	Serial.println("Requesting data from PurpleAir... ");
+ 
 	client.get("/json?show=" + sensor_id);
 	int statusCode = client.responseStatusCode();
 	String response = client.responseBody();
@@ -63,22 +65,31 @@ int getAirQuality() {
 	if (statusCode == 200) {
 		JSONVar myObject = JSON.parse(response);
 		int PM2_5 = atoi(myObject["results"][0]["PM2_5Value"]);
+
+    Serial.print("PURPLE AIR SENSOR VALUE: ");
 		Serial.println(PM2_5);
+
+    if (PM2_5 > ENABLE_THRESHOLD) {
+      Serial.println("WARNING: sensor value is greater than ventilation threshold");
+    }
 		return PM2_5;
 	} else {
-		Serial.println("error accessing PurpleAir");
+		Serial.println("ERROR: failed to access PurpleAir");
 	}
 }
 
 int getSwitchState() {
 	if (digitalRead(PIN_SWITCH_INPUT1) && ~digitalRead(PIN_SWITCH_INPUT2)) {
+    Serial.println("SWITCH STATE: on");
 		return SWITCH_STATE_ON;
 	} else if (digitalRead(PIN_SWITCH_INPUT1) && digitalRead(PIN_SWITCH_INPUT2)) {
+    Serial.println("SWITCH STATE: purple air");
 		return SWITCH_STATE_PURPLEAIR;
 	} else {
 		if (~digitalRead(PIN_SWITCH_INPUT1) && ~digitalRead(PIN_SWITCH_INPUT2)) {
 			Serial.println("ERROR: unknown switch state");
 		}
+    Serial.println("SWITCH STATE: off");
 		return SWITCH_STATE_OFF;
 	}
 }
@@ -88,6 +99,12 @@ bool getVentilationState(int switchState, int airQuality) {
 }
 
 void setRelays(bool ventilate) {
+  if (ventilate) {
+    Serial.println("VENTILATION STATE: on");
+  } else {
+    Serial.println("VENTILATION STATE: off");    
+  }
+  
 	digitalWrite(PIN_RELAY1, ventilate);
 	digitalWrite(PIN_RELAY2, ventilate);
 }
