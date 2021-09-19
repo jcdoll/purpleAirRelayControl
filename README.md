@@ -1,5 +1,5 @@
 # purpleAirRelayControl
- Control an ERV/HRV and damper based on PurpleAir to limit wildfire smoke exposure
+ Control an ERV/HRV and/or damper based on PurpleAir to limit wildfire smoke exposure.
 
 
 # Arduino requirements
@@ -24,6 +24,18 @@
 	* wifi network ssid
 	* wifi password
 	* PurpleAir id (e.g. 12345)
+* 3d print case
+	* 0.3 mm layer height
+	* include supports
+* Install
+	* compile and upload code to the arduino
+	* attach arduino to the case with M3x8 screws
+	* attach the switch to the case using included screws/washers
+	* wire the switch to the board (see below)
+	* wire the relay outputs to whatever you are controlling
+	* attach the case nearby your HRV/ERV and/or damper using your preferred method (drywall fasteners, adhesive, etc)
+	* connect a powered micro usb cable to the arduino
+	* test on/off/purpleair functionality
 
 # Electronics
 
@@ -50,41 +62,18 @@ Switching hardware:
 		* Closed -> close circuit to provide 24 VAC to damper
 	* Switch
 		* ABC / DEF on each side from top to bottom
-		* A = 5V
+		* A = GND
 		* B = pin 3
-		* C = gnd
-		* D = gnd
+		* C = NC (no connection)
+		* D = NC
 		* E = pin 4
-		* F = 5V
+		* F = GND
 		* switch up (force on)
-			* AB and DE are connected (B = high, E = low)
-		* switch center (purpleAir)
-			* nothing connected (B = high, E = high due to internal pull up resistors)
-		* switch low (force off)
-			* BC and EF are connected (B = low, E = high)
-
-# Pseudo-code
-
-threshold = 50
-
-if pin3 && ~pin4
-	switchState = on
-elseif pin3 & pin4
-	switchState = purpleAir
-elseif ~pin3 && pin4
-	switchState = off
-else
-	log error due to switch problem and set state to off
-end
-
-ventilate = (switchState == on) || (switchState == purpleAir && purpleAirSensor < threshold)
-	
-if ventilate
-	pin1 = high
-	pin2 = high
-	energize relays (open damper and turn on ERV/HRV)
-else
-	pin1 = low
-	pin2 = low
-	de-energizerelays (close damper and turn off ERV/HRV)
-end
+			* B = GND
+			* E = NC (pulled high)
+		* switch middle (purple air)
+			* B = NC (pulled high)
+			* E = NC (pulled high)
+		* switch low (off)
+			* B = NC (pulled high)
+			* E = grounded
