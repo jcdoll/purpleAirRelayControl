@@ -14,6 +14,8 @@
 
 # Instructions
 
+### Arduino
+
 * Install the following libraries from in your Arduino IDE (Tools > Manage Libraries)
 	* WifiNINA
 	* ArduinoHttpClient
@@ -24,18 +26,41 @@
 	* wifi network ssid
 	* wifi password
 	* PurpleAir id (e.g. 12345)
-* 3d print case
-	* 0.3 mm layer height
-	* include supports
-* Install
-	* compile and upload code to the arduino
-	* attach arduino to the case with M3x8 screws
+* Flash Arduino
+	* connect Arduino to your PC, compile and upload code
+	
+### Case
+
+The case is optional if you have another mounting method.
+
+* Generate STLs
+	* install OpenSCAD if necessary
+	* run exportSTLs.bat
+* Print box
+	* use your preferred settings, no supports required
+	* any filament should be fine, i printed in PLA
+* Print wall mount
+	* use your preferred settings, no supports required
+	* any filament should be fine, i printed in PLA
+
+### Installation
+
+
+* Fill box
+	* attach arduino to the case with M3x8 screws (shorter is preferable if you have any handy)
+		* the fasteners should self tap the holes if your printer is accurate
+		* don't overtighten or you will strip the plastic
 	* attach the switch to the case using included screws/washers
 	* wire the switch to the board (see below)
 	* wire the relay outputs to whatever you are controlling
-	* attach the case nearby your HRV/ERV and/or damper using your preferred method (drywall fasteners, adhesive, etc)
-	* connect a powered micro usb cable to the arduino
-	* test on/off/purpleair functionality
+* Attach wall mount
+	* install the wall mount (holds box) to a nearby wall using your preferred method (drywall fasteners, adhesive, etc)
+* Wiring
+	* run wires from your HVAC equipment to the Arduino mounting location
+	* i'd recommend using a quick disconnect (e.g. Wago) between the HVAC equipment and the Arduino to allow for easy box removal
+	* connect a powered micro usb cable to the Arduino
+* Test
+	* confirm that your HVAC equipment is controlled appropriately with the switch in the on/off/purpleair positions
 
 # Electronics
 
