@@ -36,18 +36,15 @@ The case is optional if you have another mounting method.
 * Generate STLs
 	* install OpenSCAD if necessary
 	* run exportSTLs.bat
-* Print box
-	* use your preferred settings, no supports required
-	* any filament should be fine, i printed in PLA
-* Print wall mount
-	* use your preferred settings, no supports required
-	* any filament should be fine, i printed in PLA
+* Print box and shelf
+	* print external perimeters first for dimensional accuracy
+	* recommended settings: 0.3 mm layer height, 15% infill, slow enough perimeters to avoid overextruded corners
 
 ### Installation
 
 
 * Fill box
-	* attach arduino to the case with M3x8 screws (shorter is preferable if you have any handy)
+	* attach arduino to the case with M3x4 screws (or longer if you have washers available)
 		* the fasteners should self tap the holes if your printer is accurate
 		* don't overtighten or you will strip the plastic
 	* attach the switch to the case using included screws/washers

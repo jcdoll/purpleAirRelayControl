@@ -41,7 +41,7 @@ y_boardMount = 35;
 
 // board mount details
 d_boardSpacer = 8;
-t_boardSpacer = 3 + 4; // added 4 here and removed holes from the base, ideally add washers
+t_boardSpacer = 3; // board is 1.5mm thick, so use up to M3x4 or longer if using washers
 d_boardScrew = 3;
 
 // board mount hole spacing
