@@ -1,7 +1,16 @@
 $fn = 32;
 $fs = 0.5;
 
+// todo: add pair of half depth slots to box at the bottom
+//       can either be contour (more complicated) or just a cut (simple)
+// todo: rework the shelf to only cover the bottom and fit into slots
+//       should go up and then divide to keep the box from lifting off
+
+// small offset to reduce interference as needed
+epsInterference = 0.1;
+
 // overall case dimensions
+// todo: remove hack
 w_case = 100;
 l_case = 120;
 t_case = 35;
@@ -117,8 +126,8 @@ module wallMount() {
         }
         
         // interior cutout
-        translate([0, 0, -t_case])
-            cube([w_case, l_case, 3*t_case]);
+        translate([-epsInterference/2, -epsInterference/2, -t_case])
+            cube([w_case + epsInterference, l_case + epsInterference, 3*t_case]);
         
         // screw holes
         for (dx = [0, w_case+w_wallMountLedge+2*t_caseWall]) {
