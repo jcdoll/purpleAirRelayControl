@@ -82,7 +82,7 @@ module box() {
         difference() {
             
             // case cube 
-            cube([w_case, l_case, t_case]);
+            roundedcube([w_case, l_case, t_case]);
             
             // switch labels
             translate([x_switchMount - d_switchMount, y_switchMount + d_switchMount, -0.5])
@@ -100,7 +100,7 @@ module box() {
                 
             // cavity
             translate([t_caseWall, t_caseWall, t_caseBase])
-                cube([w_case - 2*t_caseWall, l_case - 2*t_caseWall, t_case]);
+                roundedcube([w_case - 2*t_caseWall, l_case - 2*t_caseWall, t_case]);
             
             // half wall for wires
             translate([t_caseWall, 2*t_caseWall, t_caseBase + t_caseHalfWall])
@@ -136,18 +136,21 @@ module wallMount() {
         union() {
             // full thickness ledge
             translate([0, -t_caseWall, 0])
-                cube([w_case, t_caseWall, t_case]);
+                roundedcube([w_case, t_caseWall, t_case]);
             
             // thin wall mount
             translate([0, -w_wallMountLedge-t_caseWall, t_case - t_wallMountLedge])
-                cube([w_case, t_caseWall + w_wallMountLedge, t_wallMountLedge]);
+                roundedcube([w_case, t_caseWall + w_wallMountLedge, t_wallMountLedge]);
             
             // half thickness slot
             for (dx = [0, w_case-2*x_slotInset]) {
+                // slot
                 translate([dx + x_slotInset + epsInterference, 0, t_case - t_slot + epsInterference])
                     cube([w_slot - 2*epsInterference, t_caseWall + 2*epsInterference, t_slot - epsInterference]);
+                
+                // grip (rounded)
                 translate([dx + x_slotInset + epsInterference + w_slot/2 - w_slotGrip/2 - epsInterference, t_caseWall + 2*epsInterference, t_case - t_slot + epsInterference])
-                    cube([w_slotGrip, t_caseWall + 2*epsInterference, t_slot - epsInterference]);
+                    roundedcube([w_slotGrip, t_caseWall + 2*epsInterference, t_slot - epsInterference]);
             }
         }
         
@@ -157,4 +160,56 @@ module wallMount() {
                 cylinder(h = 2*t_case, d = d_wallMounts);
         }    
     }
+}
+
+
+module roundedcube(size = [1, 1, 1], center = false, radius = 1, apply_to = "z") {
+	// If single value, convert to [x, y, z] vector
+	size = (size[0] == undef) ? [size, size, size] : size;
+
+	translate_min = radius;
+	translate_xmax = size[0] - radius;
+	translate_ymax = size[1] - radius;
+	translate_zmax = size[2] - radius;
+
+	diameter = radius * 2;
+
+	obj_translate = (center == false) ?
+		[0, 0, 0] : [
+			-(size[0] / 2),
+			-(size[1] / 2),
+			-(size[2] / 2)
+		];
+
+	translate(v = obj_translate) {
+		hull() {
+			for (translate_x = [translate_min, translate_xmax]) {
+				x_at = (translate_x == translate_min) ? "min" : "max";
+				for (translate_y = [translate_min, translate_ymax]) {
+					y_at = (translate_y == translate_min) ? "min" : "max";
+					for (translate_z = [translate_min, translate_zmax]) {
+						z_at = (translate_z == translate_min) ? "min" : "max";
+
+						translate(v = [translate_x, translate_y, translate_z])
+						if (
+							(apply_to == "all") ||
+							(apply_to == "xmin" && x_at == "min") || (apply_to == "xmax" && x_at == "max") ||
+							(apply_to == "ymin" && y_at == "min") || (apply_to == "ymax" && y_at == "max") ||
+							(apply_to == "zmin" && z_at == "min") || (apply_to == "zmax" && z_at == "max")
+						) {
+							sphere(r = radius);
+						} else {
+							rotate = 
+								(apply_to == "xmin" || apply_to == "xmax" || apply_to == "x") ? [0, 90, 0] : (
+								(apply_to == "ymin" || apply_to == "ymax" || apply_to == "y") ? [90, 90, 0] :
+								[0, 0, 0]
+							);
+							rotate(a = rotate)
+							cylinder(h = diameter, r = radius, center = true);
+						}
+					}
+				}
+			}
+		}
+	}
 }
