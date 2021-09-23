@@ -23,7 +23,7 @@ $fs = 0.5;
 // 2) there is an adjustable parameter (epsInterference) that can increased to make the two pieces fit more loosely
 
 // small offset to reduce interference as needed
-epsInterference = 0.2;
+epsInterference = 0.1;
 
 // overall case dimensions
 w_case = 100;
@@ -33,7 +33,7 @@ t_case = 40;
 // xy offset and diameter of circular cutout for switch
 x_switchMount = 80;
 y_switchMount= 50;
-d_switchMount = 12 + epsInterference; // 12.2 is good for me
+d_switchMount = 12 + 2*epsInterference;
 
 // xy offset of board mount from case corner
 x_boardMount = 12;
@@ -85,18 +85,18 @@ module box() {
             roundedcube([w_case, l_case, t_case]);
             
             // switch labels
-            translate([x_switchMount - d_switchMount, y_switchMount + d_switchMount, -0.5])
+            translate([x_switchMount - d_switchMount, y_switchMount + d_switchMount, -0.3])
                 mirror([1,0,0])
-                    linear_extrude(height = 1)
-                        text("on", size = 4, font="Helvetica:style=Bold");
-            translate([x_switchMount - d_switchMount, y_switchMount, -0.5])
+                    linear_extrude(height = 0.6)
+                        text("ON", size = 5, font="Helvetica:style=Bold", valign="center");
+            translate([x_switchMount - d_switchMount, y_switchMount, -0.3])
                 mirror([1,0,0])
-                    linear_extrude(height = 1)
-                        text("purple air", size = 4, font="Helvetica:style=Bold");
-            translate([x_switchMount - d_switchMount, y_switchMount - d_switchMount, -0.5])
+                    linear_extrude(height = 0.6)
+                        text("PURPLE AIR", size = 5, font="Helvetica:style=Bold", valign="center");
+            translate([x_switchMount - d_switchMount, y_switchMount - d_switchMount, -0.3])
                 mirror([1,0,0])
-                    linear_extrude(height = 1)
-                        text("off", size = 4, font="Helvetica:style=Bold");
+                    linear_extrude(height = 0.6)
+                        text("OFF", size = 5, font="Helvetica:style=Bold", valign="center");
                 
             // cavity
             translate([t_caseWall, t_caseWall, t_caseBase])
@@ -111,7 +111,7 @@ module box() {
                 cylinder(h = t_case, d = d_switchMount);
             
             // half thickness slots
-            for (dx = [0, w_case-2*x_slotInset]) {
+            for (dx = [0, w_case-2*x_slotInset-t_caseWall]) {
                 translate([dx + x_slotInset, -t_caseWall, t_case - t_slot])
                     cube([w_slot, 3*t_caseWall, 2*t_slot]);
             }
@@ -143,7 +143,7 @@ module wallMount() {
                 roundedcube([w_case, t_caseWall + w_wallMountLedge, t_wallMountLedge]);
             
             // half thickness slot
-            for (dx = [0, w_case-2*x_slotInset]) {
+            for (dx = [0, w_case-2*x_slotInset-t_caseWall]) {
                 // slot
                 translate([dx + x_slotInset + epsInterference, 0, t_case - t_slot + epsInterference])
                     cube([w_slot - 2*epsInterference, t_caseWall + 2*epsInterference, t_slot - epsInterference]);
