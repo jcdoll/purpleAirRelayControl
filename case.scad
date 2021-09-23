@@ -23,7 +23,7 @@ $fs = 0.5;
 // 2) there is an adjustable parameter (epsInterference) that can increased to make the two pieces fit more loosely
 
 // small offset to reduce interference as needed
-epsInterference = 0.1;
+epsInterference = 0.15;
 
 // overall case dimensions
 w_case = 100;
