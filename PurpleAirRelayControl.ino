@@ -16,6 +16,9 @@ int DISABLE_THRESHOLD = 50; // upper threshold to disable relays
 // delay time (ms) after reading purple air, reading switch, and setting relays
 int UPDATE_DELAY = 5000; 
 
+// disregard a sensor and move onto the next option if its age is greater than this (minutes)
+int MAX_SENSOR_AGE = 10;
+
 // constants
 int SWITCH_STATE_OFF = 0;
 int SWITCH_STATE_PURPLEAIR = 1;
@@ -37,8 +40,7 @@ int COLOR_VENTILATION_OFF_3 = 0;
 
 // read secret info file for wifi connection and purple air sensor id
 char ssid[] = SECRET_SSID;
-char pass[] = SECRET_PASS;
-String sensor_id = SECRET_SENSOR_ID;
+char pass[] = SECRET_PASS; 
 
 // wifi settings
 int status = WL_IDLE_STATUS; // initially not connected to wifi
@@ -88,25 +90,38 @@ void loop() {
 
 int getAirQuality() {
 	Serial.println("Requesting data from PurpleAir ...");
- 
-	client.get("/json?show=" + sensor_id);
-	int statusCode = client.responseStatusCode();
-	String response = client.responseBody();
+  String sensorId;
 
-	if (statusCode == 200) {
-		JSONVar myObject = JSON.parse(response);
-		int PM2_5 = atoi(myObject["results"][0]["PM2_5Value"]);
+  for (int i=0; i<sizeof(SECRET_SENSOR_IDS)/sizeof(SECRET_SENSOR_IDS[0]); i++) {
+    sensorId = SECRET_SENSOR_IDS[i];
+    client.get("/json?show=" + sensorId);
+    int statusCode = client.responseStatusCode();
+    String response = client.responseBody();
 
-    Serial.print("PURPLE AIR SENSOR VALUE: ");
-		Serial.println(PM2_5);
+  	if (statusCode == 200) {
+  		JSONVar myObject = JSON.parse(response);
+  		int PM2p5 = atoi(myObject["results"][0]["PM2_5Value"]);
+      int sensorAge = myObject["results"][0]["AGE"];
 
-    if (PM2_5 > ENABLE_THRESHOLD) {
-      Serial.println("WARNING: sensor value is greater than ventilation threshold");
-    }
-		return PM2_5;
-	} else {
-		Serial.println("ERROR: failed to access PurpleAir");
-	}
+      // Output status to log
+  		Serial.println("PURPLE AIR SENSOR (ID: " + String(sensorId) + ", age: " + String(sensorAge) + " minutes): " + String(PM2p5));
+
+      if (sensorAge > MAX_SENSOR_AGE) {
+        continue;
+      }
+
+      if (PM2p5 > ENABLE_THRESHOLD) {
+        Serial.println("WARNING: sensor value is greater than ventilation threshold");
+      }
+  		return PM2p5;
+  	} else {
+  		Serial.println("ERROR: failed to access PurpleAir sensor (ID " + String(sensorId) + ")");
+  	}
+  }
+
+  // We failed to get data from any of the sensors, don't enable the sensor
+  Serial.println("ERROR: failed to get data from any sensor option");
+  return 2*DISABLE_THRESHOLD;
 }
 
 int getSwitchState() {
