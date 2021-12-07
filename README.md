@@ -25,7 +25,7 @@
 * Edit arduino_secrets.h to include your personal and private info
 	* wifi network ssid
 	* wifi password
-	* PurpleAir id (e.g. 12345)
+	* array of PurpleAir sensor ids (e.g. {"123", "456", "789"}) 
 * Flash Arduino
 	* connect Arduino to your PC, compile and upload code
 	
