@@ -48,6 +48,12 @@ char server[] = "www.purpleair.com";
 WiFiClient wifi;
 HttpClient client = HttpClient(wifi, server, 80);
 
+// state variables
+// ventilation is disabled by default
+bool ventilationState = false;
+int airQuality = DISABLE_THRESHOLD;
+int switchState = SWITCH_STATE_OFF;
+
 void setup() {
 	
 	// enable outputs on relay pins
@@ -73,10 +79,6 @@ void setup() {
 }
 
 void loop() {
-  bool ventilationState = false;
-  int airQuality = 0;
-  int switchState = SWITCH_STATE_OFF;
-  
   switchState = getSwitchState();
   if (switchState == SWITCH_STATE_PURPLEAIR) {
   	airQuality = getAirQuality();
@@ -100,7 +102,7 @@ int getAirQuality() {
 
   	if (statusCode == 200) {
   		JSONVar myObject = JSON.parse(response);
-  		int PM2p5 = atoi(myObject["results"][0]["PM2_5Value"]);
+  		double PM2p5 = atof(myObject["results"][0]["PM2_5Value"]);
       int sensorAge = myObject["results"][0]["AGE"];
 
       // Output status to log
@@ -113,7 +115,11 @@ int getAirQuality() {
       if (PM2p5 > ENABLE_THRESHOLD) {
         Serial.println("WARNING: sensor value is greater than ventilation threshold");
       }
-  		return PM2p5;
+
+      // Convert to AQI and return
+      int aqi = calculateAQI(PM2p5);
+      Serial.println("Converted to AQI: " + String(aqi));
+  		return aqi;
   	} else {
   		Serial.println("ERROR: failed to access PurpleAir sensor (ID " + String(sensorId) + ")");
   	}
@@ -121,7 +127,7 @@ int getAirQuality() {
 
   // We failed to get data from any of the sensors, don't enable the sensor
   Serial.println("ERROR: failed to get data from any sensor option");
-  return 2*DISABLE_THRESHOLD;
+  return DISABLE_THRESHOLD;
 }
 
 int getSwitchState() {
@@ -152,7 +158,7 @@ bool getVentilationState(int switchState, bool ventilationState, int airQuality)
     if (airQuality < ENABLE_THRESHOLD) {
       Serial.println("AIR QUALITY: below enable threshold");
       return true;
-    } else if (airQuality > DISABLE_THRESHOLD) {
+    } else if (airQuality >= DISABLE_THRESHOLD) {
       Serial.println("AIR QUALITY: above disable threshold");
       return false;
     } else {
@@ -160,6 +166,45 @@ bool getVentilationState(int switchState, bool ventilationState, int airQuality)
       return ventilationState;
     }
   }
+}
+
+// Calculate AQI from the raw PM2.5 data per EPA limits
+int calculateAQI(double pm2p5) {
+  const int N = 8;
+  bool trim = true;  
+  double pmValues[N] =  {0, 12, 35.4, 55.4, 150.4, 250.4, 350.4, 500.4}; // PM2.5
+  double aqiValues[N] = {0, 50, 100,  150,  200,   300,   400,   500}; // AQI
+  return (int) linearInterpolation(pmValues, aqiValues, N, (double) pm2p5, trim);  
+}
+
+double linearInterpolation(double xValues[], double yValues[], int numValues, double pointX, bool trim) {
+    if (trim)
+  {
+    if (pointX <= xValues[0]) return yValues[0];
+    if (pointX >= xValues[numValues - 1]) return yValues[numValues - 1];
+  }
+
+  auto i = 0;
+  double rst = 0;
+  if (pointX <= xValues[0])
+  {
+    i = 0;
+    auto t = (pointX - xValues[i]) / (xValues[i + 1] - xValues[i]);
+    rst = yValues[i] * (1 - t) + yValues[i + 1] * t;
+  }
+  else if (pointX >= xValues[numValues - 1])
+  {
+    auto t = (pointX - xValues[numValues - 2]) / (xValues[numValues - 1] - xValues[numValues - 2]);
+    rst = yValues[numValues - 2] * (1 - t) + yValues[numValues - 1] * t;
+  }
+  else
+  {
+    while (pointX >= xValues[i + 1]) i++;
+    auto t = (pointX - xValues[i]) / (xValues[i + 1] - xValues[i]);
+    rst = yValues[i] * (1 - t) + yValues[i + 1] * t;
+  }
+
+  return rst;
 }
 
 void setRelays(bool ventilate) {
