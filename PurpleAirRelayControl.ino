@@ -2,8 +2,12 @@
 #include <SPI.h>
 #include <WiFiNINA.h>
 #include <ArduinoHttpClient.h>
-#include <Arduino_JSON.h>
+#include <ArduinoJson.h>
 #include <utility/wifi_drv.h>
+
+// Example requests
+// GET https://api.purpleair.com/v1/sensors?fields=pm2.5_10minute&show_only=62491%2C103888%2C121311%2C70123 HTTP/1.1
+// GET https://api.purpleair.com/v1/sensors/62491?fields=pm2.5_10minute HTTP/1.1
 
 // limits for bang-bang control of relays
 // if input < lower threshold = enable ventilation
@@ -13,11 +17,17 @@
 int ENABLE_THRESHOLD = 30; // lower threshold 
 int DISABLE_THRESHOLD = 50; // upper threshold to disable relays
 
-// delay time (ms) after reading purple air, reading switch, and setting relays
-int UPDATE_DELAY = 5000; 
+// delay time of the main loop (msec)
+// it will only check for switch changes after waiting this long
+int LOOP_DELAY = 1000;
 
-// disregard a sensor and move onto the next option if its age is greater than this (minutes)
-int MAX_SENSOR_AGE = 10;
+// delay time between purple air requests to avoid API blacklist, default = 5 min (msec)
+int PURPLE_AIR_DELAY = 300000;
+long int lastPurpleAirUpdate = -1; // init negative so that we check the first time
+long int timeSinceLastPurpleAirUpdate;
+
+// only get data from sensors that have reported data recently, default = 60 minutes (sec)
+int MAX_SENSOR_AGE = 3600;
 
 // constants
 int SWITCH_STATE_OFF = 0;
@@ -39,14 +49,20 @@ int COLOR_VENTILATION_OFF_2 = 0;
 int COLOR_VENTILATION_OFF_3 = 0;
 
 // read secret info file for wifi connection and purple air sensor id
-char ssid[] = SECRET_SSID;
-char pass[] = SECRET_PASS; 
+char SSID[] = SECRET_SSID;
+char WIFI_PASSWORD[] = SECRET_PASS;
+char API_KEY[] = "1A37BB5C-E051-11EC-8561-42010A800005";
+int N_SENSORS = sizeof(SECRET_SENSOR_IDS)/sizeof(SECRET_SENSOR_IDS[0]);
 
 // wifi settings
 int status = WL_IDLE_STATUS; // initially not connected to wifi
-char server[] = "www.purpleair.com";
-WiFiClient wifi;
-HttpClient client = HttpClient(wifi, server, 80);
+char SERVER[] = "api.purpleair.com";
+int HTTPS_PORT = 443;
+WiFiSSLClient WIFI;
+HttpClient client = HttpClient(WIFI, SERVER, HTTPS_PORT);
+
+// allocate the memory for the document
+StaticJsonDocument<2048> doc;
 
 // state variables
 // ventilation is disabled by default
@@ -55,7 +71,6 @@ int airQuality = DISABLE_THRESHOLD;
 int switchState = SWITCH_STATE_OFF;
 
 void setup() {
-	
 	// enable outputs on relay pins
 	pinMode(PIN_RELAY1, OUTPUT);
 	pinMode(PIN_RELAY2, OUTPUT);
@@ -73,7 +88,7 @@ void setup() {
 	Serial.begin(9600);
 	while (status != WL_CONNECTED) {
 		Serial.println("WIFI STATUS: attempting to connect ...");
-		status = WiFi.begin(ssid, pass);
+		status = WiFi.begin(SSID, WIFI_PASSWORD);
 	}
   Serial.println("WIFI STATUS: connected\n");
 }
@@ -81,49 +96,98 @@ void setup() {
 void loop() {
   switchState = getSwitchState();
   if (switchState == SWITCH_STATE_PURPLEAIR) {
-  	airQuality = getAirQuality();
+    timeSinceLastPurpleAirUpdate = millis() - lastPurpleAirUpdate;
+    if (lastPurpleAirUpdate < 0 || timeSinceLastPurpleAirUpdate > PURPLE_AIR_DELAY) {
+      lastPurpleAirUpdate = millis();
+      airQuality = getAirQuality();
+    } else {
+      Serial.println("Too soon to check Purple Air again: " + String(timeSinceLastPurpleAirUpdate/1000) + "s elapsed < " + String(PURPLE_AIR_DELAY/1000) + "s required");
+    }
   }
 	ventilationState = getVentilationState(switchState, ventilationState, airQuality);
 	setRelays(ventilationState);
   
-  Serial.println("Waiting ...\n");
-	delay(UPDATE_DELAY);
+  Serial.println("Waiting for loop delay\n");
+	delay(LOOP_DELAY);
 }
 
 int getAirQuality() {
 	Serial.println("Requesting data from PurpleAir ...");
-  String sensorId;
 
-  for (int i=0; i<sizeof(SECRET_SENSOR_IDS)/sizeof(SECRET_SENSOR_IDS[0]); i++) {
-    sensorId = SECRET_SENSOR_IDS[i];
-    client.get("/json?show=" + sensorId);
-    int statusCode = client.responseStatusCode();
-    String response = client.responseBody();
-
-  	if (statusCode == 200) {
-  		JSONVar myObject = JSON.parse(response);
-  		double PM2p5 = atof(myObject["results"][0]["PM2_5Value"]);
-      int sensorAge = myObject["results"][0]["AGE"];
-
-      // Output status to log
-  		Serial.println("PURPLE AIR SENSOR (ID: " + String(sensorId) + ", age: " + String(sensorAge) + " minutes): " + String(PM2p5));
-
-      if (sensorAge > MAX_SENSOR_AGE) {
-        continue;
-      }
-
-      if (PM2p5 > ENABLE_THRESHOLD) {
-        Serial.println("WARNING: sensor value is greater than ventilation threshold");
-      }
-
-      // Convert to AQI and return
-      int aqi = calculateAQI(PM2p5);
-      Serial.println("Converted to AQI: " + String(aqi));
-  		return aqi;
-  	} else {
-  		Serial.println("ERROR: failed to access PurpleAir sensor (ID " + String(sensorId) + ")");
-  	}
+  // Build request string from multiple sensors (e.g. 1234%2C5678%2C5555)
+  String sensorIds;
+  sensorIds = SECRET_SENSOR_IDS[0];
+  for (int i = 1; i < N_SENSORS; i++) {
+    sensorIds += "%2C" + SECRET_SENSOR_IDS[i];
   }
+
+  // Generate request string
+  String requestString = "/v1/sensors?fields=pm2.5,pm2.5_10minute&show_only=" + sensorIds + "&max_age=" + MAX_SENSOR_AGE;
+  Serial.println("Request: " + requestString);
+
+  // Send request including header
+  // TODO: Move API key to secrets file if it is abused, otherwise keep it here to simplify new user setup
+  client.beginRequest();
+  client.get(requestString);
+  client.sendHeader("X-API-Key", API_KEY);
+  client.endRequest();
+    
+  int statusCode = client.responseStatusCode();
+  String response = client.responseBody();
+
+  // Print response
+  Serial.println("Status:" + String(statusCode));
+  Serial.println("Response:");
+  Serial.println(response + "\n");
+
+	if (statusCode == 200) {
+
+    // Deserialize results
+    DeserializationError error = deserializeJson(doc, response);
+    if (error) {
+      Serial.print(F("deserializeJson() failed: "));
+      Serial.println(error.f_str());
+    }
+    JsonArray data = doc["data"];    
+
+    // Check things
+    int n_sensors_found = data.size();
+    Serial.println("Expected sensors: " + String(N_SENSORS));
+    Serial.println("Actual sensors found: " + String(n_sensors_found));
+    
+    // Calculate the average PM2.5 and output the raw data to the log
+    int sensorId;
+    double sensorCurrentReading;
+    double sensorAvgReading;
+    double PM2p5 = 0;
+    Serial.println();
+    for (int i = 0; i < n_sensors_found; i++) {
+      sensorId = data[i][0];
+      sensorCurrentReading = data[i][1];
+      sensorAvgReading = data[i][2];
+      
+      Serial.println("Sensor: " + String(sensorId));
+      Serial.println("Raw PM2.5: " + String(sensorCurrentReading));
+      Serial.println("10-min avg: " + String(sensorAvgReading));
+      Serial.println();
+      PM2p5 += sensorAvgReading;
+    }
+    PM2p5 /= N_SENSORS;
+    Serial.println("Average PM2.5 across " + String(n_sensors_found) + " sensors: " + String(PM2p5));
+    
+    if (PM2p5 > ENABLE_THRESHOLD) {
+      Serial.println("WARNING: sensor value is greater than ventilation threshold");
+    }
+
+    // Convert to AQI and return
+    double aqi = calculateAQI(PM2p5);
+
+    // Output summary
+    Serial.println("Converted to AQI: " + String(aqi));
+		return aqi;
+	} else {
+		Serial.println("ERROR: failed to access PurpleAir");
+	}
 
   // We failed to get data from any of the sensors, don't enable the sensor
   Serial.println("ERROR: failed to get data from any sensor option");
@@ -169,12 +233,12 @@ bool getVentilationState(int switchState, bool ventilationState, int airQuality)
 }
 
 // Calculate AQI from the raw PM2.5 data per EPA limits
-int calculateAQI(double pm2p5) {
+double calculateAQI(double pm2p5) {
   const int N = 8;
   bool trim = true;  
   double pmValues[N] =  {0, 12, 35.4, 55.4, 150.4, 250.4, 350.4, 500.4}; // PM2.5
   double aqiValues[N] = {0, 50, 100,  150,  200,   300,   400,   500}; // AQI
-  return (int) linearInterpolation(pmValues, aqiValues, N, (double) pm2p5, trim);  
+  return (double) linearInterpolation(pmValues, aqiValues, N, (double) pm2p5, trim);  
 }
 
 double linearInterpolation(double xValues[], double yValues[], int numValues, double pointX, bool trim) {
