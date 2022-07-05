@@ -14,8 +14,8 @@
 // if input > upper threshold = disable ventilation
 // if between, do not change the state
 // this is a simplest option to add hysteresis to the system and avoid excessive toggling
-int ENABLE_THRESHOLD = 30; // lower threshold 
-int DISABLE_THRESHOLD = 50; // upper threshold to disable relays
+int ENABLE_THRESHOLD = 50; // lower threshold 
+int DISABLE_THRESHOLD = 70; // upper threshold to disable relays
 
 // delay time of the main loop (msec)
 // it will only check for switch changes after waiting this long
@@ -25,6 +25,12 @@ int LOOP_DELAY = 1000;
 int PURPLE_AIR_DELAY = 300000;
 long int lastPurpleAirUpdate = -1; // init negative so that we check the first time
 long int timeSinceLastPurpleAirUpdate;
+
+// nuke the session after some maximum uptime to avoid max socket # issues
+void(* resetFunc) (void) = 0;
+long int lastRestart;
+long int timeSinceLastRestart;
+long int MAX_RUN_TIME = 1000*60*60*24;
 
 // only get data from sensors that have reported data recently, default = 60 minutes (sec)
 int MAX_SENSOR_AGE = 3600;
@@ -71,6 +77,9 @@ int airQuality = DISABLE_THRESHOLD;
 int switchState = SWITCH_STATE_OFF;
 
 void setup() {
+  // record startup time
+  lastRestart = millis();
+  
 	// enable outputs on relay pins
 	pinMode(PIN_RELAY1, OUTPUT);
 	pinMode(PIN_RELAY2, OUTPUT);
@@ -94,20 +103,37 @@ void setup() {
 }
 
 void loop() {
+  // restart the
+  timeSinceLastRestart = millis() - lastRestart;
+  if (timeSinceLastRestart < MAX_RUN_TIME) {
+    Serial.println(String(timeSinceLastRestart/1000) + "s uptime < " + String(MAX_RUN_TIME/1000) + "s max");
+  } else {
+    resetFunc();
+  }
+
+  // get AQI if required
   switchState = getSwitchState();
   if (switchState == SWITCH_STATE_PURPLEAIR) {
     timeSinceLastPurpleAirUpdate = millis() - lastPurpleAirUpdate;
+
+    // check purple air if our lastUpdate time is negative or we've waited long enough
     if (lastPurpleAirUpdate < 0 || timeSinceLastPurpleAirUpdate > PURPLE_AIR_DELAY) {
       lastPurpleAirUpdate = millis();
       airQuality = getAirQuality();
     } else {
-      Serial.println("Too soon to check Purple Air again: " + String(timeSinceLastPurpleAirUpdate/1000) + "s elapsed < " + String(PURPLE_AIR_DELAY/1000) + "s required");
+      Serial.println("Waiting to refresh sensor data: " + String(timeSinceLastPurpleAirUpdate/1000) + "s elapsed < " + String(PURPLE_AIR_DELAY/1000) + "s required");
     }
+  } else {
+      // If we are ON or OFF, reset the last purple air update timer
+      // This allows us to force a requery by toggling off/on and then back
+      lastPurpleAirUpdate = -1;
   }
+
+  // update ventilation state based on switch and/or AQI
 	ventilationState = getVentilationState(switchState, ventilationState, airQuality);
 	setRelays(ventilationState);
-  
-  Serial.println("Waiting for loop delay\n");
+
+  Serial.println("");
 	delay(LOOP_DELAY);
 }
 
@@ -220,13 +246,10 @@ bool getVentilationState(int switchState, bool ventilationState, int airQuality)
     return false;
   } else {
     if (airQuality < ENABLE_THRESHOLD) {
-      Serial.println("AIR QUALITY: below enable threshold");
       return true;
     } else if (airQuality >= DISABLE_THRESHOLD) {
-      Serial.println("AIR QUALITY: above disable threshold");
       return false;
     } else {
-      Serial.println("AIR QUALITY: between thresholds, no change in state");
       return ventilationState;
     }
   }
