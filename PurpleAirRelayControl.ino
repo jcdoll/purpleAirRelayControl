@@ -1,39 +1,34 @@
 #include "arduino_secrets.h"
+#include "user_settings.h" // settings that users are likely to adjust
 #include <SPI.h>
 #include <WiFiNINA.h>
 #include <ArduinoHttpClient.h>
 #include <ArduinoJson.h>
 #include <utility/wifi_drv.h>
+#include <Adafruit_SleepyDog.h>
 
 // Example requests
 // GET https://api.purpleair.com/v1/sensors?fields=pm2.5_10minute&show_only=62491%2C103888%2C121311%2C70123 HTTP/1.1
 // GET https://api.purpleair.com/v1/sensors/62491?fields=pm2.5_10minute HTTP/1.1
 
-// limits for bang-bang control of relays
-// if input < lower threshold = enable ventilation
-// if input > upper threshold = disable ventilation
-// if between, do not change the state
-// this is a simplest option to add hysteresis to the system and avoid excessive toggling
-int ENABLE_THRESHOLD = 50; // lower threshold 
-int DISABLE_THRESHOLD = 70; // upper threshold to disable relays
-
 // delay time of the main loop (msec)
 // it will only check for switch changes after waiting this long
 int LOOP_DELAY = 1000;
 
+// only get data from sensors that have reported data recently, default = 60 minutes (sec)
+int MAX_SENSOR_AGE = 60*60;
+
 // delay time between purple air requests to avoid API blacklist, default = 5 min (msec)
-int PURPLE_AIR_DELAY = 300000;
+int PURPLE_AIR_DELAY = 1000*60*5;
 long int lastPurpleAirUpdate = -1; // init negative so that we check the first time
 long int timeSinceLastPurpleAirUpdate;
 
 // nuke the session after some maximum uptime to avoid max socket # issues
-void(* resetFunc) (void) = 0;
+// note that the resetFunc does not work with the MKR WiFi 1010 but the SleepyDog library does
+// after reset you will need to replug in the USB cable (COM port hangs)
 long int lastRestart;
 long int timeSinceLastRestart;
-long int MAX_RUN_TIME = 1000*60*60*24;
-
-// only get data from sensors that have reported data recently, default = 60 minutes (sec)
-int MAX_SENSOR_AGE = 3600;
+long int MAX_RUN_TIME = 1000*60*60*24; // every 24 hours (in msec)
 
 // constants
 int SWITCH_STATE_OFF = 0;
@@ -55,6 +50,7 @@ int COLOR_VENTILATION_OFF_2 = 0;
 int COLOR_VENTILATION_OFF_3 = 0;
 
 // read secret info file for wifi connection and purple air sensor id
+// TODO: Move API key to secrets file if it is abused, otherwise keep it here to simplify new user setup
 char SSID[] = SECRET_SSID;
 char WIFI_PASSWORD[] = SECRET_PASS;
 char API_KEY[] = "1A37BB5C-E051-11EC-8561-42010A800005";
@@ -67,12 +63,12 @@ int HTTPS_PORT = 443;
 WiFiSSLClient WIFI;
 HttpClient client = HttpClient(WIFI, SERVER, HTTPS_PORT);
 
-// allocate the memory for the document
+// allocate the memory for the json parsing document
 StaticJsonDocument<2048> doc;
 
 // state variables
-// ventilation is disabled by default
-bool ventilationState = false;
+// ventilation is enabled by default
+bool ventilationState = true;
 int airQuality = DISABLE_THRESHOLD;
 int switchState = SWITCH_STATE_OFF;
 
@@ -100,21 +96,26 @@ void setup() {
 		status = WiFi.begin(SSID, WIFI_PASSWORD);
 	}
   Serial.println("WIFI STATUS: connected\n");
+
+  // reset the watchdog once after wifi is setup
+  Watchdog.reset();
 }
 
 void loop() {
-  // restart the
+  // provide guidance re: when the controller will restart
+  // restart is handled automatically by the watchdog
   timeSinceLastRestart = millis() - lastRestart;
   if (timeSinceLastRestart < MAX_RUN_TIME) {
     Serial.println(String(timeSinceLastRestart/1000) + "s uptime < " + String(MAX_RUN_TIME/1000) + "s max");
   } else {
-    resetFunc();
+    int countdownMS = Watchdog.enable(1000);
+    Serial.println("Resetting in 1 second");
   }
 
-  // get AQI if required
+  // Get switch state and ping Purple Air if necessary
   switchState = getSwitchState();
   if (switchState == SWITCH_STATE_PURPLEAIR) {
-    timeSinceLastPurpleAirUpdate = millis() - lastPurpleAirUpdate;
+    timeSinceLastPurpleAirUpdate = millis() - lastPurpleAirUpdate; // subtract here to avoid overflow issue
 
     // check purple air if our lastUpdate time is negative or we've waited long enough
     if (lastPurpleAirUpdate < 0 || timeSinceLastPurpleAirUpdate > PURPLE_AIR_DELAY) {
@@ -138,6 +139,7 @@ void loop() {
 }
 
 int getAirQuality() {
+  double aqi = 0;
 	Serial.println("Requesting data from PurpleAir ...");
 
   // Build request string from multiple sensors (e.g. 1234%2C5678%2C5555)
@@ -148,11 +150,13 @@ int getAirQuality() {
   }
 
   // Generate request string
+  // Field 1 = raw PM2.5
+  // Field 2 = 10 minute average PM2.5
+  // We convert to AQI later
   String requestString = "/v1/sensors?fields=pm2.5,pm2.5_10minute&show_only=" + sensorIds + "&max_age=" + MAX_SENSOR_AGE;
   Serial.println("Request: " + requestString);
 
   // Send request including header
-  // TODO: Move API key to secrets file if it is abused, otherwise keep it here to simplify new user setup
   client.beginRequest();
   client.get(requestString);
   client.sendHeader("X-API-Key", API_KEY);
@@ -167,7 +171,6 @@ int getAirQuality() {
   Serial.println(response + "\n");
 
 	if (statusCode == 200) {
-
     // Deserialize results
     DeserializationError error = deserializeJson(doc, response);
     if (error) {
@@ -196,28 +199,21 @@ int getAirQuality() {
       Serial.println("Raw PM2.5: " + String(sensorCurrentReading));
       Serial.println("10-min avg: " + String(sensorAvgReading));
       Serial.println();
-      PM2p5 += sensorAvgReading;
+      PM2p5 += sensorAvgReading; // Use the average reading to calculate the raw PM2.5
     }
     PM2p5 /= N_SENSORS;
-    Serial.println("Average PM2.5 across " + String(n_sensors_found) + " sensors: " + String(PM2p5));
-    
-    if (PM2p5 > ENABLE_THRESHOLD) {
-      Serial.println("WARNING: sensor value is greater than ventilation threshold");
-    }
+    Serial.println("Average raw PM2.5 across " + String(n_sensors_found) + " sensors: " + String(PM2p5));
 
-    // Convert to AQI and return
-    double aqi = calculateAQI(PM2p5);
-
-    // Output summary
-    Serial.println("Converted to AQI: " + String(aqi));
-		return aqi;
+    // Convert to AQI
+    aqi = calculateAQI(PM2p5);
+    Serial.println("Average AQI after conversion: " + String(aqi));
+    Serial.println("NOTE: THIS MAY BE DIFFERENT THAN THE PURPLE AIR MAP DUE TO AQI CONVERSION DIFFERENCES");    
 	} else {
 		Serial.println("ERROR: failed to access PurpleAir");
+    aqi = 2*DISABLE_THRESHOLD;
 	}
 
-  // We failed to get data from any of the sensors, don't enable the sensor
-  Serial.println("ERROR: failed to get data from any sensor option");
-  return DISABLE_THRESHOLD;
+  return aqi;
 }
 
 int getSwitchState() {
@@ -246,10 +242,13 @@ bool getVentilationState(int switchState, bool ventilationState, int airQuality)
     return false;
   } else {
     if (airQuality < ENABLE_THRESHOLD) {
+      Serial.println("AQI is below the enable threshold -> ventilate");
       return true;
     } else if (airQuality >= DISABLE_THRESHOLD) {
+      Serial.println("AQI is above the disable threshold -> shut it down");
       return false;
     } else {
+      Serial.println("AQI is between our limits -> no change in state");
       return ventilationState;
     }
   }
