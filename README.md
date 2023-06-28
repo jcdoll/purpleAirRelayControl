@@ -16,14 +16,25 @@
 
 ### Arduino
 
-* Install the following libraries from in your Arduino IDE (Tools > Manage Libraries)
-	* WifiNINA
-	* ArduinoHttpClient
-	* Arduino_JSON
+* Install the following libraries from in your Arduino IDE
+	* Menu: Tools > Manage Libraries
+	* Install WifiNINA
+	* Install ArduinoHttpClient
+	* Install ArduinoJson (not Arduino_JSON!)
+	* Install Adafruit SleepyDog
+* Install support for your MKR 1010 board
+	* Menu: Tools > Board > Board Manager
+	* Install Arduino SAMD Boards
+* Select your board
+	* Menu: Tools > Board > Arduino SAMD > Arduino MKR WiFi 1010
 * Create your personal secrets file
 	* copy "arduino_secrets_sample.h" to "arduino_secrets.h" and fill in your details
 * Flash Arduino
-	* connect Arduino to your PC, compile and upload code
+	* Connect Arduino to your PC
+	* Menu: Tools > Port > Select appropriate port
+	* Compile (Control+R)
+	* Fix any errors or missing dependencies
+	* Flash (Control+U)
 	
 ### Case
 

@@ -18,9 +18,9 @@ int LOOP_DELAY = 1000;
 // only get data from sensors that have reported data recently, default = 60 minutes (sec)
 int MAX_SENSOR_AGE = 60*60;
 
-// delay time between purple air requests to avoid API blacklist, default = 10 min (msec)
+// delay time between purple air requests to avoid API blacklist, default = 20 min (msec)
 // note: purple air is considering adding API pricing, so monitor this setting closely
-int PURPLE_AIR_DELAY = 1000*60*10;
+int PURPLE_AIR_DELAY = 1000*60*20;
 long int lastPurpleAirUpdate = -1; // init negative so that we check the first time
 long int timeSinceLastPurpleAirUpdate;
 
