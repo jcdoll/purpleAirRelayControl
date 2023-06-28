@@ -150,10 +150,9 @@ int getAirQuality() {
   }
 
   // Generate request string
-  // Field 1 = raw PM2.5
-  // Field 2 = 10 minute average PM2.5
+  // Field 1 = 10 minute average PM2.5
   // We convert to AQI later
-  String requestString = "/v1/sensors?fields=pm2.5,pm2.5_10minute&show_only=" + sensorIds + "&max_age=" + MAX_SENSOR_AGE;
+  String requestString = "/v1/sensors?fields=pm2.5_10minute&show_only=" + sensorIds + "&max_age=" + MAX_SENSOR_AGE;
   Serial.println("Request: " + requestString);
 
   // Send request including header
@@ -186,20 +185,17 @@ int getAirQuality() {
     
     // Calculate the average PM2.5 and output the raw data to the log
     int sensorId;
-    double sensorCurrentReading;
     double sensorAvgReading;
     double PM2p5 = 0;
     Serial.println();
     for (int i = 0; i < n_sensors_found; i++) {
       sensorId = data[i][0];
-      sensorCurrentReading = data[i][1];
-      sensorAvgReading = data[i][2];
+      sensorAvgReading = data[i][1];
       
       Serial.println("Sensor: " + String(sensorId));
-      Serial.println("Raw PM2.5: " + String(sensorCurrentReading));
       Serial.println("10-min avg: " + String(sensorAvgReading));
       Serial.println();
-      PM2p5 += sensorAvgReading; // Use the average reading to calculate the raw PM2.5
+      PM2p5 += sensorAvgReading;
     }
     PM2p5 /= N_SENSORS;
     Serial.println("Average raw PM2.5 across " + String(n_sensors_found) + " sensors: " + String(PM2p5));
