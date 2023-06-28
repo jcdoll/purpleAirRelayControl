@@ -49,11 +49,10 @@ int COLOR_VENTILATION_OFF_1 = 50;
 int COLOR_VENTILATION_OFF_2 = 0;
 int COLOR_VENTILATION_OFF_3 = 0;
 
-// read secret info file for wifi connection and purple air sensor id
-// TODO: Move API key to secrets file if it is abused, otherwise keep it here to simplify new user setup
+// read secret info file for wifi connection, purple air sensor ids, and purple air api key
 char SSID[] = SECRET_SSID;
 char WIFI_PASSWORD[] = SECRET_PASS;
-char API_KEY[] = "1A37BB5C-E051-11EC-8561-42010A800005";
+char API_KEY[] = SECRET_PURPLE_AIR_KEY;
 int N_SENSORS = sizeof(SECRET_SENSOR_IDS)/sizeof(SECRET_SENSOR_IDS[0]);
 
 // wifi settings
