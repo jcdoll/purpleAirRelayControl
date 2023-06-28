@@ -1,4 +1,4 @@
-#define SECRET_SSID ""
-#define SECRET_PASS ""
-#define SECRET_PURPLE_AIR_KEY ""
-String SECRET_SENSOR_IDS[3] = {"", "", ""};
+#define SECRET_SSID "aardvark"
+#define SECRET_PASS "afadedface"
+#define SECRET_PURPLE_AIR_KEY "1A37BB5C-E051-11EC-8561-42010A800005"
+String SECRET_SENSOR_IDS[2] = {"62491", "154543"};
