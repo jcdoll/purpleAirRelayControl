@@ -20,12 +20,8 @@
 	* WifiNINA
 	* ArduinoHttpClient
 	* Arduino_JSON
-* Stop git from tracking your secrets file
-	* git update-index --skip-worktree arduino_secrets.h
-* Edit arduino_secrets.h to include your personal and private info
-	* wifi network ssid
-	* wifi password
-	* array of PurpleAir sensor ids (e.g. {"123", "456", "789"}) 
+* Create your personal secrets file
+	* copy "arduino_secrets_sample.h" to "arduino_secrets.h" and fill in your details
 * Flash Arduino
 	* connect Arduino to your PC, compile and upload code
 	
