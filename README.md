@@ -6,7 +6,7 @@
 
 * Arduino MKR 1010 (https://store-usa.arduino.cc/products/arduino-mkr-wifi-1010)
 * MKR Proto Relay board (https://store-usa.arduino.cc/products/arduino-mkr-relay-proto-shield)
-* Three way on-off-on DPDT switch (example: https://www.amazon.com/B07VJ4DXMF)
+* Three way on-off-on DPDT switch (example: https://www.amazon.com/dp/B07VJ4DXMF)
 	* this allows us to select between on/purpleAir/off states without any external resistors
 	* this particular example uses screw terminals so no soldering is required
 * 3D printed case
@@ -92,10 +92,10 @@ Switching hardware:
 	* Switch
 		* ABC / DEF on each side from top to bottom
 		* A = GND
-		* B = pin 3
+		* B = A2 (pin 3)
 		* C = NC (no connection)
 		* D = NC
-		* E = pin 4
+		* E = A1 (pin 4)
 		* F = GND
 		* switch up (force on)
 			* B = GND
