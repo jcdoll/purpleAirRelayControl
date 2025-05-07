@@ -49,6 +49,7 @@ long timeSinceLastRestart = 0;
 // long timeSinceLastPurpleAirUpdate; // Obsolete
 
 void setup() {
+  delay(1000); // Added delay to potentially help with USB re-enumeration
   // Record startup time
   lastRestart = millis();
   
@@ -90,13 +91,18 @@ void setup() {
 void loop() {
   // Handle system restart
   handleSystemRestart();
-  
+  Watchdog.reset(); // Added: Insurance pet at start of loop activities
+
   // Get switch state
   switchState = getSwitchState();
+  Watchdog.reset(); // Added: Insurance pet after switch state
   
   // --- Update Sensor Data ---
   // Call updateAQI() periodically. It handles internal timers for local/API polling.
+  Watchdog.reset(); // Added: Pet before potentially long updateAQI call
   bool wasUpdated = purpleAir.updateAQI(); 
+  Watchdog.reset(); // Added: Pet after updateAQI call
+  
   if (wasUpdated) {
       Serial.println("Sensor data was updated.");
   }

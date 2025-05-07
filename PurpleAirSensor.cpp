@@ -5,6 +5,7 @@
 #include <ArduinoHttpClient.h>
 #include <WiFiNINA.h> // Ensure WiFi library is included
 #include "constants.h" // Include for delay constants
+#include <Adafruit_SleepyDog.h> // Added for Watchdog.reset()
 
 PurpleAirSensor::PurpleAirSensor(const char* apiKey, const char* server, int port, 
                                 const char* localServer, int localPort)
@@ -23,6 +24,7 @@ void PurpleAirSensor::begin() {
     unsigned long startAttemptTime = millis();
     while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 15000) {
         Serial.print(".");
+        Watchdog.reset(); // Added: Pet watchdog during WiFi connection loop
         delay(500); // Wait 500ms between status checks
     }
     Serial.println(); // Newline after dots
@@ -52,7 +54,9 @@ bool PurpleAirSensor::updateAQI() {
     if (localConfigured && (currentTime - lastLocalCheckTime >= (unsigned long)LOCAL_SENSOR_DELAY)) {
         attemptedLocal = true;
         Serial.println("Polling local sensor...");
+        Watchdog.reset(); // Added: Pet watchdog before local sensor call
         fetchedAQI = getLocalAirQuality(); // This method updates localSensorAvailable
+        Watchdog.reset(); // Added: Pet watchdog after local sensor call
         lastLocalCheckTime = currentTime; // Update time of last local check attempt
         
         if (fetchedAQI > 0) {
@@ -78,7 +82,9 @@ bool PurpleAirSensor::updateAQI() {
         (currentTime - lastApiCheckTime >= (unsigned long)PURPLE_AIR_DELAY)) 
     {
         Serial.println("Polling PurpleAir API...");
+        Watchdog.reset(); // Added: Pet watchdog before API call
         fetchedAQI = getAPIAirQuality();
+        Watchdog.reset(); // Added: Pet watchdog after API call
         lastApiCheckTime = currentTime; // Update time of last API check attempt
 
         if (fetchedAQI > 0) {

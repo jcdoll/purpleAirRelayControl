@@ -24,7 +24,7 @@ constexpr int WATCHDOG_TIMEOUT_MS = 16000; // 16 seconds
 // nuke the session after some maximum uptime to avoid max socket # issues
 // note that the resetFunc does not work with the MKR WiFi 1010 but the SleepyDog library does
 // after reset you will need to replug in the USB cable (COM port hangs)
-constexpr long MAX_RUN_TIME = 1000 * 60 * 60 * 12;  // Maximum runtime before restart
+constexpr long MAX_RUN_TIME = 1000L * 60 * 60 * 12;  // Maximum runtime before restart (12 hours)
 
 // Pin Definitions
 constexpr int PIN_RELAY1 = 1;
