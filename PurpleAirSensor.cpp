@@ -185,7 +185,7 @@ int PurpleAirSensor::getLocalAirQuality() {
     Serial.println(WiFi.localIP());
     
     Serial.println("Attempting to request data from local sensor using ArduinoHttpClient...");
-    localClient.setTimeout(10000); // 10 second response timeout
+    localClient.setTimeout(2000); // Wait for up to 2 seconds
 
     // Send the GET request
     int httpCode = localClient.get("/json");

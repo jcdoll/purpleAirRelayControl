@@ -23,3 +23,16 @@ const char SECRET_PURPLE_AIR_IP[16] = "192.168.1.100";  // Maximum length for IP
 // ideally set these limits based on an indoor air quality sensor
 const int ENABLE_THRESHOLD = 120;  // Enable ventilation when AQI is below this
 const int DISABLE_THRESHOLD = 130; // Disable ventilation when AQI is above this
+
+// Google Form Logging Details (replace with your actual Google Form URL and entry IDs)
+// To get these: 
+// 1. Create your Google Form with fields for AQI, Switch State, and Ventilation Status.
+// 2. Click the three dots (More options) -> "Get pre-filled link".
+// 3. Fill in sample data and click "Get link" then "COPY LINK".
+// 4. Paste the link. It will look like: https://docs.google.com/forms/d/e/YOUR_FORM_ID/viewform?usp=pp_url&entry.xxxx=AQI_VALUE&entry.yyyy=SWITCH_STATE_VALUE&entry.zzzz=VENTILATION_VALUE
+//    FORM_URL_BASE will be "https://docs.google.com/forms/d/e/YOUR_FORM_ID/formResponse"
+//    The entry.xxxx, entry.yyyy, entry.zzzz will be your entry IDs.
+const char* FORM_URL_BASE = "YOUR_GOOGLE_FORM_RESPONSE_URL";
+const char* FORM_ENTRY_AQI = "YOUR_AQI_ENTRY_ID";          // e.g., "entry.1234567890"
+const char* FORM_ENTRY_SWITCH_STATE = "YOUR_SWITCH_STATE_ENTRY_ID"; // e.g., "entry.0987654321"
+const char* FORM_ENTRY_VENTILATION_STATE = "YOUR_VENTILATION_STATE_ENTRY_ID"; // e.g., "entry.1122334455"

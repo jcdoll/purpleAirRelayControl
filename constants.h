@@ -49,4 +49,13 @@ enum class SwitchState {
 constexpr int HTTPS_PORT = 443;
 constexpr int HTTP_PORT = 80;
 
+// Google Form Logging Constants
+extern const char* FORM_URL_BASE;
+extern const char* FORM_ENTRY_AQI;
+extern const char* FORM_ENTRY_SWITCH_STATE;
+extern const char* FORM_ENTRY_VENTILATION_STATE;
+
+// Logging Frequency
+constexpr unsigned long GOOGLE_LOG_INTERVAL_MS = 1000 * 60 * 15; // Log every 15 minutes (in milliseconds)
+
 #endif // CONSTANTS_H 
