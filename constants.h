@@ -16,10 +16,15 @@ constexpr int MAX_SENSOR_AGE = 60 * 60;  // Maximum sensor age in seconds
 constexpr int PURPLE_AIR_DELAY = 1000 * 60 * 20;  // Delay between API checks (20 min)
 constexpr int LOCAL_SENSOR_DELAY = 1000 * 60;  // Check local sensor every (1 min)
 
+// Watchdog timer timeout in milliseconds. 
+// The system will reset if Watchdog.reset() is not called within this period.
+// Ensure LOOP_DELAY is significantly shorter than this value.
+constexpr int WATCHDOG_TIMEOUT_MS = 16000; // 16 seconds
+
 // nuke the session after some maximum uptime to avoid max socket # issues
 // note that the resetFunc does not work with the MKR WiFi 1010 but the SleepyDog library does
 // after reset you will need to replug in the USB cable (COM port hangs)
-constexpr long MAX_RUN_TIME = 1000 * 60 * 60 * 24;  // Maximum runtime before restart
+constexpr long MAX_RUN_TIME = 1000 * 60 * 60 * 12;  // Maximum runtime before restart
 
 // Pin Definitions
 constexpr int PIN_RELAY1 = 1;

@@ -65,8 +65,13 @@ void setup() {
   purpleAir.forceInitialUpdate(); 
   // --- End initial reading --- 
   
-  // Reset the watchdog once after setup
-  Watchdog.reset();
+  // Enable the watchdog with the timeout defined in constants.h
+  // If Watchdog.reset() is not called within this period, the system will reset.
+  int countdownMS = Watchdog.enable(WATCHDOG_TIMEOUT_MS); 
+  Serial.print("Watchdog enabled with timeout: ");
+  Serial.print(countdownMS / 1000); 
+  Serial.println("s");
+  // Watchdog.reset(); // Not strictly needed here if enabled right before loop starts, but safe.
 
   // enable outputs on relay pins
   pinMode(PIN_RELAY1, OUTPUT);
@@ -136,15 +141,21 @@ void loop() {
 
   Serial.println("");
   delay(LOOP_DELAY);
+
+  // Pet the watchdog at the end of the loop to indicate normal operation.
+  Watchdog.reset(); 
 }
 
 void handleSystemRestart() {
   timeSinceLastRestart = millis() - lastRestart;
-  if (timeSinceLastRestart < MAX_RUN_TIME) {
-    Serial.println(String(timeSinceLastRestart/1000) + "s uptime < " + String(MAX_RUN_TIME/1000) + "s max");
+  if (timeSinceLastRestart >= MAX_RUN_TIME) {
+    Serial.println("MAX_RUN_TIME reached. Requesting system reset.");
+    // The watchdog is already running. Enabling it again with a short timeout
+    // will effectively cause a reset. If it were disabled, this would enable it.
+    // If it's already enabled with a longer timeout, this shortens it.
+    Watchdog.enable(1000); // Force a reset in 1 second
   } else {
-    int countdownMS = Watchdog.enable(1000);
-    Serial.println("Resetting in 1 second");
+    Serial.println(String(timeSinceLastRestart/1000) + "s uptime < " + String(MAX_RUN_TIME/1000) + "s max"); 
   }
 }
 
