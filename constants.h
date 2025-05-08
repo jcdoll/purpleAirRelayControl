@@ -13,7 +13,7 @@ constexpr int MAX_SENSOR_AGE = 60 * 60;  // Maximum sensor age in seconds
 
 // delay time between purple air requests to avoid API blacklist
 // note: purple air is considering adding API pricing, so monitor this setting closely
-constexpr int PURPLE_AIR_DELAY = 1000 * 60 * 20;  // Delay between API checks (20 min)
+constexpr int PURPLE_AIR_DELAY = 1000 * 60 * 20;  // Minimum delay between API checks (20 min)
 constexpr int LOCAL_SENSOR_DELAY = 1000 * 60;  // Check local sensor every (1 min)
 
 // Watchdog timer timeout in milliseconds. 

@@ -6,6 +6,16 @@
 #include <WiFiNINA.h> // Ensure WiFi library is included
 #include "constants.h" // Include for delay constants
 #include <Adafruit_SleepyDog.h> // Added for Watchdog.reset()
+#include <malloc.h> // Required for mallinfo()
+
+// Forward declaration for getFreeMemory()
+int getFreeMemory();
+
+// Function to get free memory (copied from .ino file for use within this .cpp file)
+int getFreeMemory() {
+  char stackVariable; // Get a variable on the stack
+  // ... existing code ...
+}
 
 PurpleAirSensor::PurpleAirSensor(const char* apiKey, const char* server, int port, 
                                 const char* localServer, int localPort)
@@ -54,32 +64,30 @@ bool PurpleAirSensor::updateAQI() {
     if (localConfigured && (currentTime - lastLocalCheckTime >= (unsigned long)LOCAL_SENSOR_DELAY)) {
         attemptedLocal = true;
         Serial.println("Polling local sensor...");
-        Watchdog.reset(); // Added: Pet watchdog before local sensor call
-        fetchedAQI = getLocalAirQuality(); // This method updates localSensorAvailable
-        Watchdog.reset(); // Added: Pet watchdog after local sensor call
+        Watchdog.reset(); // Pet watchdog before local sensor call
+        fetchedAQI = getLocalAirQuality();
+        Watchdog.reset(); // Pet watchdog after local sensor call
         lastLocalCheckTime = currentTime; // Update time of last local check attempt
         
         if (fetchedAQI > 0) {
-            // Local sensor success
             Serial.println("Local sensor success.");
             currentAQI = fetchedAQI;
             updated = true;
             localSucceeded = true;
-            // Successfully updated from local, no need to check API now
             return updated; // Exit early
         } else {
             // Local sensor failed, proceed to check API below
             Serial.println("Local sensor failed.");
         }
-    } // End of local sensor check block
+    }
 
     // --- Try API Sensor --- 
     // Check API only if: 
     // 1) Local wasn't attempted (because not configured or not time yet) OR 
     // 2) Local was attempted but failed
     // AND only if enough time has passed since the last API check.
-    if ((!attemptedLocal || !localSucceeded) && 
-        (currentTime - lastApiCheckTime >= (unsigned long)PURPLE_AIR_DELAY)) 
+    if ((!localConfigured || (attemptedLocal && !localSucceeded)) &&
+        (currentTime - lastApiCheckTime >= (unsigned long)PURPLE_AIR_DELAY))
     {
         Serial.println("Polling PurpleAir API...");
         Watchdog.reset(); // Added: Pet watchdog before API call
@@ -101,9 +109,19 @@ bool PurpleAirSensor::updateAQI() {
     if (!updated && !attemptedLocal && localConfigured) {
        // This case means local is configured, but it wasn't time to check it, and it also wasn't time to check API.
        // Add more detailed logging if desired.
+       Serial.println("No sensor update: Local configured, but not time for local or API check.");
+       Serial.print("  Time until next local check: "); Serial.print(getTimeUntilNextLocalCheck() / 1000); Serial.println("s");
+       Serial.print("  Time until next API check: "); Serial.print(getTimeUntilNextApiCheck() / 1000); Serial.println("s");
+    } else if (!updated && attemptedLocal && !localSucceeded && localConfigured) {
+       // This case means local is configured, was attempted, but failed, AND it wasn't time for API check.
+       Serial.println("No sensor update: Local configured, attempted but failed. Not time for API check.");
+       Serial.print("  Time until next API check: "); Serial.print(getTimeUntilNextApiCheck() / 1000); Serial.println("s");
     } else if (!updated && !localConfigured) {
        // This case means local wasn't configured, and it wasn't time to check API.
-       // Add more detailed logging if desired.
+       Serial.println("No sensor update: Local not configured, and not time for API check.");
+       Serial.print("  Time until next API check: "); Serial.print(getTimeUntilNextApiCheck() / 1000); Serial.println("s");
+    } else if (!updated) {
+       Serial.println("No sensor update: Reason not specifically logged, check conditions.");
     }
 
     return updated;
@@ -166,14 +184,16 @@ int PurpleAirSensor::getLocalAirQuality() {
     localSensorAvailable = false; 
     int resultAQI = 0; // Default to 0 (failure)
     
-    Serial.println("Requesting data from local PurpleAir sensor...");
+    Serial.println(F("getLocalAirQuality: --- Start --- "));
+    Serial.print(F("Free SRAM (before local request): ")); Serial.println(getFreeMemory());
     
     WiFiClient wifiClient; // Create a WiFiClient instance for this request
     HttpClient localClient = HttpClient(wifiClient, localServer, localPort);
     
     // Log the full URL being used
-    String fullUrl = "http://" + String(localServer) + ":" + String(localPort) + "/json";
-    Serial.println("Local sensor URL: " + fullUrl);
+    char fullUrlBuffer[128]; // Increased buffer size for safety
+    snprintf(fullUrlBuffer, sizeof(fullUrlBuffer), "http://%s:%d/json", localServer, localPort);
+    Serial.println("Local sensor URL: " + String(fullUrlBuffer)); // OK to use String for immediate print
     
     // Check WiFi status
     if (WiFi.status() != WL_CONNECTED) {
@@ -188,7 +208,11 @@ int PurpleAirSensor::getLocalAirQuality() {
     localClient.setTimeout(2000); // Wait for up to 2 seconds
 
     // Send the GET request
-    int httpCode = localClient.get("/json");
+    int httpCode = localClient.get("/json"); // Path is fixed, no need to pass fullUrlBuffer if base URL set in client constructor
+    // However, ArduinoHttpClient typically takes full path in get() if base URL not part of constructor logic for this specific client object.
+    // Assuming get("/json") works because localServer and localPort were used in HttpClient constructor.
+    // If it needs the full path, it would be: localClient.get(fullUrlBuffer);
+    // For now, let's stick to the original get("/json") if it was working.
 
     if (httpCode != HTTP_SUCCESS) {
         Serial.print("HTTP GET failed, error: ");
@@ -203,14 +227,16 @@ int PurpleAirSensor::getLocalAirQuality() {
     Serial.println(statusCode);
 
     if (statusCode == 200) {
-        // Parse response body
+        // TEMPORARY TEST: Revert to responseBody() to see if it handles de-chunking
         String response = localClient.responseBody();
-        localClient.stop(); // Close connection after reading body
-        
-        DeserializationError error = deserializeJson(doc, response);
+        localClient.stop(); // Stop client AFTER getting the body or on error
+
+        DeserializationError error = deserializeJson(doc, response); // Parse from the String
+
         if (error) {
             Serial.print(F("deserializeJson() failed: "));
             Serial.println(error.f_str());
+            Serial.print(F("Free SRAM (after local parse error): ")); Serial.println(getFreeMemory());
             return 0;
         }
         
@@ -226,51 +252,68 @@ int PurpleAirSensor::getLocalAirQuality() {
         if (resultAQI > 0) { // Consider it available only if parse and calculation succeed
             localSensorAvailable = true; 
         }
+        Serial.print(F("Free SRAM (after local success): ")); Serial.println(getFreeMemory());
     } else {
         Serial.println("ERROR: failed to access local PurpleAir sensor (Non-200 status)");
         localClient.stop(); // Ensure connection is closed
+        Serial.print(F("Free SRAM (after local HTTP error): ")); Serial.println(getFreeMemory());
     }
     return resultAQI; // Return 0 on failure
 }
 
 int PurpleAirSensor::getAPIAirQuality() {
     int resultAQI = 0; // Default to 0 (failure)
-    Serial.println("Requesting data from PurpleAir API using ArduinoHttpClient...");
+    Serial.println(F("getAPIAirQuality: --- Start --- "));
+    Serial.print(F("Free SRAM (before API request): ")); Serial.println(getFreeMemory());
 
-    WiFiClient wifiClient; // Create a WiFiClient instance for this request
-    HttpClient client = HttpClient(wifiClient, server, port);
+    WiFiSSLClient wifiSSLClient; // Use WiFiSSLClient for HTTPS for PurpleAir API
+    HttpClient client = HttpClient(wifiSSLClient, server, port);
+    client.setTimeout(6000); // Set timeout for API client
 
-    // Build the sensor IDs string
-    String sensorIds = String(SECRET_SENSOR_IDS[0]);
-    for (int i = 1; i < N_SENSORS; i++) {
-        sensorIds += "%2C" + String(SECRET_SENSOR_IDS[i]);
+    // Build the sensor IDs string using char array
+    char sensorIdsBuffer[128]; // Max N_SENSORS * (avg_id_length + 3 for %2C) + 1 for null. Adjust size as needed.
+    sensorIdsBuffer[0] = '\0'; // Start with an empty string
+    for (int i = 0; i < N_SENSORS; i++) {
+        char singleIdBuffer[10]; // Buffer for one sensor ID
+        snprintf(singleIdBuffer, sizeof(singleIdBuffer), "%d", SECRET_SENSOR_IDS[i]);
+        if (i > 0) {
+            strncat(sensorIdsBuffer, "%2C", sizeof(sensorIdsBuffer) - strlen(sensorIdsBuffer) - 1);
+        }
+        strncat(sensorIdsBuffer, singleIdBuffer, sizeof(sensorIdsBuffer) - strlen(sensorIdsBuffer) - 1);
     }
 
-    String requestPath = "/v1/sensors?fields=pm2.5_10minute&show_only=" + sensorIds + 
-                          "&max_age=" + String(MAX_SENSOR_AGE);
-    Serial.println("Request Path: " + requestPath);
-
-    client.setTimeout(10000); // 10 second response timeout
+    // Build requestPath using char array
+    char requestPathBuffer[256]; // Adjusted size for full path
+    snprintf(requestPathBuffer, sizeof(requestPathBuffer), 
+             "/v1/sensors?fields=pm2.5_10minute&show_only=%s&max_age=%d", 
+             sensorIdsBuffer, MAX_SENSOR_AGE);
+    Serial.println("Request Path: " + String(requestPathBuffer)); // OK for print
 
     // Add header and make the request
+    Watchdog.reset(); // Pet watchdog
     client.beginRequest();
-    client.get(requestPath);
+    client.get(requestPathBuffer); // Use the char buffer
     client.sendHeader("X-API-Key", apiKey);
     client.sendHeader("User-Agent", "Arduino/1.0");
     client.endRequest(); // Send the request
+    Watchdog.reset(); // Pet watchdog
 
     // Get the status code
     int statusCode = client.responseStatusCode();
     Serial.print("API HTTP Status Code: ");
     Serial.println(statusCode);
-    String response = client.responseBody();
-    client.stop(); // Close the connection
 
     if (statusCode == 200) {
-        DeserializationError error = deserializeJson(doc, response);
+        // Use responseBody() and parse from String
+        String response = client.responseBody();
+        client.stop(); // Stop client after getting body
+
+        DeserializationError error = deserializeJson(doc, response); // Parse from String
+
         if (error) {
             Serial.print(F("deserializeJson() failed: "));
             Serial.println(error.f_str());
+            Serial.print(F("Free SRAM (after API parse error): ")); Serial.println(getFreeMemory());
             return 0;
         }
         
@@ -278,6 +321,7 @@ int PurpleAirSensor::getAPIAirQuality() {
         int n_sensors_found = data.size();
         if (n_sensors_found == 0) {
             Serial.println("ERROR: No sensor data returned from API");
+            Serial.print(F("Free SRAM (after API data error): ")); Serial.println(getFreeMemory());
             return 0; // Or handle appropriately
         }
         double PM2p5 = 0;
@@ -299,15 +343,17 @@ int PurpleAirSensor::getAPIAirQuality() {
              Serial.println("Average AQI after conversion: " + String(resultAQI));
         } else {
              Serial.println("ERROR: All sensors returned null data from API");
+             Serial.print(F("Free SRAM (after API data error): ")); Serial.println(getFreeMemory());
              return 0;
         }
     } else {
         Serial.println("ERROR: failed to access PurpleAir API (Status code: " + String(statusCode) + ")");
-        // Consider previous logic: Maybe return a high value but not if status is e.g. 401 (auth error)
-        // For now, return 0 on API error
+        client.stop(); // Ensure client is stopped on non-200 response
+        Serial.print(F("Free SRAM (after API HTTP error): ")); Serial.println(getFreeMemory());
         return 0; 
     }
 
+    Serial.print(F("Free SRAM (after API success): ")); Serial.println(getFreeMemory());
     return resultAQI;
 }
 

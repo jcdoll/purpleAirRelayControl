@@ -7,7 +7,7 @@
 
 class PurpleAirSensor {
 public:
-    PurpleAirSensor(const char* apiKey, const char* server, int port, const char* localServer, int localPort);
+    PurpleAirSensor(const char* apiKey, const char* server, int port, const char* localServer = nullptr, int localPort = 80);
     
     void begin();
     // Updates the current AQI based on polling logic. Returns true if a new value was obtained.
@@ -36,7 +36,7 @@ private:
     const char* localServer;
     int localPort;
     
-    static const size_t JSON_DOC_SIZE = 2048;
+    static const size_t JSON_DOC_SIZE = 4096;
     StaticJsonDocument<JSON_DOC_SIZE> doc;
     
     long lastLocalCheckTime; // Timestamp of the last attempt to check local sensor
@@ -45,4 +45,8 @@ private:
     bool localSensorAvailable; // Flag indicating if local sensor responded successfully last time
     
     static const long MAX_SENSOR_AGE = 3600; // Max age of sensor data in seconds (1 hour)
-}; 
+};
+
+// extern int getFreeMemory(); // Removing this - will be defined and used solely within PurpleAirSensor.cpp
+
+// #endif // PURPLEAIRSENSOR_H // This was already removed 

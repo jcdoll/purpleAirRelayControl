@@ -8,34 +8,14 @@
 #include <utility/wifi_drv.h>
 #include <Adafruit_SleepyDog.h>
 #include <WiFiSSLClient.h>
+#include <malloc.h> // Required for mallinfo()
 
 // Example requests
 // GET https://api.purpleair.com/v1/sensors?fields=pm2.5_10minute&show_only=62491%2C103888%2C121311%2C70123 HTTP/1.1
 // GET https://api.purpleair.com/v1/sensors/62491?fields=pm2.5_10minute HTTP/1.1
 
-// constants
-// These seem redundant with constants.h and enum SwitchState
-// int SWITCH_STATE_OFF = 0;
-// int SWITCH_STATE_PURPLEAIR = 1;
-// int SWITCH_STATE_ON = 2;
-
-// define colors for the on board LED - Assuming these are moved to constants.h or used directly
-// int COLOR_VENTILATION_ON_1 = 0;
-// ... (color definitions removed, assuming they are in constants.h or handled elsewhere)
-
 // wifi settings
 int status = WL_IDLE_STATUS; // initially not connected to wifi
-// char SERVER[] = "api.purpleair.com"; // Defined in PurpleAirSensor now
-// WiFiSSLClient WIFI; // Unused globally now
-// HttpClient client = HttpClient(WIFI, SERVER, HTTPS_PORT); // Unused globally now
-// HttpClient localClient = HttpClient(WIFI, SECRET_PURPLE_AIR_IP, HTTP_PORT); // Unused globally now
-
-// allocate the memory for the json parsing document
-// StaticJsonDocument<2048> doc; // Defined in PurpleAirSensor now
-
-// state variables
-// ventilation is enabled by default - This might belong in VentilationControl class?
-// bool ventilationState = true; 
 int airQuality = -1; // Initialize to -1 (invalid) until first reading
 SwitchState switchState = SwitchState::OFF;
 
@@ -46,8 +26,6 @@ VentilationControl ventilation; // Assuming this class handles relay control log
 // Timing variables
 long lastRestart = 0;
 long timeSinceLastRestart = 0;
-// long lastPurpleAirUpdate = -1; // Obsolete
-// long timeSinceLastPurpleAirUpdate; // Obsolete
 
 // Define Google Form Logging Constants (declared as extern in constants.h)
 // Values are taken from macros in arduino_secrets.h
@@ -63,6 +41,7 @@ WiFiSSLClient googleFormsClient;
 SwitchState previousSwitchState;
 bool previousVentilationState = false; // Initialize to a known default
 unsigned long lastLogTime = 0;
+unsigned long lastMemoryLogTime = 0; // For timing memory logs
 
 void setup() {
   delay(1000); // Added delay to potentially help with USB re-enumeration
@@ -132,10 +111,11 @@ void setup() {
   
   // Initialize tracking variables for logging logic
   lastLogTime = millis(); // Start timer irrespective of successful initial log
+  
   // Use determined states if WiFi was up, otherwise defaults. This ensures first loop log captures any change.
   previousSwitchState = initialSwitchState; 
   previousVentilationState = initialVentilationState;
-  // --- End of Initial State Logging ---
+  lastMemoryLogTime = millis(); // Initialize memory log timer
 }
 
 void loop() {
@@ -161,7 +141,7 @@ void loop() {
   // This value might be fresh or old, depending on the updateAQI() results
   airQuality = purpleAir.getCurrentAQI(); 
 
-  // Log current known AQI if valid
+  // Log current known AQI if valid to serial monitor
   if (airQuality != -1) {
     Serial.print("Current known AQI: ");
     Serial.println(airQuality);
@@ -174,22 +154,6 @@ void loop() {
   // --- Calculate and display countdown to next check --- 
   unsigned long remainingLocalMs = purpleAir.getTimeUntilNextLocalCheck();
   unsigned long remainingApiMs = purpleAir.getTimeUntilNextApiCheck();
-
-  if (purpleAir.isLocalConfigured()) {
-      Serial.print("Next local check in: ");
-      Serial.print(remainingLocalMs / 1000);
-      Serial.print("s. ");
-      // Also show API countdown as info, as it's the fallback
-      Serial.print("(Next API check in: ");
-      Serial.print(remainingApiMs / 1000);
-      Serial.println("s)");
-  } else {
-      // Local not configured, only show API countdown
-      Serial.print("Next API check in: ");
-      Serial.print(remainingApiMs / 1000);
-      Serial.println("s.");
-  }
-  // --- End of countdown block --- 
 
   // Update ventilation state using the VentilationControl class
   // This assumes VentilationControl uses the switchState and the latest airQuality value
@@ -224,9 +188,8 @@ void loop() {
   } else if (shouldLog && airQuality == -1) {
       Serial.println("Logging condition met, but AQI is invalid. Skipping log.");
   }
-  // --- End of logging ---
-
   Serial.println("");
+
   delay(LOOP_DELAY);
 
   // Pet the watchdog at the end of the loop to indicate normal operation.
@@ -285,66 +248,93 @@ void logToGoogleForm(int currentAqi, SwitchState currentSwitchState, bool isVent
     return;
   }
 
-  String aqiStr = String(currentAqi);
-  String switchStateStr = getSwitchStateString(currentSwitchState);
-  String ventilationStateStr = isVentilating ? "ON" : "OFF";
+  char aqiBuffer[12]; // Buffer for AQI string (e.g., "-12345")
+  snprintf(aqiBuffer, sizeof(aqiBuffer), "%d", currentAqi);
 
-  // Construct the URL
-  String url = String(FORM_URL_BASE) + "?" +
-               String(FORM_ENTRY_AQI) + "=" + aqiStr + "&" +
-               String(FORM_ENTRY_SWITCH_STATE) + "=" + switchStateStr + "&" +
-               String(FORM_ENTRY_VENTILATION_STATE) + "=" + ventilationStateStr;
+  char switchStateBuffer[12]; // Buffer for switch state string (e.g., "PURPLEAIR")
+  const char* switchStateCString = "";
+  switch (currentSwitchState) {
+    case SwitchState::OFF:
+      switchStateCString = "OFF";
+      break;
+    case SwitchState::ON:
+      switchStateCString = "ON";
+      break;
+    case SwitchState::PURPLEAIR:
+      switchStateCString = "PURPLEAIR";
+      break;
+    default:
+      switchStateCString = "UNKNOWN";
+      break;
+  }
+  strncpy(switchStateBuffer, switchStateCString, sizeof(switchStateBuffer) - 1);
+  switchStateBuffer[sizeof(switchStateBuffer) - 1] = '\0'; // Ensure null termination
+
+  char ventilationStateBuffer[4]; // Buffer for ventilation state ("ON" or "OFF")
+  strncpy(ventilationStateBuffer, isVentilating ? "ON" : "OFF", sizeof(ventilationStateBuffer) -1);
+  ventilationStateBuffer[sizeof(ventilationStateBuffer) - 1] = '\0';
+
+  // Estimate maximum URL length and allocate a buffer.
+  // Base URL + ? + entry_aqi=AQI + & + entry_switch=SWITCH + & + entry_vent=VENT
+  // Lengths: FORM_URL_BASE (approx 100) + 1 + FORM_ENTRY_AQI (20) + 1 + 5 (aqi) + 1
+  // + FORM_ENTRY_SWITCH_STATE (20) + 1 + 10 (switch) + 1
+  // + FORM_ENTRY_VENTILATION_STATE (20) + 1 + 3 (vent) + 1 (null terminator)
+  // Total roughly: 100 + 1 + 20 + 1 + 5 + 1 + 20 + 1 + 10 + 1 + 20 + 1 + 3 + 1 = ~185. Let's use 256 as a safe buffer.
+  char urlBuffer[256];
+  snprintf(urlBuffer, sizeof(urlBuffer), "%s?%s=%s&%s=%s&%s=%s",
+           FORM_URL_BASE,
+           FORM_ENTRY_AQI, aqiBuffer,
+           FORM_ENTRY_SWITCH_STATE, switchStateBuffer,
+           FORM_ENTRY_VENTILATION_STATE, ventilationStateBuffer);
 
   Serial.print("Google Forms: Attempting to log data to URL: ");
-  Serial.println(url);
+  Serial.println(urlBuffer);
 
-  Watchdog.reset(); // Pet the dog before network operations
+  Watchdog.reset(); 
 
-  // It's good practice to ensure the client is stopped before making a new connection
-  // especially if it's a global or reused client.
   googleFormsClient.stop(); 
 
   if (googleFormsClient.connect("docs.google.com", HTTPS_PORT)) {
     Serial.println("Google Forms: Connected to docs.google.com");
-    googleFormsClient.println("GET " + url + " HTTP/1.1");
+    
+    // Construct GET request line also using a char buffer
+    char getRequestBuffer[sizeof(urlBuffer) + 30]; // "GET " + url + " HTTP/1.1" + null
+    snprintf(getRequestBuffer, sizeof(getRequestBuffer), "GET %s HTTP/1.1", urlBuffer);
+    googleFormsClient.println(getRequestBuffer);
+    
     googleFormsClient.println("Host: docs.google.com");
     googleFormsClient.println("Connection: close");
-    googleFormsClient.println(); // End of headers
+    googleFormsClient.println(); 
 
-    delay(100); // Wait a moment for the server to start sending the response
+    delay(100); 
 
     unsigned long timeout = millis();
     while (googleFormsClient.available() == 0) {
-      if (millis() - timeout > 5000) { // 5 second timeout
+      if (millis() - timeout > 5000) { 
         Serial.println(">>> Google Forms: Client Timeout waiting for response!");
         googleFormsClient.stop();
         return;
       }
+      Watchdog.reset(); // Pet watchdog while waiting for response
     }
 
     // Read and print only the first line (status line)
+    // Still using String here for simplicity of readStringUntil, but it's short-lived.
+    // For maximum robustness, this could also be converted to read into a char buffer.
     if (googleFormsClient.available()) {
-      String statusLine = googleFormsClient.readStringUntil('\n');
-      statusLine.trim(); // Modify statusLine in-place
+      String statusLine = googleFormsClient.readStringUntil('\n'); 
+      statusLine.trim(); 
       Serial.print("<<< Google Forms Status: ");
-      Serial.println(statusLine); // Print the modified statusLine
+      Serial.println(statusLine); 
     }
 
-    // It's good practice to flush the client if you are not reading the entire response body,
-    // though for a simple GET and close, it might not be strictly necessary.
-    // However, some servers might wait for the client to read data before fully closing.
-    // googleFormsClient.flush(); // Uncomment if you encounter issues with subsequent connections
-
-    googleFormsClient.stop(); // Explicitly stop the client after processing the response
+    googleFormsClient.stop(); 
     Serial.println("Google Forms: Client stopped after response.");
 
   } else {
     Serial.println("Google Forms: Connection failed!");
-    // If connect() failed, client should not be in a 'connected' state, 
-    // but the safeguard stop below will handle any unexpected scenarios.
   }
-  // It's generally good practice to stop the client if it's no longer needed immediately,
-  // or if the connection failed. This acts as a final safeguard.
+  
   if (googleFormsClient.connected()) {
     Serial.println("Google Forms: Stopping client (safeguard check).");
     googleFormsClient.stop();
