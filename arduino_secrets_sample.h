@@ -32,7 +32,8 @@ const int DISABLE_THRESHOLD = 130; // Disable ventilation when AQI is above this
 // 4. Paste the link. It will look like: https://docs.google.com/forms/d/e/YOUR_FORM_ID/viewform?usp=pp_url&entry.xxxx=AQI_VALUE&entry.yyyy=SWITCH_STATE_VALUE&entry.zzzz=VENTILATION_VALUE
 //    FORM_URL_BASE will be "https://docs.google.com/forms/d/e/YOUR_FORM_ID/formResponse"
 //    The entry.xxxx, entry.yyyy, entry.zzzz will be your entry IDs.
-const char* FORM_URL_BASE = "YOUR_GOOGLE_FORM_RESPONSE_URL";
-const char* FORM_ENTRY_AQI = "YOUR_AQI_ENTRY_ID";          // e.g., "entry.1234567890"
-const char* FORM_ENTRY_SWITCH_STATE = "YOUR_SWITCH_STATE_ENTRY_ID"; // e.g., "entry.0987654321"
-const char* FORM_ENTRY_VENTILATION_STATE = "YOUR_VENTILATION_STATE_ENTRY_ID"; // e.g., "entry.1122334455"
+#define SECRET_VALUE_FORM_URL_BASE "https://docs.google.com/forms/d/e/xxxxxxx/formResponse" // TODO: Replace with your Google Form URL
+#define SECRET_VALUE_FORM_ENTRY_AQI "entry.xxxxxxxxxx" // TODO: Replace with your AirQuality entry ID
+#define SECRET_VALUE_FORM_ENTRY_SWITCH_STATE "entry.xxxxxxxxxx" // TODO: Replace with your SwitchState entry ID
+#define SECRET_VALUE_FORM_ENTRY_VENTILATION_STATE "entry.xxxxxxxxxx" // TODO: Replace with your VentilationState entry ID
+#define SECRET_VALUE_FORM_ENTRY_REASON "entry.xxxxxxxxxx" // TODO: Replace with your Reason entry ID

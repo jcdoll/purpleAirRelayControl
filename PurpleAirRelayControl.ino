@@ -33,6 +33,7 @@ const char* FORM_URL_BASE = SECRET_VALUE_FORM_URL_BASE;
 const char* FORM_ENTRY_AQI = SECRET_VALUE_FORM_ENTRY_AQI;
 const char* FORM_ENTRY_SWITCH_STATE = SECRET_VALUE_FORM_ENTRY_SWITCH_STATE;
 const char* FORM_ENTRY_VENTILATION_STATE = SECRET_VALUE_FORM_ENTRY_VENTILATION_STATE;
+const char* FORM_ENTRY_REASON = SECRET_VALUE_FORM_ENTRY_REASON;
 
 // WiFi Client for Google Forms
 WiFiSSLClient googleFormsClient;
@@ -94,11 +95,11 @@ void setup() {
     ventilation.update(initialSwitchState, airQuality);
     initialVentilationState = ventilation.getVentilationState();
 
-    Serial.println("Performing initial state log to Google Forms...");
+    Serial.println(F("Performing initial state log to Google Forms..."));
     if (airQuality != -1) { // Also ensure AQI is valid before logging
-      logToGoogleForm(airQuality, initialSwitchState, initialVentilationState);
+      logToGoogleForm(airQuality, initialSwitchState, initialVentilationState, F("InitialBoot"));
     } else {
-      Serial.println("Skipping initial log: AQI is invalid (-1).");
+      Serial.println(F("Skipping initial log: AQI is invalid (-1)."));
     }
   } else {
     Serial.println("Skipping initial state determination for logging and the log itself: WiFi not connected.");
@@ -177,9 +178,9 @@ void loop() {
   }
 
   if (shouldLog && airQuality != -1) {
-    Serial.print("Logging to Google Forms. Reason: ");
+    Serial.print(F("Logging to Google Forms. Reason: "));
     Serial.println(logReason);
-    logToGoogleForm(airQuality, switchState, currentVentilationState);
+    logToGoogleForm(airQuality, switchState, currentVentilationState, logReason);
     lastLogTime = currentTime;
     previousSwitchState = switchState;
     previousVentilationState = currentVentilationState;
@@ -197,13 +198,14 @@ void loop() {
 void handleSystemRestart() {
   timeSinceLastRestart = millis() - lastRestart;
   if (timeSinceLastRestart >= MAX_RUN_TIME) {
-    Serial.println("MAX_RUN_TIME reached. Requesting system reset.");
+    Serial.println(F("MAX_RUN_TIME reached. Requesting system reset."));
     // The watchdog is already running. Enabling it again with a short timeout
     // will effectively cause a reset. If it were disabled, this would enable it.
     // If it's already enabled with a longer timeout, this shortens it.
-    Watchdog.enable(1000); // Force a reset in 1 second
+    // Watchdog.enable(1000); // Force a reset in 1 second - Replacing this
+    NVIC_SystemReset(); // Standard ARM CMSIS call for a software reset
   } else {
-    Serial.println(String(timeSinceLastRestart/1000) + "s uptime < " + String(MAX_RUN_TIME/1000) + "s max"); 
+    Serial.println(String(timeSinceLastRestart/1000) + F("s uptime < ") + String(MAX_RUN_TIME/1000) + F("s max")); 
   }
 }
 
@@ -240,9 +242,9 @@ String getSwitchStateString(SwitchState state) {
   }
 }
 
-void logToGoogleForm(int currentAqi, SwitchState currentSwitchState, bool isVentilating) {
+void logToGoogleForm(int currentAqi, SwitchState currentSwitchState, bool isVentilating, const String& reason) {
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("Google Forms: WiFi not connected. Cannot log data.");
+    Serial.println(F("Google Forms: WiFi not connected. Cannot log data."));
     return;
   }
 
@@ -273,19 +275,21 @@ void logToGoogleForm(int currentAqi, SwitchState currentSwitchState, bool isVent
   ventilationStateBuffer[sizeof(ventilationStateBuffer) - 1] = '\0';
 
   // Estimate maximum URL length and allocate a buffer.
-  // Base URL + ? + entry_aqi=AQI + & + entry_switch=SWITCH + & + entry_vent=VENT
+  // Base URL + ? + entry_aqi=AQI + & + entry_switch=SWITCH + & + entry_vent=VENT + & + entry_reason=REASON
   // Lengths: FORM_URL_BASE (approx 100) + 1 + FORM_ENTRY_AQI (20) + 1 + 5 (aqi) + 1
   // + FORM_ENTRY_SWITCH_STATE (20) + 1 + 10 (switch) + 1
   // + FORM_ENTRY_VENTILATION_STATE (20) + 1 + 3 (vent) + 1 (null terminator)
-  // Total roughly: 100 + 1 + 20 + 1 + 5 + 1 + 20 + 1 + 10 + 1 + 20 + 1 + 3 + 1 = ~185. Let's use 256 as a safe buffer.
+  // + FORM_ENTRY_REASON (20) + 1 + 5 (reason) + 1 (null terminator)
+  // Total roughly: 100 + 1 + 20 + 1 + 5 + 1 + 20 + 1 + 10 + 1 + 20 + 1 + 3 + 1 + 20 + 1 + 5 + 1 = ~185. Let's use 256 as a safe buffer.
   char urlBuffer[256];
-  snprintf(urlBuffer, sizeof(urlBuffer), "%s?%s=%s&%s=%s&%s=%s",
+  snprintf(urlBuffer, sizeof(urlBuffer), "%s?%s=%s&%s=%s&%s=%s&%s=%s",
            FORM_URL_BASE,
            FORM_ENTRY_AQI, aqiBuffer,
            FORM_ENTRY_SWITCH_STATE, switchStateBuffer,
-           FORM_ENTRY_VENTILATION_STATE, ventilationStateBuffer);
+           FORM_ENTRY_VENTILATION_STATE, ventilationStateBuffer,
+           FORM_ENTRY_REASON, reason.c_str());
 
-  Serial.print("Google Forms: Attempting to log data to URL: ");
+  Serial.print(F("Google Forms: Attempting to log data to URL: "));
   Serial.println(urlBuffer);
 
   Watchdog.reset(); 

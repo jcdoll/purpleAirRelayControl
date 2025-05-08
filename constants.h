@@ -24,7 +24,7 @@ constexpr int WATCHDOG_TIMEOUT_MS = 16000; // 16 seconds
 // nuke the session after some maximum uptime to avoid max socket # issues
 // note that the resetFunc does not work with the MKR WiFi 1010 but the SleepyDog library does
 // after reset you will need to replug in the USB cable (COM port hangs)
-constexpr long MAX_RUN_TIME = 1000L * 60 * 60 * 12;  // Maximum runtime before restart (12 hours)
+constexpr long MAX_RUN_TIME = 1000L * 60 * 60 * 6;  // Maximum runtime before restart (6 hours)
 
 // Pin Definitions
 constexpr int PIN_RELAY1 = 1;
@@ -54,6 +54,7 @@ extern const char* FORM_URL_BASE;
 extern const char* FORM_ENTRY_AQI;
 extern const char* FORM_ENTRY_SWITCH_STATE;
 extern const char* FORM_ENTRY_VENTILATION_STATE;
+extern const char* FORM_ENTRY_REASON;
 
 // Logging Frequency
 constexpr unsigned long GOOGLE_LOG_INTERVAL_MS = 1000 * 60 * 15; // Log every 15 minutes (in milliseconds)
