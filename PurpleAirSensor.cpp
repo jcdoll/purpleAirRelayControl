@@ -8,13 +8,32 @@
 #include <Adafruit_SleepyDog.h> // Added for Watchdog.reset()
 #include <malloc.h> // Required for mallinfo()
 
+// Attempt to declare sbrk with C linkage at global scope for this file
+extern "C" {
+    char* sbrk(int incr);
+}
+
 // Forward declaration for getFreeMemory()
 int getFreeMemory();
 
-// Function to get free memory (copied from .ino file for use within this .cpp file)
+// Function to get free memory
 int getFreeMemory() {
   char stackVariable; // Get a variable on the stack
-  // ... existing code ...
+  void* currentStackPointer = (void*)&stackVariable;
+
+#if defined(ARDUINO_SAMD_MKRWIFI1010) || defined(ARDUINO_SAMD_NANO_33_IOT) || defined(ARDUINO_SAMD_ZERO) || defined(ARDUINO_SAMD_MKRZERO) || defined(ARDUINO_SAMD_MKR1000) || defined(ARDUINO_SAMD_GEMMA_M0) || defined(ARDUINO_SAMD_TRINKET_M0)
+  // For SAMD boards, free memory is the space between the current stack pointer and the top of the heap.
+  // extern "C" char* sbrk(int incr); // Moved to global scope
+  void* heapEnd = sbrk(0); // Current top of the heap.
+  if (heapEnd == (void*)-1) { // sbrk can return -1 on error, though unlikely with 0.
+      return -1; // Indicate error
+  }
+  return (char*)currentStackPointer - (char*)heapEnd;
+
+#elif defined(ESP8266) || defined(ESP32)
+// ... existing code ...
+
+#endif
 }
 
 PurpleAirSensor::PurpleAirSensor(const char* apiKey, const char* server, int port, 
