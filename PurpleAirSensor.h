@@ -46,7 +46,3 @@ private:
     
     static const long MAX_SENSOR_AGE = 3600; // Max age of sensor data in seconds (1 hour)
 };
-
-// extern int getFreeMemory(); // Removing this - will be defined and used solely within PurpleAirSensor.cpp
-
-// #endif // PURPLEAIRSENSOR_H // This was already removed 

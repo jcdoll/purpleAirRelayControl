@@ -6,7 +6,7 @@
 #include <WiFiNINA.h>
 #include <ArduinoJson.h>
 #include <utility/wifi_drv.h>
-#include <Adafruit_SleepyDog.h>
+#include <wdt_samd21.h>      // Include the new library
 #include <WiFiSSLClient.h>
 #include <malloc.h> // Required for mallinfo()
 
@@ -18,6 +18,8 @@
 int status = WL_IDLE_STATUS; // initially not connected to wifi
 int airQuality = -1; // Initialize to -1 (invalid) until first reading
 SwitchState switchState = SwitchState::OFF;
+
+// WDTZero MyWatchDog; // Removing WDTZero object
 
 // Global objects
 PurpleAirSensor purpleAir(SECRET_PURPLE_AIR_KEY, "api.purpleair.com", HTTPS_PORT, SECRET_PURPLE_AIR_IP, HTTP_PORT);
@@ -63,11 +65,9 @@ void setup() {
   airQuality = purpleAir.getCurrentAQI(); // Explicitly update global AQI after initial fetch
   // --- End initial reading --- 
   
-  // Enable the watchdog with the timeout defined in constants.h
-  int countdownMS = Watchdog.enable(WATCHDOG_TIMEOUT_MS); 
-  Serial.print("Watchdog enabled with timeout: ");
-  Serial.print(countdownMS / 1000); 
-  Serial.println("s");
+  // Enable the watchdog using the wdt_samd21 library
+  wdt_init(WDT_CONFIG_PER_16K); // Initialize WDT for ~16 seconds timeout
+  Serial.println(F("wdt_samd21 watchdog initialized (~16s timeout)."));
 
   // enable outputs on relay pins
   pinMode(PIN_RELAY1, OUTPUT);
@@ -97,7 +97,7 @@ void setup() {
 
     Serial.println(F("Performing initial state log to Google Forms..."));
     if (airQuality != -1) { // Also ensure AQI is valid before logging
-      logToGoogleForm(airQuality, initialSwitchState, initialVentilationState, F("InitialBoot"));
+      logToGoogleForm(airQuality, initialSwitchState, initialVentilationState, F("initialBoot"));
     } else {
       Serial.println(F("Skipping initial log: AQI is invalid (-1)."));
     }
@@ -120,17 +120,17 @@ void setup() {
 void loop() {
   // Handle system restart
   handleSystemRestart();
-  Watchdog.reset(); // Added: Insurance pet at start of loop activities
+  wdt_reset();
 
   // Get switch state
   switchState = getSwitchState();
-  Watchdog.reset(); // Added: Insurance pet after switch state
+  wdt_reset();
   
   // --- Update Sensor Data ---
   // Call updateAQI() periodically. It handles internal timers for local/API polling.
-  Watchdog.reset(); // Added: Pet before potentially long updateAQI call
+  wdt_reset();
   bool wasUpdated = purpleAir.updateAQI(); 
-  Watchdog.reset(); // Added: Pet after updateAQI call
+  wdt_reset();
   
   if (wasUpdated) {
       Serial.println("Sensor data was updated.");
@@ -166,15 +166,25 @@ void loop() {
 
   if (currentTime - lastLogTime >= GOOGLE_LOG_INTERVAL_MS) {
     shouldLog = true;
-    logReason = "interval reached";
+    logReason = F("intervalReached");
   }
+
   if (switchState != previousSwitchState) {
     shouldLog = true;
-    logReason = (logReason == "") ? "switch state change" : logReason + ", switch state change";
+    if (logReason == "") {
+        logReason = F("switchStateChange");
+    } else {
+        logReason += F("_switchStateChange");
+    }
   }
+
   if (currentVentilationState != previousVentilationState) {
     shouldLog = true;
-    logReason = (logReason == "") ? "ventilation state change" : logReason + ", ventilation state change";
+    if (logReason == "") {
+        logReason = F("ventilationStateChange");
+    } else {
+        logReason += F("_ventilationStateChange");
+    }
   }
 
   if (shouldLog && airQuality != -1) {
@@ -192,20 +202,19 @@ void loop() {
   delay(LOOP_DELAY);
 
   // Pet the watchdog at the end of the loop to indicate normal operation.
-  Watchdog.reset(); 
+  wdt_reset();
 }
 
 void handleSystemRestart() {
   timeSinceLastRestart = millis() - lastRestart;
-  if (timeSinceLastRestart >= MAX_RUN_TIME) {
-    Serial.println(F("MAX_RUN_TIME reached. Requesting system reset."));
-    // The watchdog is already running. Enabling it again with a short timeout
-    // will effectively cause a reset. If it were disabled, this would enable it.
-    // If it's already enabled with a longer timeout, this shortens it.
-    // Watchdog.enable(1000); // Force a reset in 1 second - Replacing this
-    NVIC_SystemReset(); // Standard ARM CMSIS call for a software reset
-  } else {
-    Serial.println(String(timeSinceLastRestart/1000) + F("s uptime < ") + String(MAX_RUN_TIME/1000) + F("s max")); 
+  if (MAX_RUN_TIME > 0) { 
+    if (timeSinceLastRestart >= MAX_RUN_TIME) {
+      Serial.println(F("MAX_RUN_TIME reached. Requesting system reset."));
+      // TODO: If there are any problems here consider using the WDT library instead.
+      NVIC_SystemReset(); // Standard ARM CMSIS call for a software reset
+    } else {
+      Serial.println(String(timeSinceLastRestart/1000) + F("s uptime < ") + String(MAX_RUN_TIME/1000) + F("s max")); 
+    }
   }
 }
 
@@ -292,8 +301,6 @@ void logToGoogleForm(int currentAqi, SwitchState currentSwitchState, bool isVent
   Serial.print(F("Google Forms: Attempting to log data to URL: "));
   Serial.println(urlBuffer);
 
-  Watchdog.reset(); 
-
   googleFormsClient.stop(); 
 
   if (googleFormsClient.connect("docs.google.com", HTTPS_PORT)) {
@@ -317,7 +324,7 @@ void logToGoogleForm(int currentAqi, SwitchState currentSwitchState, bool isVent
         googleFormsClient.stop();
         return;
       }
-      Watchdog.reset(); // Pet watchdog while waiting for response
+      wdt_reset();
     }
 
     // Read and print only the first line (status line)

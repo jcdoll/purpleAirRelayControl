@@ -5,7 +5,7 @@
 #include <ArduinoHttpClient.h>
 #include <WiFiNINA.h> // Ensure WiFi library is included
 #include "constants.h" // Include for delay constants
-#include <Adafruit_SleepyDog.h> // Added for Watchdog.reset()
+#include <wdt_samd21.h> // Include the library header here too for wdt_reset()
 #include <malloc.h> // Required for mallinfo()
 
 // Attempt to declare sbrk with C linkage at global scope for this file
@@ -29,10 +29,6 @@ int getFreeMemory() {
       return -1; // Indicate error
   }
   return (char*)currentStackPointer - (char*)heapEnd;
-
-#elif defined(ESP8266) || defined(ESP32)
-// ... existing code ...
-
 #endif
 }
 
@@ -46,26 +42,45 @@ PurpleAirSensor::PurpleAirSensor(const char* apiKey, const char* server, int por
 
 void PurpleAirSensor::begin() {
     // Initialize WiFi connection
-    Serial.println("WIFI STATUS: attempting to connect ...");
-    int status = WiFi.begin(SECRET_SSID, SECRET_PASS);
+    Serial.println(F("WIFI STATUS: Attempting to connect..."));
+    
+    // Outer loop to keep retrying connection indefinitely
+    while (WiFi.status() != WL_CONNECTED) {
+        Serial.println(F("Initiating WiFi connection attempt..."));
+        int status = WiFi.begin(SECRET_SSID, SECRET_PASS);
+        if (status != WL_CONNECTED) { // Log if begin immediately fails (though unlikely to be the final status)
+            Serial.print(F("WiFi.begin status: ")); Serial.println(status);
+        }
 
-    // Wait for connection with timeout (e.g., 15 seconds)
-    unsigned long startAttemptTime = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 15000) {
-        Serial.print(".");
-        Watchdog.reset(); // Added: Pet watchdog during WiFi connection loop
-        delay(500); // Wait 500ms between status checks
-    }
-    Serial.println(); // Newline after dots
+        // Inner loop: Wait for connection with a timeout (e.g., 15 seconds)
+        unsigned long startAttemptTime = millis();
+        while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 15000) {
+            Serial.print(".");
+            // Use the correct watchdog reset function for the current setup
+            wdt_reset(); 
+            delay(500); // Wait 500ms between status checks
+        }
+        Serial.println(); // Newline after dots or connection success
 
-    // Check connection result
-    if (WiFi.status() == WL_CONNECTED) {
-        Serial.println("WIFI STATUS: connected\n");
-    } else {
-        Serial.println("WIFI STATUS: connection failed\n");
-        // Optional: Add code here to handle connection failure (e.g., halt, retry later)
-        while(true); // Halt execution if connection fails
+        // Check if the inner loop timed out without connecting
+        if (WiFi.status() != WL_CONNECTED) {
+            Serial.println(F("WIFI STATUS: Connection failed on this attempt."));
+            Serial.println(F("Retrying in 5 seconds..."));
+            // Delay for 5 seconds, petting watchdog frequently
+            unsigned long retryDelayStart = millis();
+            while(millis() - retryDelayStart < 5000) {
+                wdt_reset();
+                delay(100); // Short delay to allow background tasks/watchdog
+            }
+        } else {
+            // If connected, the outer loop condition will be false next iteration
+            Serial.println(F("WIFI STATUS: Connected!"));
+        }
+        // Ensure watchdog is reset before the next outer loop iteration (retry attempt)
+        wdt_reset();
     }
+    // Exited the outer loop, means WiFi is connected.
+    Serial.println(); // Extra newline for clarity
 }
 
 bool PurpleAirSensor::updateAQI() {
@@ -83,9 +98,9 @@ bool PurpleAirSensor::updateAQI() {
     if (localConfigured && (currentTime - lastLocalCheckTime >= (unsigned long)LOCAL_SENSOR_DELAY)) {
         attemptedLocal = true;
         Serial.println("Polling local sensor...");
-        Watchdog.reset(); // Pet watchdog before local sensor call
+        wdt_reset(); // Use library function
         fetchedAQI = getLocalAirQuality();
-        Watchdog.reset(); // Pet watchdog after local sensor call
+        wdt_reset(); // Use library function
         lastLocalCheckTime = currentTime; // Update time of last local check attempt
         
         if (fetchedAQI > 0) {
@@ -109,9 +124,9 @@ bool PurpleAirSensor::updateAQI() {
         (currentTime - lastApiCheckTime >= (unsigned long)PURPLE_AIR_DELAY))
     {
         Serial.println("Polling PurpleAir API...");
-        Watchdog.reset(); // Added: Pet watchdog before API call
+        wdt_reset(); // Use library function
         fetchedAQI = getAPIAirQuality();
-        Watchdog.reset(); // Added: Pet watchdog after API call
+        wdt_reset(); // Use library function
         lastApiCheckTime = currentTime; // Update time of last API check attempt
 
         if (fetchedAQI > 0) {
@@ -309,14 +324,14 @@ int PurpleAirSensor::getAPIAirQuality() {
     Serial.println("Request Path: " + String(requestPathBuffer)); // OK for print
 
     // Add header and make the request
-    Watchdog.reset(); // Pet watchdog
+    wdt_reset();
     client.beginRequest();
     client.get(requestPathBuffer); // Use the char buffer
     client.sendHeader("X-API-Key", apiKey);
     client.sendHeader("User-Agent", "Arduino/1.0");
     client.endRequest(); // Send the request
-    Watchdog.reset(); // Pet watchdog
-
+    wdt_reset();
+    
     // Get the status code
     int statusCode = client.responseStatusCode();
     Serial.print("API HTTP Status Code: ");
@@ -409,18 +424,11 @@ double PurpleAirSensor::linearInterpolation(double xValues[], double yValues[], 
     return rst;
 }
 
-// --- Getter implementations --- //
-
 bool PurpleAirSensor::isLocalConfigured() const {
     return (this->localServer != nullptr && this->localServer[0] != '\0');
 }
 
 unsigned long PurpleAirSensor::getTimeUntilNextLocalCheck() const {
-    // Constants are defined in constants.h and are in milliseconds
-    // Remove the preprocessor check as it doesn't work well with constexpr
-    // #ifndef LOCAL_SENSOR_DELAY
-    //     #error "LOCAL_SENSOR_DELAY not defined..." 
-    // #endif
     unsigned long nextCheckTime = lastLocalCheckTime + (unsigned long)LOCAL_SENSOR_DELAY; // Use constant directly (it's in ms)
     unsigned long currentTime = millis();
     if (nextCheckTime <= currentTime) {
@@ -431,11 +439,6 @@ unsigned long PurpleAirSensor::getTimeUntilNextLocalCheck() const {
 }
 
 unsigned long PurpleAirSensor::getTimeUntilNextApiCheck() const {
-    // Constants are defined in constants.h and are in milliseconds
-    // Remove the preprocessor check
-    // #ifndef PURPLE_AIR_DELAY
-    //     #error "PURPLE_AIR_DELAY not defined..." 
-    // #endif
     unsigned long nextCheckTime = lastApiCheckTime + (unsigned long)PURPLE_AIR_DELAY; // Use constant directly (it's in ms)
     unsigned long currentTime = millis();
     if (nextCheckTime <= currentTime) {
