@@ -41,7 +41,6 @@ WiFiSSLClient googleFormsClient;
 SwitchState previousSwitchState;
 bool previousVentilationState = false; // Initialize to a known default
 unsigned long lastLogTime = 0;
-unsigned long lastMemoryLogTime = 0; // For timing memory logs
 
 void setup() {
   delay(1000); // Added delay to potentially help with USB re-enumeration
@@ -115,7 +114,6 @@ void setup() {
   // Use determined states if WiFi was up, otherwise defaults. This ensures first loop log captures any change.
   previousSwitchState = initialSwitchState; 
   previousVentilationState = initialVentilationState;
-  lastMemoryLogTime = millis(); // Initialize memory log timer
 }
 
 void loop() {
