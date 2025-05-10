@@ -12,9 +12,9 @@ void VentilationControl::begin() {
     pinMode(PIN_RELAY2, OUTPUT);
 
     // Enable LED control
-    WiFiDrv::pinMode(25, OUTPUT);
-    WiFiDrv::pinMode(26, OUTPUT);
-    WiFiDrv::pinMode(27, OUTPUT);
+    WiFiDrv::pinMode(WIFI_LED_R_PIN, OUTPUT);
+    WiFiDrv::pinMode(WIFI_LED_G_PIN, OUTPUT);
+    WiFiDrv::pinMode(WIFI_LED_B_PIN, OUTPUT);
     
     // Enable pullups on digital pins
     pinMode(PIN_SWITCH_INPUT1, INPUT_PULLUP);
@@ -35,7 +35,11 @@ bool VentilationControl::getVentilationState(SwitchState switchState, bool curre
         return true;
     } else if (switchState == SwitchState::OFF) {
         return false;
-    } else {
+    } else { // PURPLEAIR mode
+        if (airQuality == -1) {
+            Serial.println("AQI is invalid (-1) -> maintaining current ventilation state for PURPLEAIR mode.");
+            return currentState; // Maintain current state if AQI is unknown
+        }
         if (airQuality < ENABLE_THRESHOLD) {
             Serial.println("AQI is below the enable threshold -> ventilate");
             return true;
@@ -51,15 +55,15 @@ bool VentilationControl::getVentilationState(SwitchState switchState, bool curre
 
 void VentilationControl::setRelays(bool ventilate) {
     if (ventilate) {
-        Serial.println("VENTILATION STATE: on");
-        WiFiDrv::analogWrite(25, LEDColors::VENTILATION_ON[0]);
-        WiFiDrv::analogWrite(26, LEDColors::VENTILATION_ON[1]);
-        WiFiDrv::analogWrite(27, LEDColors::VENTILATION_ON[2]);
+        Serial.println("VENTILATION STATE: ON");
+        WiFiDrv::analogWrite(WIFI_LED_R_PIN, LEDColors::VENTILATION_ON[0]);
+        WiFiDrv::analogWrite(WIFI_LED_G_PIN, LEDColors::VENTILATION_ON[1]);
+        WiFiDrv::analogWrite(WIFI_LED_B_PIN, LEDColors::VENTILATION_ON[2]);
     } else {
-        Serial.println("VENTILATION STATE: off");    
-        WiFiDrv::analogWrite(25, LEDColors::VENTILATION_OFF[0]);
-        WiFiDrv::analogWrite(26, LEDColors::VENTILATION_OFF[1]);
-        WiFiDrv::analogWrite(27, LEDColors::VENTILATION_OFF[2]);
+        Serial.println("VENTILATION STATE: OFF");    
+        WiFiDrv::analogWrite(WIFI_LED_R_PIN, LEDColors::VENTILATION_OFF[0]);
+        WiFiDrv::analogWrite(WIFI_LED_G_PIN, LEDColors::VENTILATION_OFF[1]);
+        WiFiDrv::analogWrite(WIFI_LED_B_PIN, LEDColors::VENTILATION_OFF[2]);
     }
     
     digitalWrite(PIN_RELAY1, ventilate);
