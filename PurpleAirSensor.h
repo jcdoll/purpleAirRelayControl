@@ -29,6 +29,9 @@ public:
     // Takes masterCurrentTime to help synchronize multiple sensor instances.
     void forceInitialUpdate(unsigned long masterCurrentTime);
     
+    // Static method for ensuring WiFi is connected
+    static bool ensureWiFiConnected();
+
     // Timing information getters
     bool isLocalConfigured() const;
     unsigned long getTimeUntilNextLocalCheck() const; // Returns milliseconds

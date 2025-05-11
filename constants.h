@@ -13,7 +13,7 @@ constexpr int MAX_SENSOR_AGE = 60 * 60;  // Maximum sensor age in seconds
 
 // delay time between purple air requests to avoid API blacklist
 // note: purple air is considering adding API pricing, so monitor this setting closely
-constexpr int PURPLE_AIR_DELAY = 1000 * 60 * 20;  // Minimum delay between API checks (20 min)
+constexpr int PURPLE_AIR_DELAY = 1000 * 60 * 30;  // Minimum delay between API checks (30 min)
 constexpr int LOCAL_SENSOR_DELAY = 1000 * 60;  // Check local sensor every (1 min)
 constexpr unsigned long LOCAL_RETRY_DELAY_MS = 500; // Delay between local connection retries within an update cycle
 constexpr int MAX_LOCAL_CONNECTION_ATTEMPTS = 3; // Max attempts to connect to local sensor per update cycle
@@ -27,7 +27,7 @@ constexpr long MAX_RUN_TIME = 0;  // Never reset intentionally- the watchdog sho
 constexpr unsigned long SERIAL_BAUD_RATE = 9600; // Baud rate for Serial communication
 
 // Logging Frequency
-constexpr unsigned long GOOGLE_LOG_INTERVAL_MS = 1000 * 60 * 15; // Log every 15 minutes (in milliseconds)
+constexpr unsigned long GOOGLE_LOG_INTERVAL_MS = 1000 * 60 * 5; // Log every 15 minutes (in milliseconds)
 
 // Pin Definitions
 constexpr int PIN_RELAY1 = 1;

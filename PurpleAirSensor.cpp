@@ -10,6 +10,9 @@
 #include <malloc.h> // Required for mallinfo()
 #include <StreamUtils.h> // Include StreamUtils library
 
+// Extern declaration for the LED control function in PurpleAirRelayControl.ino
+extern void setWiFiStatusLedColor(int r, int g, int b);
+
 // Definition for the static JsonDocument
 StaticJsonDocument<PurpleAirSensor::JSON_DOC_SIZE> PurpleAirSensor::doc;
 
@@ -39,6 +42,57 @@ int getFreeMemory() {
 #endif
 }
 
+// Implementation of the static WiFi connection helper
+bool PurpleAirSensor::ensureWiFiConnected() {
+    if (WiFi.status() == WL_CONNECTED) {
+        return true;
+    }
+
+    Serial.println(F("WIFI STATUS: Not connected. Attempting to connect/reconnect..."));
+    setWiFiStatusLedColor(0, 0, 50); // Set LED to BLUE (R=0, G=0, B=50)
+    
+    // Loop to attempt connection, similar to original begin() logic
+    // This will loop indefinitely until connection or WDT reset
+    while (WiFi.status() != WL_CONNECTED) {
+        Serial.println(F("Initiating WiFi connection attempt..."));
+        WiFi.disconnect(); // Explicitly disconnect before trying to connect
+        delay(100); // Short delay after disconnect
+        int status = WiFi.begin(SECRET_SSID, SECRET_PASS);
+        // Log status immediately after begin call for diagnostics
+        Serial.print(F("WiFi.begin status code: ")); Serial.println(status);
+        // Note: WL_CONNECTED might not be immediate, status from begin() can be misleading for final state.
+
+        unsigned long startAttemptTime = millis();
+        while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < WIFI_CONNECT_ATTEMPT_TIMEOUT_MS) {
+            Serial.print(".");
+            wdt_reset(); 
+            delay(500); // Wait 500ms between status checks
+        }
+        Serial.println(); // Newline after dots or connection success
+
+        if (WiFi.status() != WL_CONNECTED) {
+            Serial.println(F("WIFI STATUS: Connection failed on this attempt."));
+            Serial.print(F("Retrying in ")); Serial.print(WIFI_CONNECT_RETRY_DELAY_MS / 1000); Serial.println(F(" seconds..."));
+            unsigned long retryDelayStart = millis();
+            while(millis() - retryDelayStart < WIFI_CONNECT_RETRY_DELAY_MS) {
+                wdt_reset();
+                delay(100); // Short delay to allow background tasks/watchdog
+            }
+        } else {
+            Serial.println(F("WIFI STATUS: Connected!"));
+            Serial.print(F("IP Address: ")); Serial.println(WiFi.localIP());
+            Serial.print(F("Signal Strength (RSSI): ")); Serial.print(WiFi.RSSI()); Serial.println(F(" dBm"));
+            setWiFiStatusLedColor(50, 50, 0); // Set LED to YELLOW (R=50, G=50, B=0) upon connection
+            // No need to return true here, loop condition will handle exit
+        }
+        wdt_reset(); // Ensure watchdog is reset before the next outer loop iteration (retry attempt)
+    }
+    // Exited the while loop, so WiFi.status() == WL_CONNECTED
+    // The LED would have been set to YELLOW in the 'else' block above if connection was just made.
+    // If WiFi was already connected at the function's start, the LED state was not touched by this function.
+    return true; 
+}
+
 PurpleAirSensor::PurpleAirSensor(const char* sensorName,
                                 const char* apiKey, const int* sensorIDs, int numSensors,
                                 const char* apiServerHost, int apiPort,
@@ -52,50 +106,10 @@ PurpleAirSensor::PurpleAirSensor(const char* sensorName,
       localSensorAvailable(false) {}
 
 void PurpleAirSensor::begin() {
-    // Initialize WiFi connection
-    Serial.println(F("WIFI STATUS: Attempting to connect..."));
-    
-    // Outer loop to keep retrying connection indefinitely
-    while (WiFi.status() != WL_CONNECTED) {
-        Serial.println(F("Initiating WiFi connection attempt..."));
-        int status = WiFi.begin(SECRET_SSID, SECRET_PASS);
-        if (status != WL_CONNECTED) { // Log if begin immediately fails (though unlikely to be the final status)
-            Serial.print(F("WiFi.begin status: ")); Serial.println(status);
-        }
-
-        // Inner loop: Wait for connection with a timeout (e.g., 15 seconds)
-        unsigned long startAttemptTime = millis();
-        while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < WIFI_CONNECT_ATTEMPT_TIMEOUT_MS) {
-            Serial.print(".");
-            // Use the correct watchdog reset function for the current setup
-            wdt_reset(); 
-            delay(500); // Wait 500ms between status checks
-        }
-        Serial.println(); // Newline after dots or connection success
-
-        // Check if the inner loop timed out without connecting
-        if (WiFi.status() != WL_CONNECTED) {
-            Serial.println(F("WIFI STATUS: Connection failed on this attempt."));
-            Serial.println(F("Retrying in 5 seconds..."));
-            // Delay for 5 seconds, petting watchdog frequently
-            unsigned long retryDelayStart = millis();
-            while(millis() - retryDelayStart < WIFI_CONNECT_RETRY_DELAY_MS) {
-                wdt_reset();
-                delay(100); // Short delay to allow background tasks/watchdog
-            }
-        } else {
-            // If connected, the outer loop condition will be false next iteration
-            Serial.println(F("WIFI STATUS: Connected!"));
-            Serial.print(F("IP Address: "));
-            Serial.println(WiFi.localIP());
-            Serial.print(F("Signal Strength (RSSI): "));
-            Serial.print(WiFi.RSSI());
-            Serial.println(F(" dBm"));
-        }
-        // Ensure watchdog is reset before the next outer loop iteration (retry attempt)
-        wdt_reset();
-    }
-    // Exited the outer loop, means WiFi is connected.
+    // Initialize WiFi connection by ensuring it's connected.
+    Serial.println(F("PurpleAirSensor::begin() called. Ensuring WiFi is connected..."));
+    ensureWiFiConnected(); // This will loop until connected or WDT reset
+    Serial.println(F("PurpleAirSensor::begin(): WiFi connection process complete."));
     Serial.println(); // Extra newline for clarity
 }
 
@@ -213,6 +227,12 @@ void PurpleAirSensor::forceInitialUpdate(unsigned long masterCurrentTime) {
 }
 
 int PurpleAirSensor::getLocalAirQuality() {
+    if (!ensureWiFiConnected()) {
+        Serial.print(this->sensorName); Serial.println(F(": getLocalAirQuality: WiFi not connected. Aborting."));
+        localSensorAvailable = false; // Ensure this is false if we can't even check
+        return -1;
+    }
+
     // Reset availability flag before attempt
     localSensorAvailable = false;
     int resultAQI = -1; // Default to -1 (failure/no data)
@@ -436,6 +456,11 @@ int PurpleAirSensor::getLocalAirQuality() {
 }
 
 int PurpleAirSensor::getAPIAirQuality() {
+    if (!ensureWiFiConnected()) {
+        Serial.print(this->sensorName); Serial.println(F(": getAPIAirQuality: WiFi not connected. Aborting."));
+        return -1;
+    }
+
     int resultAQI = -1;
 
     if (this->apiKey == nullptr || this->apiKey[0] == '\0') {

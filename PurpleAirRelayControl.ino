@@ -158,6 +158,7 @@ void loop() {
   // Handle system restart
   handleSystemRestart();
   wdt_reset();
+  unsigned long currentTimeForLoop = millis(); // Use a single millis() call for this loop iteration for consistency
 
   // Get switch state
   switchState = getSwitchState();
@@ -167,7 +168,7 @@ void loop() {
   // Call updateAQI() periodically. It handles internal timers for local/API polling.
   unsigned long currentTimeForSensorUpdates = millis(); // Get time once for this loop cycle's updates
   wdt_reset();
-  bool outdoorUpdated = outdoorSensor.updateAQI(currentTimeForSensorUpdates, true); // Verbose for outdoor sensor
+  bool outdoorUpdated = outdoorSensor.updateAQI(currentTimeForLoop, false); // Verbose for outdoor sensor
   wdt_reset();
   
   if (outdoorUpdated) {
@@ -175,14 +176,17 @@ void loop() {
       outdoorAirQuality = outdoorSensor.getCurrentAQI(); 
   }
   
+  bool indoorUpdated = false; // Initialize
   if (isIndoorSensorEffectivelyConfigured()) {
-    bool indoorUpdated = indoorSensor.updateAQI(currentTimeForSensorUpdates, true); // Verbose for indoor sensor
+    indoorUpdated = indoorSensor.updateAQI(currentTimeForLoop, false); // Verbose for indoor sensor
     wdt_reset();
     if (indoorUpdated) {
         Serial.println("Indoor sensor data was updated.");
         indoorAirQuality = indoorSensor.getCurrentAQI();
     }
   }
+
+  bool sensorDataUpdatedThisCycle = outdoorUpdated || indoorUpdated;
   
   // Log current known AQIs if valid to serial monitor
   if (outdoorAirQuality != -1) {
@@ -207,49 +211,105 @@ void loop() {
   Serial.print(F("  Time until next local check: ")); Serial.print(outdoorSensor.getTimeUntilNextLocalCheck() / 1000); Serial.println(F("s"));
   Serial.print(F("  Time until next API check: ")); Serial.print(outdoorSensor.getTimeUntilNextApiCheck() / 1000); Serial.println(F("s"));
 
+  // --- Log data to Google Form based on interval or state change ---
+  // Moved static declaration here, before its first use by the status display or logic
+  static bool logDueToIntervalPending = false; 
+
+  // Display time until next Google Forms log interval
+  Serial.println(F("--- Google Forms Logger Status ---")); // Corrected to println for the header
+  if (logDueToIntervalPending) {
+    Serial.println(F("  Interval log: Pending fresh sensor data."));
+  } else {
+    unsigned long elapsedSinceLastLog = currentTimeForLoop - lastLogTime;
+    if (GOOGLE_LOG_INTERVAL_MS > elapsedSinceLastLog) {
+      unsigned long remainingLogTimeMs = GOOGLE_LOG_INTERVAL_MS - elapsedSinceLastLog;
+      Serial.print(F("  Time until next interval log attempt: ")); 
+      Serial.print(remainingLogTimeMs / 1000); 
+      Serial.println(F("s"));
+    } else {
+      // This case should ideally be covered by logDueToIntervalPending becoming true,
+      // but as a fallback or for clarity:
+      Serial.println(F("  Interval log: Due or pending.")); 
+    }
+  }
+
   // Update ventilation state using the VentilationControl class
   // This assumes VentilationControl uses the switchState and the latest airQuality value
   ventilation.update(switchState, outdoorAirQuality);
   bool currentVentilationState = ventilation.getVentilationState();
 
-  // --- Log data to Google Form based on interval or state change ---
-  unsigned long currentTime = millis();
-  bool shouldLog = false;
+  // Determine if events occurred this cycle
+  bool switchChanged = (switchState != previousSwitchState);
+  bool ventChanged = (currentVentilationState != previousVentilationState);
+  // sensorDataUpdatedThisCycle is already determined earlier in the loop
+
+  // Check if the logging interval has passed to arm the pending flag
+  if (!logDueToIntervalPending && (currentTimeForLoop - lastLogTime >= GOOGLE_LOG_INTERVAL_MS)) {
+    Serial.println(F("[LOGIC] Interval elapsed. Setting logDueToIntervalPending = true."));
+    logDueToIntervalPending = true;
+  }
+
+  bool performLog = false;
   String logReason = "";
 
-  if (currentTime - lastLogTime >= GOOGLE_LOG_INTERVAL_MS) {
-    shouldLog = true;
-    logReason = F(""); // Leave reason empty for interval-based logging
+  // Event-driven logs (switch or ventilation changes)
+  if (switchChanged) {
+    performLog = true;
+    logReason = F("switchChange");
   }
-
-  if (switchState != previousSwitchState) {
-    shouldLog = true;
+  if (ventChanged) {
+    performLog = true;
     if (logReason == "") {
-        logReason = F("switchChange");
+      logReason = F("ventChange");
     } else {
-        logReason += F("_switchChange");
+      logReason += F("_ventChange");
     }
   }
 
-  if (currentVentilationState != previousVentilationState) {
-    shouldLog = true;
-    if (logReason == "") {
-        logReason = F("ventChange");
+  // Interval-driven log (if pending and fresh data is available)
+  // This check is after event checks because an event log can also satisfy a pending interval.
+  if (!performLog && logDueToIntervalPending && sensorDataUpdatedThisCycle) {
+    Serial.println(F("[LOGIC] Interval log triggered: logDueToIntervalPending=true and fresh data available."));
+    performLog = true;
+    // logReason remains empty for a pure interval log
+  } else if (performLog && logDueToIntervalPending && sensorDataUpdatedThisCycle) {
+    Serial.println(F("[LOGIC] Event log also satisfies pending interval with fresh data."));
+    // Event log is already set to performLog, reason string is already set by event.
+    // The successful log will reset logDueToIntervalPending.
+  } else if (logDueToIntervalPending && !sensorDataUpdatedThisCycle) {
+    Serial.println(F("[LOGIC] Interval log pending, but no fresh sensor data this cycle."));
+  }
+
+  // Perform the log if any condition was met
+  if (performLog) {
+    if (outdoorAirQuality != -1) {
+      Serial.print(F("Logging to Google Forms. Reason: ")); Serial.println(logReason);
+      logToGoogleForm(outdoorAirQuality, indoorAirQuality, switchState, currentVentilationState, logReason);
+      
+      lastLogTime = currentTimeForLoop; // Reset interval timer on successful log
+      if (logDueToIntervalPending) {
+          Serial.println(F("[LOGIC] Successful log resetting logDueToIntervalPending."));
+          logDueToIntervalPending = false;  // Reset pending flag on successful log
+      }
     } else {
-        logReason += F("_ventChange");
+      Serial.println(F("[LOGIC] performLog=true, but Outdoor AQI is invalid. Skipping log."));
+      if (logDueToIntervalPending) {
+        Serial.println(F("[LOGIC] logDueToIntervalPending remains true as log was skipped (invalid AQI)."));
+      }
+      // lastLogTime is NOT updated if log is skipped, so interval remains "due" if it was.
+      // logDueToIntervalPending is NOT reset if log is skipped.
     }
   }
 
-  // Log if condition met AND outdoor AQI is valid. Indoor AQI can be -1.
-  if (shouldLog && outdoorAirQuality != -1) {
-    Serial.print(F("Logging to Google Forms. Reason: ")); Serial.println(logReason);
-    logToGoogleForm(outdoorAirQuality, indoorAirQuality, switchState, currentVentilationState, logReason);
-    lastLogTime = currentTime;
+  // Update previous states for the next cycle
+  // This happens regardless of whether a log was successfully sent.
+  if (switchChanged) {
     previousSwitchState = switchState;
-    previousVentilationState = currentVentilationState;
-  } else if (shouldLog && outdoorAirQuality == -1) {
-      Serial.println("Logging condition met, but Outdoor AQI is invalid. Skipping log.");
   }
+  if (ventChanged) {
+    previousVentilationState = currentVentilationState;
+  }
+
   Serial.println("");
 
   delay(LOOP_DELAY);
@@ -304,8 +364,18 @@ String getSwitchStateString(SwitchState state) {
   }
 }
 
+// Helper function to set the WiFi Module's RGB LED color
+void setWiFiStatusLedColor(int r, int g, int b) {
+    // Using analogWrite, assuming 0 is off and higher values are brighter.
+    // Max value for WiFiDrv::analogWrite is typically 255, but project uses 50 for on.
+    WiFiDrv::analogWrite(WIFI_LED_R_PIN, r);
+    WiFiDrv::analogWrite(WIFI_LED_G_PIN, g);
+    WiFiDrv::analogWrite(WIFI_LED_B_PIN, b);
+}
+
 void logToGoogleForm(int currentOutdoorAqi, int currentIndoorAqi, SwitchState currentSwitchState, bool isVentilating, const String& reason) {
-  if (WiFi.status() != WL_CONNECTED) {
+  // Ensure WiFi is connected before proceeding
+  if (!PurpleAirSensor::ensureWiFiConnected()) {
     Serial.println(F("Google Forms: WiFi not connected. Cannot log data."));
     return;
   }
@@ -347,8 +417,16 @@ void logToGoogleForm(int currentOutdoorAqi, int currentIndoorAqi, SwitchState cu
 
   googleFormsClient.stop(); 
 
-  if (googleFormsClient.connect("docs.google.com", HTTPS_PORT)) {
-    Serial.println("Google Forms: Connected to docs.google.com");
+  // Ping Google Docs before attempting to connect
+  const char* googleDocsHost = "docs.google.com";
+  Serial.print(F("Google Forms: Pinging ")); Serial.print(googleDocsHost); Serial.println(F("..."));
+  wdt_reset(); // Reset WDT before potentially blocking operation
+  int pingResult = WiFi.ping(googleDocsHost, 1); // Ping once
+
+  if (pingResult >= 0) {
+    Serial.print(F("Google Forms: Ping successful. RTT: ")); Serial.print(pingResult); Serial.println(F(" ms"));
+    if (googleFormsClient.connect(googleDocsHost, HTTPS_PORT)) {
+      Serial.println("Google Forms: Connected to docs.google.com");
     
     char getRequestBuffer[sizeof(urlBuffer) + 30]; 
     snprintf(getRequestBuffer, sizeof(getRequestBuffer), "GET %s HTTP/1.1", urlBuffer);
@@ -389,6 +467,12 @@ void logToGoogleForm(int currentOutdoorAqi, int currentIndoorAqi, SwitchState cu
 
   } else {
     Serial.println("Google Forms: Connection failed!");
+    googleFormsClient.stop(); // Add stop() here to reset the client
+  }
+  } else { // Ping failed
+    Serial.print(F("Google Forms: Ping failed to ")); Serial.print(googleDocsHost); Serial.print(F(". Result: ")); Serial.println(pingResult);
+    Serial.println(F("Google Forms: Skipping connection attempt."));
+    // No need to call googleFormsClient.stop() here if ping failed, as we haven't used the client yet in this attempt after the initial stop().
   }
   
   if (googleFormsClient.connected()) {
