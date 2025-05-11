@@ -20,8 +20,6 @@ int outdoorAirQuality = -1; // For outdoor sensor
 int indoorAirQuality = -1;  // For indoor sensor
 SwitchState switchState = SwitchState::OFF;
 
-// WDTZero MyWatchDog; // Removing WDTZero object
-
 // Global objects
 // Outdoor Sensor
 PurpleAirSensor outdoorSensor(
@@ -44,10 +42,6 @@ PurpleAirSensor indoorSensor(
 );
 
 VentilationControl ventilation; // Assuming this class handles relay control logic
-
-// Timing variables
-long lastRestart = 0;
-long timeSinceLastRestart = 0;
 
 // Define Google Form Logging Constants (declared as extern in constants.h)
 // Values are taken from macros in arduino_secrets.h
@@ -77,7 +71,6 @@ bool isIndoorSensorEffectivelyConfigured() {
 void setup() {
   delay(1000); // Added delay to potentially help with USB re-enumeration
   // Record startup time
-  lastRestart = millis();
   
   // Initialize serial communication
   Serial.begin(SERIAL_BAUD_RATE);
@@ -121,8 +114,7 @@ void setup() {
   SwitchState initialSwitchState = SwitchState::OFF; // Default
   bool initialVentilationState = false;       // Default
   
-  // Check WiFi status before proceeding with state determination that might depend on it indirectly
-  // or before attempting a log.
+  // Check WiFi status before proceeding with state determination that might depend on it.
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("WiFi connected, proceeding with initial state determination for logging.");
     initialSwitchState = getSwitchState();
@@ -155,8 +147,6 @@ void setup() {
 }
 
 void loop() {
-  // Handle system restart
-  handleSystemRestart();
   wdt_reset();
   unsigned long currentTimeForLoop = millis(); // Use a single millis() call for this loop iteration for consistency
 
@@ -234,25 +224,36 @@ void loop() {
   }
 
   // Update ventilation state using the VentilationControl class
-  // This assumes VentilationControl uses the switchState and the latest airQuality value
   ventilation.update(switchState, outdoorAirQuality);
   bool currentVentilationState = ventilation.getVentilationState();
 
+  // Handle all data logging conditions
+  handleDataLogging(currentTimeForLoop, sensorDataUpdatedThisCycle, switchState, currentVentilationState);
+  Serial.println("");
+  delay(LOOP_DELAY);
+
+  // Pet the watchdog at the end of the loop to indicate normal operation.
+  wdt_reset();
+}
+
+// Function to manage data logging to Google Forms
+void handleDataLogging(unsigned long p_currentTimeForLoop, bool p_sensorDataUpdatedThisCycle, SwitchState p_currentSwitchState, bool p_currentVentilationState) {
+  static bool logDueToIntervalPending = false; // Persists across loop calls
+
   // Determine if events occurred this cycle
-  bool switchChanged = (switchState != previousSwitchState);
-  bool ventChanged = (currentVentilationState != previousVentilationState);
-  // sensorDataUpdatedThisCycle is already determined earlier in the loop
+  bool switchChanged = (p_currentSwitchState != previousSwitchState);
+  bool ventChanged = (p_currentVentilationState != previousVentilationState);
 
   // Check if the logging interval has passed to arm the pending flag
-  if (!logDueToIntervalPending && (currentTimeForLoop - lastLogTime >= GOOGLE_LOG_INTERVAL_MS)) {
-    Serial.println(F("[LOGIC] Interval elapsed. Setting logDueToIntervalPending = true."));
-    logDueToIntervalPending = true;
+  if (!logDueToIntervalPending && (p_currentTimeForLoop - lastLogTime >= GOOGLE_LOG_INTERVAL_MS)) {
+    // Serial.println(F("[LOGIC] Interval elapsed. Setting logDueToIntervalPending = true.")); // Debug removed
+    logDueToIntervalPending = true; // Interval is due, arm pending log
   }
 
   bool performLog = false;
   String logReason = "";
 
-  // Event-driven logs (switch or ventilation changes)
+  // Check for event-driven logs first (switch or ventilation changes)
   if (switchChanged) {
     performLog = true;
     logReason = F("switchChange");
@@ -266,68 +267,42 @@ void loop() {
     }
   }
 
-  // Interval-driven log (if pending and fresh data is available)
-  // This check is after event checks because an event log can also satisfy a pending interval.
-  if (!performLog && logDueToIntervalPending && sensorDataUpdatedThisCycle) {
-    Serial.println(F("[LOGIC] Interval log triggered: logDueToIntervalPending=true and fresh data available."));
-    performLog = true;
-    // logReason remains empty for a pure interval log
-  } else if (performLog && logDueToIntervalPending && sensorDataUpdatedThisCycle) {
-    Serial.println(F("[LOGIC] Event log also satisfies pending interval with fresh data."));
-    // Event log is already set to performLog, reason string is already set by event.
-    // The successful log will reset logDueToIntervalPending.
-  } else if (logDueToIntervalPending && !sensorDataUpdatedThisCycle) {
-    Serial.println(F("[LOGIC] Interval log pending, but no fresh sensor data this cycle."));
+  // Check for interval-driven log if no event log is already set to fire,
+  // and if an interval log is pending and fresh data is available.
+  // An event-driven log (if it occurred) can also satisfy a pending interval if fresh data is present,
+  // as a successful log of any kind will reset the logDueToIntervalPending flag.
+  if (!performLog && logDueToIntervalPending && p_sensorDataUpdatedThisCycle) {
+    performLog = true; // Interval log with fresh data
+    // logReason remains empty for a pure interval log (or will be event-driven if performLog was already true)
   }
+  // Note: If logDueToIntervalPending is true but p_sensorDataUpdatedThisCycle is false,
+  // no interval log happens this cycle; it remains pending.
 
-  // Perform the log if any condition was met
+  // Perform the log if any condition was met and outdoor AQI is valid
   if (performLog) {
     if (outdoorAirQuality != -1) {
       Serial.print(F("Logging to Google Forms. Reason: ")); Serial.println(logReason);
-      logToGoogleForm(outdoorAirQuality, indoorAirQuality, switchState, currentVentilationState, logReason);
+      logToGoogleForm(outdoorAirQuality, indoorAirQuality, p_currentSwitchState, p_currentVentilationState, logReason);
       
-      lastLogTime = currentTimeForLoop; // Reset interval timer on successful log
+      lastLogTime = p_currentTimeForLoop; // Reset interval timer on successful log
       if (logDueToIntervalPending) {
-          Serial.println(F("[LOGIC] Successful log resetting logDueToIntervalPending."));
           logDueToIntervalPending = false;  // Reset pending flag on successful log
       }
     } else {
-      Serial.println(F("[LOGIC] performLog=true, but Outdoor AQI is invalid. Skipping log."));
-      if (logDueToIntervalPending) {
-        Serial.println(F("[LOGIC] logDueToIntervalPending remains true as log was skipped (invalid AQI)."));
-      }
-      // lastLogTime is NOT updated if log is skipped, so interval remains "due" if it was.
-      // logDueToIntervalPending is NOT reset if log is skipped.
+      // Log was triggered but outdoor AQI is invalid, so we skip sending to Google Forms.
+      // If an interval log was pending, it remains pending because the log attempt failed.
+      // lastLogTime is also not updated, so the interval condition will remain met.
+      Serial.println(F("Log triggered, but Outdoor AQI is invalid. Skipping Google Forms log."));
     }
   }
 
-  // Update previous states for the next cycle
-  // This happens regardless of whether a log was successfully sent.
+  // Update previous states for the next cycle if they changed.
+  // This happens regardless of whether a log was successfully sent to ensure changes are acknowledged.
   if (switchChanged) {
-    previousSwitchState = switchState;
+    previousSwitchState = p_currentSwitchState;
   }
   if (ventChanged) {
-    previousVentilationState = currentVentilationState;
-  }
-
-  Serial.println("");
-
-  delay(LOOP_DELAY);
-
-  // Pet the watchdog at the end of the loop to indicate normal operation.
-  wdt_reset();
-}
-
-void handleSystemRestart() {
-  timeSinceLastRestart = millis() - lastRestart;
-  if (MAX_RUN_TIME > 0) { 
-    if (timeSinceLastRestart >= MAX_RUN_TIME) {
-      Serial.println(F("MAX_RUN_TIME reached. Requesting system reset."));
-      // TODO: If there are any problems here consider using the WDT library instead.
-      NVIC_SystemReset(); // Standard ARM CMSIS call for a software reset
-    } else {
-      Serial.println(String(timeSinceLastRestart/1000) + F("s uptime < ") + String(MAX_RUN_TIME/1000) + F("s max")); 
-    }
+    previousVentilationState = p_currentVentilationState;
   }
 }
 
@@ -365,9 +340,8 @@ String getSwitchStateString(SwitchState state) {
 }
 
 // Helper function to set the WiFi Module's RGB LED color
+// Using analogWrite, assuming 0 is off and 255 is max brightness.
 void setWiFiStatusLedColor(int r, int g, int b) {
-    // Using analogWrite, assuming 0 is off and higher values are brighter.
-    // Max value for WiFiDrv::analogWrite is typically 255, but project uses 50 for on.
     WiFiDrv::analogWrite(WIFI_LED_R_PIN, r);
     WiFiDrv::analogWrite(WIFI_LED_G_PIN, g);
     WiFiDrv::analogWrite(WIFI_LED_B_PIN, b);
@@ -392,12 +366,13 @@ void logToGoogleForm(int currentOutdoorAqi, int currentIndoorAqi, SwitchState cu
     snprintf(indoorAqiBuffer, sizeof(indoorAqiBuffer), "%d", currentIndoorAqi);
   }
 
-  char switchStateBuffer[12]; 
+  char switchStateBuffer[12];
+
   // Use snprintf for safer string copying into the buffer
+  // switchStateBuffer is now guaranteed to be null-terminated by snprintf
   String tempSwitchStateStr = getSwitchStateString(currentSwitchState);
   snprintf(switchStateBuffer, sizeof(switchStateBuffer), "%s", tempSwitchStateStr.c_str());
-  // switchStateBuffer is now guaranteed to be null-terminated by snprintf
-
+  
   char ventilationStateBuffer[4]; 
   strncpy(ventilationStateBuffer, isVentilating ? "ON" : "OFF", sizeof(ventilationStateBuffer) -1);
   ventilationStateBuffer[sizeof(ventilationStateBuffer) - 1] = '\\0';
@@ -463,7 +438,6 @@ void logToGoogleForm(int currentOutdoorAqi, int currentIndoorAqi, SwitchState cu
     }
 
     googleFormsClient.stop(); 
-    // Serial.println("Google Forms: Client stopped after response.");
 
   } else {
     Serial.println("Google Forms: Connection failed!");

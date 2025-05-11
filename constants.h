@@ -9,7 +9,7 @@
 constexpr int LOOP_DELAY = 1000;  // Main loop delay in milliseconds
 
 // only get data from sensors that have reported data recently, default = 60 minutes (sec)
-constexpr int MAX_SENSOR_AGE = 60 * 60;  // Maximum sensor age in seconds
+constexpr int MAX_SENSOR_AGE = 3600; // Maximum sensor age in seconds (e.g., 60 minutes) for API requests
 
 // delay time between purple air requests to avoid API blacklist
 // note: purple air is considering adding API pricing, so monitor this setting closely
@@ -22,12 +22,11 @@ constexpr int MAX_LOCAL_CONNECTION_ATTEMPTS = 3; // Max attempts to connect to l
 // note that the resetFunc does not work with the MKR WiFi 1010 but the SleepyDog library does
 // after reset you will need to replug in the USB cable (COM port hangs)
 // constexpr long MAX_RUN_TIME = 1000L * 60 * 60 * 6;  // Maximum runtime before restart (6 hours)
-constexpr long MAX_RUN_TIME = 0;  // Never reset intentionally- the watchdog should cover normal operation
 
 constexpr unsigned long SERIAL_BAUD_RATE = 9600; // Baud rate for Serial communication
 
 // Logging Frequency
-constexpr unsigned long GOOGLE_LOG_INTERVAL_MS = 1000 * 60 * 5; // Log every 15 minutes (in milliseconds)
+constexpr unsigned long GOOGLE_LOG_INTERVAL_MS = 1000 * 60 * 15; // Log every 15 minutes (in milliseconds)
 
 // Pin Definitions
 constexpr int PIN_RELAY1 = 1;

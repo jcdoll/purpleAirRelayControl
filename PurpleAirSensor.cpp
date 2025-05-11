@@ -16,6 +16,9 @@ extern void setWiFiStatusLedColor(int r, int g, int b);
 // Definition for the static JsonDocument
 StaticJsonDocument<PurpleAirSensor::JSON_DOC_SIZE> PurpleAirSensor::doc;
 
+// Static constant for API sensor ID separator (comma)
+static const char* API_SENSOR_SEPARATOR = "%2C";
+
 // Attempt to declare sbrk with C linkage at global scope for this file
 extern "C" {
     char* sbrk(int incr);
@@ -255,7 +258,6 @@ int PurpleAirSensor::getLocalAirQuality() {
 
         wdt_reset(); // Pet watchdog at the start of each attempt
 
-        // --- Pre-flight Ping Check ---
         Serial.print(this->sensorName); Serial.print(F(": Pinging local sensor at "));
         Serial.print(this->localServerIP);
         Serial.print(F("... "));
@@ -280,7 +282,6 @@ int PurpleAirSensor::getLocalAirQuality() {
             }
             continue; // Next attempt or exit if max attempts reached
         }
-        // --- End Pre-flight Ping Check ---
 
         WiFiClient wifiClient; // Create the WiFiClient for this attempt
         int currentAttemptAQI = -1; 
@@ -291,7 +292,6 @@ int PurpleAirSensor::getLocalAirQuality() {
         Serial.print(this->localServerPort);
         Serial.println(F("/json"));
 
-        // Revert to the simpler blocking connect since ping is the gatekeeper
         wdt_reset(); 
         if (wifiClient.connect(this->localServerIP, this->localServerPort)) {
             Serial.print(this->sensorName); Serial.println(F(": connection successful."));
@@ -318,92 +318,48 @@ int PurpleAirSensor::getLocalAirQuality() {
                     Serial.print(this->sensorName); Serial.print(F(": deserializeJson() failed for local data: "));
                     Serial.println(error.c_str());
                 } else {
-                    double sumPm2p5 = 0;
-                    int validSensorCount = 0;
+                    // Simplified JSON parsing logic for local sensor data
+                    currentAttemptAQI = -1; // Default to -1 for this attempt
+                    double pm25_for_calc = -1.0;
+                    bool found_preferred_pm_value = false;
 
-                    if (doc.containsKey("pm2.5_aqi")) { 
-                        // Serial.print(this->sensorName); Serial.println(F(": found 'pm2.5_aqi' directly in local JSON."));
-                        currentAttemptAQI = doc["pm2.5_aqi"].as<int>();
-                        localSensorAvailable = true;
-                        Serial.print(this->sensorName); Serial.print(F(": Local AQI (direct): ")); Serial.println(currentAttemptAQI);
-                    } else if (doc.containsKey("pm2.5_10minute")) {
-                        // Serial.print(this->sensorName); Serial.println(F(": found 'pm2.5_10minute' directly in local JSON."));
-                        sumPm2p5 = doc["pm2.5_10minute"].as<double>();
-                        validSensorCount = 1;
-                    } else if (doc.is<JsonArray>()) { 
-                        // Serial.print(this->sensorName); Serial.println(F(": local JSON is an array. Processing..."));
-                        JsonArray array = doc.as<JsonArray>();
-                        for (JsonObject sensorData : array) {
-                            if (sensorData.containsKey("ID") || sensorData.containsKey("SensorId")) { 
-                                bool useThisSensor = (this->numSensors == 0); 
-                                if (this->numSensors > 0) {
-                                    int currentSensorId = sensorData.containsKey("ID") ? sensorData["ID"].as<int>() : sensorData["SensorId"].as<int>();
-                                    for (int i = 0; i < this->numSensors; ++i) {
-                                        if (this->sensorIDs[i] == currentSensorId) {
-                                            useThisSensor = true;
-                                            break;
-                                        }
-                                    }
-                                }
-                                if (useThisSensor && sensorData.containsKey("pm2.5_10minute")) {
-                                    sumPm2p5 += sensorData["pm2.5_10minute"].as<double>();
-                                    validSensorCount++;
-                                } else if (useThisSensor && sensorData.containsKey("PM2_5Value")) { 
-                                    sumPm2p5 += sensorData["PM2_5Value"].as<double>();
-                                    validSensorCount++;
-                                }
-                            }
-                        }
-                    } else if (doc.is<JsonObject>()) { 
-                        // Serial.print(this->sensorName); Serial.println(F(": local JSON is an object. Processing..."));
+                    if (doc.is<JsonObject>()) {
                         JsonObject root = doc.as<JsonObject>();
-                        if (root.containsKey("results") && root["results"].is<JsonArray>()) {
-                            Serial.println(F("Found 'results' array in local JSON object."));
-                            JsonArray sensorResults = root["results"].as<JsonArray>();
-                            for (JsonObject sensorData : sensorResults) {
-                                bool useThisSensor = (this->numSensors == 0); 
-                                if (this->numSensors > 0 && sensorData.containsKey("ID")) { 
-                                    int currentSensorId = sensorData["ID"].as<int>();
-                                    for (int i = 0; i < this->numSensors; ++i) {
-                                        if (this->sensorIDs[i] == currentSensorId) {
-                                            useThisSensor = true;
-                                            break;
-                                        }
-                                    }
-                                } else if (this->numSensors == 0 && sensorResults.size() == 1) { 
-                                    useThisSensor = true;
-                                }
 
-                                if (useThisSensor && sensorData.containsKey("pm2.5_10minute")) {
-                                    sumPm2p5 += sensorData["pm2.5_10minute"].as<double>();
-                                    validSensorCount++;
-                                } else if (useThisSensor && sensorData.containsKey("PM2_5Value")) { 
-                                    sumPm2p5 += sensorData["PM2_5Value"].as<double>();
-                                    validSensorCount++;
-                                }
+                        if (root.containsKey("pm2_5_atm")) { // Directly check for the key with underscore
+                            pm25_for_calc = root["pm2_5_atm"].as<double>();
+                            if (pm25_for_calc >= 0) {
+                                Serial.print(this->sensorName); Serial.println(F(": Using 'pm2_5_atm' from local sensor for AQI calculation."));
+                                found_preferred_pm_value = true;
+                            } else {
+                                Serial.print(this->sensorName); Serial.print(F(": Invalid 'pm2_5_atm' value: ")); Serial.println(pm25_for_calc);
+                                pm25_for_calc = -1.0;
                             }
-                        } else if (root.containsKey("pm2.5_10minute")) { 
-                            sumPm2p5 = root["pm2.5_10minute"].as<double>();
-                            validSensorCount = 1;
-                        } else if (root.containsKey("pm2_5_atm")) { 
-                             Serial.println(F("Found 'pm2_5_atm' in local JSON object."));
-                            sumPm2p5 = root["pm2_5_atm"].as<double>();
-                            validSensorCount = 1;
-                        } else if (root.containsKey("pm2.5")) { 
-                            Serial.println(F("Found 'pm2.5' in local JSON object."));
-                            sumPm2p5 = root["pm2.5"].as<double>();
-                            validSensorCount = 1;
                         }
-                    }
+                        
+                        // If a preferred raw PM2.5 value was found and is valid, calculate AQI
+                        if (found_preferred_pm_value) {
+                            currentAttemptAQI = static_cast<int>(round(calculateAQI(pm25_for_calc)));
+                            localSensorAvailable = true;
+                            Serial.print(this->sensorName); Serial.print(F(": Local data processed. Raw PM2.5: ")); Serial.print(pm25_for_calc);
+                            Serial.print(F(", Calculated AQI: ")); Serial.println(currentAttemptAQI);
+                        } 
 
-                    if (validSensorCount > 0 && !doc.containsKey("pm2.5_aqi")) {
-                        double avgPm2p5 = sumPm2p5 / validSensorCount;
-                        currentAttemptAQI = static_cast<int>(round(calculateAQI(avgPm2p5)));
-                        localSensorAvailable = true;
-                        Serial.print(this->sensorName); Serial.print(F(": Local data processed. Average PM2.5: ")); Serial.print(avgPm2p5);
-                        Serial.print(F(", Calculated AQI: ")); Serial.println(currentAttemptAQI);
-                    } else if (validSensorCount == 0 && !doc.containsKey("pm2.5_aqi")) {
-                         Serial.println(F("No relevant PM2.5 data found in local JSON for averaging."));
+                        // If no pm2.5 value, fall back to sensor's pre-calculated 'pm2.5_aqi'
+                        else if (root.containsKey("pm2.5_aqi")) {
+                            currentAttemptAQI = root["pm2.5_aqi"].as<int>();
+                            if (currentAttemptAQI >= 0) {
+                                localSensorAvailable = true;
+                                Serial.print(this->sensorName); Serial.print(F(": Using pre-calculated 'pm2.5_aqi' from local sensor: ")); Serial.println(currentAttemptAQI);
+                            } else {
+                                Serial.print(this->sensorName); Serial.print(F(": Invalid pre-calculated 'pm2.5_aqi' value: ")); Serial.println(currentAttemptAQI);
+                                currentAttemptAQI = -1; // Mark as invalid
+                            }
+                        } else {
+                            Serial.print(this->sensorName); Serial.println(F(": No suitable PM2.5 data or pre-calculated AQI found in local JSON object."));
+                        }
+                    } else {
+                        Serial.print(this->sensorName); Serial.println(F(": Local JSON response was not a single object as expected. Cannot parse."));
                     }
                 }
             } else {
@@ -498,8 +454,8 @@ int PurpleAirSensor::getAPIAirQuality() {
 
         if (i < this->numSensors - 1) {
             // Ensure there's space for separator
-            if (strlen(apiPathBuffer) + 3 < sizeof(apiPathBuffer) -1) { // 3 for "%2C"
-                 strncat(apiPathBuffer, "%2C", sizeof(apiPathBuffer) - strlen(apiPathBuffer) - 1);
+            if (strlen(apiPathBuffer) + strlen(API_SENSOR_SEPARATOR) < sizeof(apiPathBuffer) -1) {
+                 strncat(apiPathBuffer, API_SENSOR_SEPARATOR, sizeof(apiPathBuffer) - strlen(apiPathBuffer) - 1);
             } else {
                 Serial.println(F("API path buffer too small for separator!"));
                 return -1; // Handle error
@@ -507,19 +463,28 @@ int PurpleAirSensor::getAPIAirQuality() {
         }
     }
     
+    // Append max_age parameter
+    char maxAgeStr[20]; // Buffer for "&max_age=XXXXX"
+    snprintf(maxAgeStr, sizeof(maxAgeStr), "&max_age=%d", MAX_SENSOR_AGE);
+    if (strlen(apiPathBuffer) + strlen(maxAgeStr) < sizeof(apiPathBuffer) -1) {
+        strncat(apiPathBuffer, maxAgeStr, sizeof(apiPathBuffer) - strlen(apiPathBuffer) - 1);
+    } else {
+        Serial.println(F("API path buffer too small for max_age parameter!"));
+        // Handle error: maybe return -1 or skip this API call
+        return -1;
+    }
+
     // Ensure watchdog is reset before making network calls that might take time
     wdt_reset();
 
     Serial.print(this->sensorName); Serial.print(F(": API Request Path: ")); Serial.println(apiPathBuffer);
 
-    // --- Diagnostic: Print full request URL ---
     Serial.print(this->sensorName); Serial.print(F(": Attempting Full API Request URL: https://"));
     Serial.print(this->apiServerHost);
     Serial.println(apiPathBuffer);
-    // --- End Diagnostic ---
 
     apiClient.beginRequest();
-    apiClient.get(apiPathBuffer); // Use the char array path
+    apiClient.get(apiPathBuffer);
     apiClient.sendHeader("X-API-Key", this->apiKey); 
     apiClient.sendHeader(HTTP_HEADER_CONTENT_TYPE, "application/json");
     apiClient.endRequest();
@@ -589,12 +554,6 @@ int PurpleAirSensor::getAPIAirQuality() {
                 Serial.println(F("Sensor data row is too short for pm2.5_10minute index. Skipping."));
                 continue;
             }
-
-            // Optional: Log sensor_index if you want to match readings to specific sensors
-            // if (sensor_idx_idx != -1 && sensor_idx_idx < sensor_data_row.size()) {
-            //     Serial.print(F("  Processing sensor_index: "));
-            //     Serial.println(sensor_data_row[sensor_idx_idx].as<int>());
-            // }
 
             JsonVariant pm25_variant = sensor_data_row[pm25_10m_idx];
             if (!pm25_variant.is<float>() && !pm25_variant.is<double>() && !pm25_variant.is<int>()) {

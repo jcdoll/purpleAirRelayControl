@@ -17,6 +17,7 @@ void VentilationControl::begin() {
     WiFiDrv::pinMode(WIFI_LED_B_PIN, OUTPUT);
     
     // Enable pullups on digital pins
+    // This is critical for the switch inputs to work properly
     pinMode(PIN_SWITCH_INPUT1, INPUT_PULLUP);
     pinMode(PIN_SWITCH_INPUT2, INPUT_PULLUP);
 }
