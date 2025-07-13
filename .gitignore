@@ -1,3 +1,18 @@
-box.stl
+# Case
 shelf.stl
+box.stl
+
+# Arduino
 arduino_secrets.h
+
+# React dashboard
+dashboard/node_modules/
+dashboard/build/
+dashboard/.env.local
+dashboard/.env.development.local
+dashboard/.env.test.local
+dashboard/.env.production.local
+dashboard/npm-debug.log*
+dashboard/yarn-debug.log*
+dashboard/yarn-error.log*
+.DS_Store

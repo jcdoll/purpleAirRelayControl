@@ -26,6 +26,13 @@ This project currently runs on an Arduino board. An ESP32 version is in progress
 
 ## ESP32
 
+
+https://www.adafruit.com/product/5691 or https://www.adafruit.com/product/6303 with https://www.adafruit.com/product/5445
+https://www.adafruit.com/product/2886
+https://www.adafruit.com/product/3191 (old) -> solder for A0 control
+https://www.adafruit.com/product/2923 (new)
+
+
 In progress
 
 
