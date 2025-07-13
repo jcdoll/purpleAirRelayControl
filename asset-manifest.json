@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/purpleAirRelayControl/static/css/main.a926c93a.css",
+    "main.js": "/purpleAirRelayControl/static/js/main.80ef44a1.js",
+    "index.html": "/purpleAirRelayControl/index.html",
+    "main.a926c93a.css.map": "/purpleAirRelayControl/static/css/main.a926c93a.css.map",
+    "main.80ef44a1.js.map": "/purpleAirRelayControl/static/js/main.80ef44a1.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.a926c93a.css",
+    "static/js/main.80ef44a1.js"
+  ]
+}

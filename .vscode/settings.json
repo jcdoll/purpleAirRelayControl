@@ -1,0 +1,22 @@
+{
+    "terminal.integrated.defaultProfile.windows": "PowerShell 7",
+    "terminal.integrated.profiles.windows": {
+        "PowerShell 7": {
+            "source": "PowerShell",
+            "icon": "terminal-powershell",
+            "args": ["-NoLogo", "-NoExit", "-Command", "& { Set-PSReadLineOption -PredictionSource None; Set-PSReadLineOption -PredictionViewStyle ListView; Set-PSReadLineOption -BellStyle None; Set-PSReadLineOption -EditMode Windows; Set-PSReadLineOption -MaximumHistoryCount 1000; Set-PSReadLineOption -HistorySaveStyle SaveIncrementally; Remove-PSReadLineKeyHandler -Chord 'Ctrl+r' -ErrorAction SilentlyContinue; Remove-PSReadLineKeyHandler -Chord 'Ctrl+R' -ErrorAction SilentlyContinue }"]
+        },
+        "Command Prompt": {
+            "path": [
+                "${env:windir}\\Sysnative\\cmd.exe",
+                "${env:windir}\\System32\\cmd.exe"
+            ],
+            "args": [],
+            "icon": "terminal-cmd"
+        },
+        "Git Bash": {
+            "source": "Git Bash"
+        }
+    },
+    "terminal.integrated.shellIntegration.enabled": true
+} 
