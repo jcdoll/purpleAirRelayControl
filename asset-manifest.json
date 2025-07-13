@@ -1,13 +1,13 @@
 {
   "files": {
     "main.css": "/purpleAirRelayControl/static/css/main.559db88f.css",
-    "main.js": "/purpleAirRelayControl/static/js/main.9a85fac8.js",
+    "main.js": "/purpleAirRelayControl/static/js/main.674349a9.js",
     "index.html": "/purpleAirRelayControl/index.html",
     "main.559db88f.css.map": "/purpleAirRelayControl/static/css/main.559db88f.css.map",
-    "main.9a85fac8.js.map": "/purpleAirRelayControl/static/js/main.9a85fac8.js.map"
+    "main.674349a9.js.map": "/purpleAirRelayControl/static/js/main.674349a9.js.map"
   },
   "entrypoints": [
     "static/css/main.559db88f.css",
-    "static/js/main.9a85fac8.js"
+    "static/js/main.674349a9.js"
   ]
 }
