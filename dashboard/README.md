@@ -9,6 +9,8 @@ This React dashboard visualizes air quality data from the PurpleAir sensor conne
 - **Timeline View**: Explore historical data with zoom and pan
 - **Correlation Analysis**: Compare indoor vs outdoor air quality
 - **Day of Week Patterns**: See if patterns vary by day
+- **Annual Heatmap**: GitHub-style calendar view of year-round air quality patterns
+- **Timezone Support**: Configure source and display timezones
 - **Auto-refresh**: Data updates every 5 minutes from Google Sheets
 
 ## Setup
@@ -25,10 +27,54 @@ This React dashboard visualizes air quality data from the PurpleAir sensor conne
    npm start
    ```
 
-4. Deploy to GitHub Pages:
+## Deployment to GitHub Pages
+
+### Initial Setup
+
+1. **Install gh-pages package**:
+   ```bash
+   npm install --save-dev gh-pages
+   ```
+
+2. **Update package.json** (already configured in this project):
+   ```json
+   {
+     "homepage": "https://yourusername.github.io/yourrepository",
+     "scripts": {
+       "predeploy": "npm run build",
+       "deploy": "gh-pages -d build"
+     }
+   }
+   ```
+
+3. **Deploy to GitHub Pages**:
    ```bash
    npm run deploy
    ```
+
+### Configure GitHub Repository
+
+1. Go to your GitHub repository settings
+2. Navigate to **Pages** in the left sidebar
+3. Set source to **Deploy from a branch**
+4. Select **gh-pages** branch
+5. Select **/ (root)** folder
+6. Click **Save**
+
+### Live Site
+
+Your dashboard will be available at: `https://yourusername.github.io/yourrepository`
+
+Wait 2-10 minutes after first deployment for the site to become available.
+
+### Future Updates
+
+To update your live site, simply run:
+```bash
+npm run deploy
+```
+
+This will automatically build and deploy the latest changes.
 
 ## Data Source
 

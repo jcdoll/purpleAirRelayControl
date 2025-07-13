@@ -139,7 +139,8 @@ header p {
 .controls > .heatmap-controls,
 .controls > .date-range,
 .controls > .data-source,
-.controls > .annual-heatmap-controls {
+.controls > .annual-heatmap-controls,
+.controls > .hourly-controls {
   margin-bottom: 15px;
 }
 
@@ -151,6 +152,14 @@ header p {
 }
 
 .heatmap-controls {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.hourly-controls {
   display: flex;
   gap: 20px;
   flex-wrap: wrap;

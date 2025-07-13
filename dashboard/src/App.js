@@ -13,7 +13,7 @@ function App() {
   const [dateRange, setDateRange] = useState(30);
   const [selectedView, setSelectedView] = useState('heatmap');
   const [heatmapDataSource, setHeatmapDataSource] = useState('indoor');
-  const [annualDataSource, setAnnualDataSource] = useState('indoor');
+  const [hourlyDataSource, setHourlyDataSource] = useState('indoor');
   const [annualHeatmapDataSource, setAnnualHeatmapDataSource] = useState('indoor');
   const [annualHeatmapAggregation, setAnnualHeatmapAggregation] = useState('average');
   const [timeRangeType, setTimeRangeType] = useState('recent'); // 'recent' or 'previous_year'
@@ -308,7 +308,7 @@ function App() {
     };
   };
 
-  const getHourlyStats = (timeFrameDays = 30) => {
+  const getHourlyStats = (dataSource = 'indoor', timeFrameDays = 30) => {
     const recentData = getFilteredData();
     const hourlyData = {};
     
@@ -316,7 +316,8 @@ function App() {
       if (!hourlyData[row.hour]) {
         hourlyData[row.hour] = [];
       }
-      hourlyData[row.hour].push(row.IndoorAirQuality);
+      const value = dataSource === 'indoor' ? row.IndoorAirQuality : row.OutdoorAirQuality;
+      hourlyData[row.hour].push(value);
     });
     
     const hours = Array.from({length: 24}, (_, i) => i);
@@ -327,8 +328,7 @@ function App() {
         mean: values.length > 0 ? values.reduce((a, b) => a + b) / values.length : 0,
         max: values.length > 0 ? Math.max(...values) : 0,
         min: values.length > 0 ? Math.min(...values) : 0,
-        count: values.length,
-        spikes: values.filter(v => v > 50).length
+        count: values.length
       };
     });
     
@@ -357,33 +357,6 @@ function App() {
         line: { color: 'blue', width: 1 }
       }
     ];
-  };
-
-  const getDayOfWeekAnalysis = () => {
-    const filteredData = getFilteredData();
-    const dayData = {};
-    const dayOrder = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    
-    filteredData.forEach(row => {
-      const key = `${row.dayOfWeek}-${row.hour}`;
-      if (!dayData[key]) {
-        dayData[key] = [];
-      }
-      dayData[key].push(row.IndoorAirQuality);
-    });
-    
-    return dayOrder.map(day => ({
-      x: Array.from({length: 24}, (_, i) => i),
-      y: Array.from({length: 24}, (_, hour) => {
-        const key = `${day}-${hour}`;
-        const values = dayData[key] || [];
-        return values.length > 0 ? values.reduce((a, b) => a + b) / values.length : 0;
-      }),
-      type: 'scatter',
-      mode: 'lines',
-      name: day,
-      line: { width: 2 }
-    }));
   };
 
   const getCorrelationData = () => {
@@ -419,88 +392,86 @@ function App() {
       displayNow = new Date(now.getTime() + (offsetDiff * 60 * 60 * 1000));
     }
     
-    // Get data for the current year
     const currentYear = displayNow.getFullYear();
-    const yearStart = new Date(currentYear, 0, 1);
-    const yearEnd = new Date(currentYear, 11, 31);
+    const years = [currentYear - 2, currentYear - 1, currentYear]; // Last 3 years
     
-    // Filter data to current year
-    const yearData = data.filter(d => {
-      const dataYear = d.timestamp.getFullYear();
-      return dataYear === currentYear;
-    });
+    // Process data for all 3 years
+    const allYearsData = [];
+    const allYearsText = [];
+    const allYearsX = [];
+    const allYearsY = [];
     
-    // Group data by date
-    const dailyData = {};
-    yearData.forEach(row => {
-      const date = row.date; // Already in format YYYY-MM-DD
-      if (!dailyData[date]) {
-        dailyData[date] = [];
-      }
-      const value = dataSource === 'indoor' ? row.IndoorAirQuality : row.OutdoorAirQuality;
-      if (value !== null && value !== undefined) {
-        dailyData[date].push(value);
-      }
-    });
-    
-    // Calculate daily aggregations
-    const dailyValues = {};
-    Object.keys(dailyData).forEach(date => {
-      const values = dailyData[date];
-      if (values.length > 0) {
-        dailyValues[date] = aggregation === 'average' 
-          ? values.reduce((a, b) => a + b) / values.length
-          : Math.max(...values);
-      }
-    });
-    
-    // Create GitHub-style week grid (52 weeks x 7 days)
-    // Find the Sunday before or on January 1st
-    const firstSunday = new Date(yearStart);
-    firstSunday.setDate(firstSunday.getDate() - firstSunday.getDay());
-    
-    // Create arrays for the full year grid
-    const weekNumbers = [];
-    const weekdays = [];
-    const zValues = [];
-    const hoverText = [];
-    
-    let currentDate = new Date(firstSunday);
-    
-    // Generate 52 weeks
-    for (let week = 0; week < 52; week++) {
-      // Generate 7 days for this week
-      for (let day = 0; day < 7; day++) {
-        const dateStr = currentDate.toISOString().split('T')[0];
-        const isCurrentYear = currentDate.getFullYear() === currentYear;
-        const isFuture = currentDate > displayNow;
-        
-        weekNumbers.push(week + 1);
-        weekdays.push(day);
-        
-        if (isCurrentYear && !isFuture) {
-          const value = dailyValues[dateStr];
-          zValues.push(value !== undefined ? value : null);
-          hoverText.push(value !== undefined ? `${dateStr}<br>PM2.5: ${value.toFixed(1)} µg/m³` : `${dateStr}<br>No data`);
-        } else {
-          // No data for dates outside current year or future dates
-          zValues.push(null);
-          hoverText.push(`${dateStr}<br>No data`);
+    years.forEach((year, yearIndex) => {
+      // Filter data to specific year
+      const yearData = data.filter(d => d.timestamp.getFullYear() === year);
+      
+      // Group data by date
+      const dailyData = {};
+      yearData.forEach(row => {
+        const date = row.date; // Already in format YYYY-MM-DD
+        if (!dailyData[date]) {
+          dailyData[date] = [];
         }
-        
-        currentDate.setDate(currentDate.getDate() + 1);
+        const value = dataSource === 'indoor' ? row.IndoorAirQuality : row.OutdoorAirQuality;
+        if (value !== null && value !== undefined) {
+          dailyData[date].push(value);
+        }
+      });
+      
+      // Calculate daily aggregations
+      const dailyValues = {};
+      Object.keys(dailyData).forEach(date => {
+        const values = dailyData[date];
+        if (values.length > 0) {
+          dailyValues[date] = aggregation === 'average' 
+            ? values.reduce((a, b) => a + b) / values.length
+            : Math.max(...values);
+        }
+      });
+      
+      // Create GitHub-style week grid for this year
+      const yearStart = new Date(year, 0, 1);
+      const firstSunday = new Date(yearStart);
+      firstSunday.setDate(firstSunday.getDate() - firstSunday.getDay());
+      
+      let currentDate = new Date(firstSunday);
+      
+      // Generate 52 weeks for this year
+      for (let week = 0; week < 52; week++) {
+        for (let day = 0; day < 7; day++) {
+          const dateStr = currentDate.toISOString().split('T')[0];
+          const isTargetYear = currentDate.getFullYear() === year;
+          const isFuture = year === currentYear && currentDate > displayNow;
+          
+          // X position: week + (yearIndex * 54) to space out years
+          allYearsX.push(week + (yearIndex * 54));
+          allYearsY.push(day);
+          
+          if (isTargetYear && !isFuture) {
+            const value = dailyValues[dateStr];
+            allYearsData.push(value !== undefined ? value : null);
+            allYearsText.push(value !== undefined ? `${dateStr}<br>PM2.5: ${value.toFixed(1)} µg/m³` : `${dateStr}<br>No data`);
+          } else {
+            // No data for dates outside target year or future dates
+            allYearsData.push(null);
+            allYearsText.push(`${dateStr}<br>No data`);
+          }
+          
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
       }
-    }
+    });
     
     return {
-      x: weekNumbers,
-      y: weekdays,
-      z: zValues,
-      text: hoverText,
+      x: allYearsX,
+      y: allYearsY,
+      z: allYearsData,
+      text: allYearsText,
       hoverinfo: 'text',
       type: 'heatmap',
       colorscale: [
-        [0, '#00E400'],      // Green (Good: 0-12)
+        [0, '#f0f0f0'],      // Light gray for no data
+        [0.001, '#00E400'],  // Green (Good: 0-12)
         [0.08, '#00E400'],   // Green
         [0.08, '#FFDC00'],   // Yellow (Moderate: 12.1-35.4)
         [0.24, '#FFDC00'],   // Yellow
@@ -512,57 +483,10 @@ function App() {
       zmin: 0,
       zmax: 150,
       showscale: false,
-      xgap: 3,  // Gap between columns (weeks)
-      ygap: 3,  // Gap between rows (days)
+      xgap: 3,
+      ygap: 3,
       hoverongaps: false
     };
-  };
-
-  const getAnnualComparisonData = (dataSource = 'indoor') => {
-    // Group data by year and day of year
-    const yearData = {};
-    
-    data.forEach(row => {
-      const year = row.timestamp.getFullYear();
-      const dayOfYear = Math.floor((row.timestamp - new Date(year, 0, 0)) / (1000 * 60 * 60 * 24));
-      
-      if (!yearData[year]) {
-        yearData[year] = {};
-      }
-      if (!yearData[year][dayOfYear]) {
-        yearData[year][dayOfYear] = [];
-      }
-      
-      const value = dataSource === 'indoor' ? row.IndoorAirQuality : row.OutdoorAirQuality;
-      if (value !== null && value !== undefined) {
-        yearData[year][dayOfYear].push(value);
-      }
-    });
-    
-    // Create line plots for each year
-    const years = Object.keys(yearData).sort().slice(-3); // Last 3 years
-    const colors = ['#2196F3', '#FF7E00', '#00E400', '#FF0000', '#8F3F97'];
-    
-    return years.map((year, index) => {
-      const days = Array.from({length: 365}, (_, i) => i + 1);
-      const values = days.map(day => {
-        const dayValues = yearData[year][day] || [];
-        return dayValues.length > 0 ? dayValues.reduce((a, b) => a + b) / dayValues.length : null;
-      });
-      
-      return {
-        x: days,
-        y: values,
-        type: 'scatter',
-        mode: 'lines',
-        name: year,
-        line: { 
-          color: colors[index % colors.length], 
-          width: 2 
-        },
-        connectgaps: true
-      };
-    });
   };
 
   const calculatePatternSummary = () => {
@@ -570,8 +494,7 @@ function App() {
     
     const recentData = getFilteredData();
     
-    const hourlyStats = getHourlyStats(dateRange);
-    const peakHour = hourlyStats.reduce((prev, current) => 
+    const peakHour = getHourlyStats(hourlyDataSource, dateRange).reduce((prev, current) => 
       prev.mean > current.mean ? prev : current
     );
     
@@ -579,20 +502,13 @@ function App() {
     const avgIndoor = recentData.reduce((sum, d) => sum + d.IndoorAirQuality, 0) / recentData.length;
     const avgOutdoor = recentData.reduce((sum, d) => sum + d.OutdoorAirQuality, 0) / recentData.length;
     
-    // Find most consistent spike hours
-    const spikesByHour = hourlyStats
-      .map(h => ({ hour: h.hour, spikeRate: h.spikes / h.count }))
-      .sort((a, b) => b.spikeRate - a.spikeRate)
-      .slice(0, 3);
-    
     return {
       peakHour: peakHour.hour,
       peakValue: peakHour.mean.toFixed(1),
       totalSpikes,
       avgIndoor: avgIndoor.toFixed(1),
       avgOutdoor: avgOutdoor.toFixed(1),
-      dataPoints: recentData.length,
-      topSpikeHours: spikesByHour
+      dataPoints: recentData.length
     };
   };
 
@@ -618,7 +534,6 @@ function App() {
   }
 
   const summary = calculatePatternSummary();
-  const hourlyStats = getHourlyStats();
 
   return (
     <div className="App">
@@ -658,14 +573,6 @@ function App() {
         </div>
       </div>
 
-      {summary?.topSpikeHours && (
-        <div className="spike-summary">
-          <p>🎯 Most frequent spike hours: {
-            summary.topSpikeHours.map(h => `${h.hour}:00 (${(h.spikeRate * 100).toFixed(0)}%)`).join(', ')
-          }</p>
-        </div>
-      )}
-
       <div className="controls">
         <div className="view-selector">
           <button 
@@ -691,18 +598,6 @@ function App() {
             onClick={() => setSelectedView('correlation')}
           >
             Correlation
-          </button>
-          <button 
-            className={selectedView === 'dayofweek' ? 'active' : ''}
-            onClick={() => setSelectedView('dayofweek')}
-          >
-            Day Patterns
-          </button>
-          <button 
-            className={selectedView === 'annual' ? 'active' : ''}
-            onClick={() => setSelectedView('annual')}
-          >
-            Annual Patterns
           </button>
           <button 
             className={selectedView === 'annual-heatmap' ? 'active' : ''}
@@ -787,71 +682,80 @@ function App() {
         )}
         
         {selectedView === 'hourly' && (
-          <div className="date-range">
-            <label>Time frame: </label>
-            <div className="time-range-toggle">
-              <label>
-                <input 
-                  type="radio" 
-                  name="dateRangeMode" 
-                  value="predefined" 
-                  checked={dateRangeMode === 'predefined'} 
-                  onChange={(e) => setDateRangeMode(e.target.value)} 
-                />
-                Predefined
-              </label>
-              <label>
-                <input 
-                  type="radio" 
-                  name="dateRangeMode" 
-                  value="custom" 
-                  checked={dateRangeMode === 'custom'} 
-                  onChange={(e) => setDateRangeMode(e.target.value)} 
-                />
-                Custom
-              </label>
-            </div>
-            {dateRangeMode === 'predefined' ? (
-              <select value={timeRangeType === 'previous_year' ? 'previous_year' : dateRange} onChange={(e) => {
-                const value = e.target.value;
-                if (value === 'previous_year') {
-                  setTimeRangeType('previous_year');
-                  setDateRange(365);
-                } else {
-                  setTimeRangeType('recent');
-                  setDateRange(Number(value));
-                }
-              }}>
-                <option value={7}>Last 7 days</option>
-                <option value={14}>Last 14 days</option>
-                <option value={30}>Last 30 days</option>
-                <option value={60}>Last 60 days</option>
-                <option value={90}>Last 90 days</option>
-                <option value={180}>Last 6 months</option>
-                <option value={365}>Last 12 months</option>
-                <option value="previous_year">Previous year</option>
-              </select>
-            ) : (
-              <div className="custom-date-range">
-                <input
-                  type="date"
-                  value={customStartDate}
-                  onChange={(e) => setCustomStartDate(e.target.value)}
-                  placeholder="Start date"
-                />
-                <span>to</span>
-                <input
-                  type="date"
-                  value={customEndDate}
-                  onChange={(e) => setCustomEndDate(e.target.value)}
-                  placeholder="End date"
-                />
+          <div className="hourly-controls">
+            <div className="date-range">
+              <label>Time frame: </label>
+              <div className="time-range-toggle">
+                <label>
+                  <input 
+                    type="radio" 
+                    name="dateRangeMode" 
+                    value="predefined" 
+                    checked={dateRangeMode === 'predefined'} 
+                    onChange={(e) => setDateRangeMode(e.target.value)} 
+                  />
+                  Predefined
+                </label>
+                <label>
+                  <input 
+                    type="radio" 
+                    name="dateRangeMode" 
+                    value="custom" 
+                    checked={dateRangeMode === 'custom'} 
+                    onChange={(e) => setDateRangeMode(e.target.value)} 
+                  />
+                  Custom
+                </label>
               </div>
-            )}
+              {dateRangeMode === 'predefined' ? (
+                <select value={timeRangeType === 'previous_year' ? 'previous_year' : dateRange} onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === 'previous_year') {
+                    setTimeRangeType('previous_year');
+                    setDateRange(365);
+                  } else {
+                    setTimeRangeType('recent');
+                    setDateRange(Number(value));
+                  }
+                }}>
+                  <option value={7}>Last 7 days</option>
+                  <option value={14}>Last 14 days</option>
+                  <option value={30}>Last 30 days</option>
+                  <option value={60}>Last 60 days</option>
+                  <option value={90}>Last 90 days</option>
+                  <option value={180}>Last 6 months</option>
+                  <option value={365}>Last 12 months</option>
+                  <option value="previous_year">Previous year</option>
+                </select>
+              ) : (
+                <div className="custom-date-range">
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    placeholder="Start date"
+                  />
+                  <span>to</span>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    placeholder="End date"
+                  />
+                </div>
+              )}
+            </div>
+            <div className="data-source">
+              <label>Data source: </label>
+              <select value={hourlyDataSource} onChange={(e) => setHourlyDataSource(e.target.value)}>
+                <option value="indoor">Indoor PM2.5</option>
+                <option value="outdoor">Outdoor PM2.5</option>
+              </select>
+            </div>
           </div>
         )}
         
-        {(selectedView === 'correlation' || selectedView === 'timeline' || selectedView === 'dayofweek') && (
+        {(selectedView === 'correlation' || selectedView === 'timeline') && (
           <div className="date-range">
             <label>Time frame: </label>
             <div className="time-range-toggle">
@@ -913,16 +817,6 @@ function App() {
                 />
               </div>
             )}
-          </div>
-        )}
-
-        {selectedView === 'annual' && (
-          <div className="data-source">
-            <label>Data source: </label>
-            <select value={annualDataSource} onChange={(e) => setAnnualDataSource(e.target.value)}>
-              <option value="indoor">Indoor PM2.5</option>
-              <option value="outdoor">Outdoor PM2.5</option>
-            </select>
           </div>
         )}
 
@@ -998,41 +892,24 @@ function App() {
 
         {selectedView === 'hourly' && (
           <div>
-            <h2>Hourly Pattern Analysis - {getTimeRangeDescription()}</h2>
+            <h2>{hourlyDataSource === 'indoor' ? 'Indoor' : 'Outdoor'} PM2.5 Hourly Pattern Analysis - {getTimeRangeDescription()}</h2>
             <Plot
               data={[
                 {
-                  x: getHourlyStats(dateRange).map(h => `${h.hour}:00`),
-                  y: getHourlyStats(dateRange).map(h => h.mean),
+                  x: getHourlyStats(hourlyDataSource, dateRange).map(h => `${h.hour}:00`),
+                  y: getHourlyStats(hourlyDataSource, dateRange).map(h => h.mean),
                   type: 'bar',
                   name: 'Average PM2.5',
                   marker: {
-                    color: getHourlyStats(dateRange).map(h => getAQIColor(h.mean))
+                    color: getHourlyStats(hourlyDataSource, dateRange).map(h => getAQIColor(h.mean))
                   },
-                  text: getHourlyStats(dateRange).map(h => `${h.mean.toFixed(1)} µg/m³`),
-                  textposition: 'auto',
-                },
-                {
-                  x: getHourlyStats(dateRange).map(h => `${h.hour}:00`),
-                  y: getHourlyStats(dateRange).map(h => h.spikes),
-                  type: 'scatter',
-                  mode: 'lines+markers',
-                  name: 'Spike Count (>50)',
-                  yaxis: 'y2',
-                  line: { color: 'orange', width: 2 },
-                  marker: { size: 8 }
+                  hovertemplate: 'Hour: %{x}<br>Average PM2.5: %{y:.1f} µg/m³<extra></extra>'
                 }
               ]}
               layout={{
                 xaxis: { title: 'Hour of Day' },
                 yaxis: { title: 'Average PM2.5 (µg/m³)' },
-                yaxis2: {
-                  title: 'Number of Spikes',
-                  overlaying: 'y',
-                  side: 'right'
-                },
-                showlegend: true,
-                legend: { x: 0.1, y: 0.9 }
+                showlegend: false
               }}
               config={{ responsive: true }}
               style={{ width: '100%', height: '500px' }}
@@ -1078,60 +955,17 @@ function App() {
           </div>
         )}
 
-        {selectedView === 'dayofweek' && (
-          <div>
-            <h2>Day of Week Patterns - {getTimeRangeDescription()}</h2>
-            <p className="subtitle">Compare hourly patterns across different days</p>
-            <Plot
-              data={getDayOfWeekAnalysis()}
-              layout={{
-                xaxis: { 
-                  title: 'Hour of Day',
-                  tickmode: 'linear',
-                  tick0: 0,
-                  dtick: 1
-                },
-                yaxis: { title: 'Average PM2.5 (µg/m³)' },
-                showlegend: true,
-                legend: { x: 1.02, y: 0.5 }
-              }}
-              config={{ responsive: true }}
-              style={{ width: '100%', height: '500px' }}
-            />
-          </div>
-        )}
-
-        {selectedView === 'annual' && (
-          <div>
-            <h2>{annualDataSource === 'indoor' ? 'Indoor' : 'Outdoor'} PM2.5 Annual Comparison</h2>
-            <p className="subtitle">Compare yearly patterns - each line represents a different year</p>
-            <Plot
-              data={getAnnualComparisonData(annualDataSource)}
-              layout={{
-                xaxis: { 
-                  title: 'Day of Year',
-                  tickmode: 'linear',
-                  tick0: 1,
-                  dtick: 30
-                },
-                yaxis: { title: 'Daily Average PM2.5 (µg/m³)' },
-                showlegend: true,
-                legend: { x: 0.02, y: 0.98 },
-                hovermode: 'x unified'
-              }}
-              config={{ responsive: true }}
-              style={{ width: '100%', height: '600px' }}
-            />
-          </div>
-        )}
-
         {selectedView === 'annual-heatmap' && (
           <div>
             <h2>{annualHeatmapDataSource === 'indoor' ? 'Indoor' : 'Outdoor'} PM2.5 Annual Calendar - {annualHeatmapAggregation === 'average' ? 'Daily Average' : 'Daily Maximum'}</h2>
-            <p className="subtitle">Each square represents one day - colors follow PM2.5 air quality standards ({new Date().getFullYear()} year to date)</p>
+            <p className="subtitle">Each square represents one day - colors follow PM2.5 air quality standards (last 3 years)</p>
             
             {/* Manual color legend */}
             <div className="color-legend">
+              <div className="legend-item">
+                <div className="legend-color" style={{backgroundColor: '#f0f0f0'}}></div>
+                <span>No Data</span>
+              </div>
               <div className="legend-item">
                 <div className="legend-color" style={{backgroundColor: '#00E400'}}></div>
                 <span>Good (0-12)</span>
@@ -1162,12 +996,12 @@ function App() {
                   showticklabels: true,
                   tickangle: 0,
                   tickmode: 'array',
-                  tickvals: [2, 6, 11, 15, 19, 24, 28, 33, 37, 41, 45, 50],
-                  ticktext: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+                  tickvals: [25, 79, 133], // Approximate centers of each year
+                  ticktext: [(new Date().getFullYear() - 2).toString(), (new Date().getFullYear() - 1).toString(), new Date().getFullYear().toString()],
                   showgrid: false,
                   zeroline: false,
                   side: 'bottom',
-                  range: [0.5, 52.5]
+                  range: [0, 162] // 54 weeks * 3 years
                 },
                 yaxis: { 
                   title: '',
