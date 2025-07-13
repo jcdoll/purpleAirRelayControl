@@ -26,6 +26,8 @@ purpleAirRelayControl/
 
 ## Step 1: Reorganize Existing Repository
 
+DONE
+
 ```bash
 # Clone the repository
 git clone https://github.com/jcdoll/purpleAirRelayControl.git
