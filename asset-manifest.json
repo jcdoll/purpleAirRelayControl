@@ -1,13 +1,13 @@
 {
   "files": {
-    "main.css": "/purpleAirRelayControl/static/css/main.a926c93a.css",
-    "main.js": "/purpleAirRelayControl/static/js/main.80ef44a1.js",
+    "main.css": "/purpleAirRelayControl/static/css/main.559db88f.css",
+    "main.js": "/purpleAirRelayControl/static/js/main.9a85fac8.js",
     "index.html": "/purpleAirRelayControl/index.html",
-    "main.a926c93a.css.map": "/purpleAirRelayControl/static/css/main.a926c93a.css.map",
-    "main.80ef44a1.js.map": "/purpleAirRelayControl/static/js/main.80ef44a1.js.map"
+    "main.559db88f.css.map": "/purpleAirRelayControl/static/css/main.559db88f.css.map",
+    "main.9a85fac8.js.map": "/purpleAirRelayControl/static/js/main.9a85fac8.js.map"
   },
   "entrypoints": [
-    "static/css/main.a926c93a.css",
-    "static/js/main.80ef44a1.js"
+    "static/css/main.559db88f.css",
+    "static/js/main.9a85fac8.js"
   ]
 }
