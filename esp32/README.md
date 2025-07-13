@@ -152,12 +152,12 @@ display.text("Hello World!", 10, 10, st7789.WHITE)
 - Simple display output
 
 **Phase 2: Display Interface**
-- Touch interface implementation
+- Button interface implementation
 - Real-time air quality display
 - Basic UI controls
 
 **Phase 3: Advanced Features**
-- Touch-based configuration
+- Button-based configuration
 - Data logging and graphs
 - Enhanced user interface
 - Error handling and recovery
@@ -194,10 +194,13 @@ while True:
     # Update display
     display.update_readings(outdoor_aqi, indoor_aqi)
     
-    # Handle touch input
-    touch_event = display.get_touch_event()
-    if touch_event:
-        ventilation.handle_manual_override(touch_event)
+    # Handle button input
+    if not button_d0.value():  # Button pressed (active low)
+        ventilation.handle_manual_override("button_0")
+    if not button_d1.value():
+        ventilation.handle_manual_override("button_1")
+    if not button_d2.value():
+        ventilation.handle_manual_override("button_2")
     
     # Update ventilation based on readings
     ventilation.update(outdoor_aqi, indoor_aqi)
@@ -218,15 +221,15 @@ The MicroPython version will include these enhancements over the Arduino impleme
    - Live code modification without recompiling
    - Easier experimentation and learning
 
-2. **Touch Display Interface:**
+2. **Button Control Interface:**
    - Real-time air quality display
-   - Touch controls for manual override
+   - Three-button controls for manual override
    - System status visualization
    - Historical data graphs
 
 3. **Enhanced User Experience:**
    - Visual feedback for all operations
-   - Touch-based configuration
+   - Button-based configuration
    - Error status display
    - Network status indicators
 
@@ -251,10 +254,10 @@ The MicroPython version will include these enhancements over the Arduino impleme
 - `russhughes/s3lcd` - ESP_LCD based with framebuffer support
 - Advanced features: JPEG/PNG display, multiple fonts, graphics primitives
 
-**Touch Interface (FT6206):**
-- `antirez/micropython-ft6x06` - Simple, reliable driver
-- `lbuque/micropython-ft6x36` - Advanced driver with multi-touch support
-- Pure Python implementation, easy to customize
+**Button Interface:**
+- Built-in `machine.Pin` support for button handling
+- Three tactile buttons (D0, D1, D2) with pull-up resistors
+- Simple and reliable input method
 
 **Networking:**
 - `urequests` for HTTP/HTTPS API calls
