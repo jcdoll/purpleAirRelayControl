@@ -4,11 +4,10 @@ This React dashboard visualizes air quality data from the PurpleAir sensor conne
 
 ## Features
 
-- **Heat Map**: Visualize PM2.5 patterns by hour across days
-- **Hourly Analysis**: Identify which hours typically have highest PM2.5
+- **Heat Map**: Visualize AQI patterns by hour across days
+- **Hourly Analysis**: Identify which hours typically have highest AQI
 - **Timeline View**: Explore historical data with zoom and pan
 - **Correlation Analysis**: Compare indoor vs outdoor air quality
-- **Day of Week Patterns**: See if patterns vary by day
 - **Annual Heatmap**: GitHub-style calendar view of year-round air quality patterns
 - **Timezone Support**: Configure source and display timezones
 - **Auto-refresh**: Data updates every 5 minutes from Google Sheets

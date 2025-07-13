@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Papa from 'papaparse';
 import Plot from 'react-plotly.js';
 import './App.css';
@@ -99,23 +99,23 @@ function App() {
     return `last ${dateRange} days`;
   };
 
-  // Function to get AQI color based on PM2.5 value
-  const getAQIColor = (pm25Value) => {
-    if (pm25Value <= 12) return '#00E400';      // Green (Good)
-    if (pm25Value <= 35.4) return '#FFDC00';   // Yellow (Moderate) - darker yellow
-    if (pm25Value <= 55.4) return '#FF7E00';   // Orange (Unhealthy for Sensitive)
-    if (pm25Value <= 150.4) return '#FF0000';  // Red (Unhealthy)
-    if (pm25Value <= 250.4) return '#8F3F97';  // Purple (Very Unhealthy)
+  // Function to get AQI color based on AQI value
+  const getAQIColor = (aqiValue) => {
+    if (aqiValue <= 50) return '#00E400';       // Green (Good)
+    if (aqiValue <= 100) return '#FFDC00';     // Yellow (Moderate)
+    if (aqiValue <= 150) return '#FF7E00';     // Orange (Unhealthy for Sensitive)
+    if (aqiValue <= 200) return '#FF0000';     // Red (Unhealthy)
+    if (aqiValue <= 300) return '#8F3F97';     // Purple (Very Unhealthy)
     return '#7E0023';                           // Maroon (Hazardous)
   };
 
-  // Function to get AQI CSS class based on PM2.5 value
-  const getAQIClass = (pm25Value) => {
-    if (pm25Value <= 12) return 'aqi-good';
-    if (pm25Value <= 35.4) return 'aqi-moderate';
-    if (pm25Value <= 55.4) return 'aqi-unhealthy-sensitive';
-    if (pm25Value <= 150.4) return 'aqi-unhealthy';
-    if (pm25Value <= 250.4) return 'aqi-very-unhealthy';
+  // Function to get AQI CSS class based on AQI value
+  const getAQIClass = (aqiValue) => {
+    if (aqiValue <= 50) return 'aqi-good';
+    if (aqiValue <= 100) return 'aqi-moderate';
+    if (aqiValue <= 150) return 'aqi-unhealthy-sensitive';
+    if (aqiValue <= 200) return 'aqi-unhealthy';
+    if (aqiValue <= 300) return 'aqi-very-unhealthy';
     return 'aqi-hazardous';
   };
 
@@ -165,21 +165,7 @@ function App() {
     return filteredData;
   };
 
-  useEffect(() => {
-    fetchData();
-    // Refresh data every 5 minutes
-    const interval = setInterval(fetchData, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Re-process data when timezone changes
-  useEffect(() => {
-    if (data.length > 0) {
-      fetchData();
-    }
-  }, [selectedTimezone, sourceTimezone]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const response = await fetch(CSV_URL);
       const text = await response.text();
@@ -212,8 +198,6 @@ function App() {
             })
             .filter(row => !isNaN(row.timestamp.getTime())); // Filter out invalid dates
           
-
-          
           setData(processedData);
           setLoading(false);
           setLastUpdate(new Date());
@@ -227,7 +211,21 @@ function App() {
       setError(err.message);
       setLoading(false);
     }
-  };
+  }, [selectedTimezone, sourceTimezone]);
+
+  useEffect(() => {
+    fetchData();
+    // Refresh data every 5 minutes
+    const interval = setInterval(fetchData, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [fetchData]);
+
+  // Re-process data when timezone changes
+  useEffect(() => {
+    if (data.length > 0) {
+      fetchData();
+    }
+  }, [data.length, fetchData]);
 
   const getHeatmapData = (dataSource = 'indoor') => {
     const recentData = getFilteredData();
@@ -286,25 +284,27 @@ function App() {
       y: yLabels,
       type: 'heatmap',
       colorscale: [
-        [0, '#00E400'],      // Green (Good: 0-12)
-        [0.08, '#00E400'],   // Green
-        [0.08, '#FFDC00'],   // Yellow (Moderate: 12.1-35.4)
-        [0.24, '#FFDC00'],   // Yellow
-        [0.24, '#FF7E00'],   // Orange (Unhealthy for Sensitive: 35.5-55.4)
-        [0.37, '#FF7E00'],   // Orange
-        [0.37, '#FF0000'],   // Red (Unhealthy: 55.5-150.4)
-        [1.0, '#8F3F97']     // Purple (Very Unhealthy: 150.5+)
+        [0, '#00E400'],      // Green (Good: 0-50)
+        [0.17, '#00E400'],   // Green (50/300)
+        [0.17, '#FFDC00'],   // Yellow (Moderate: 51-100)
+        [0.33, '#FFDC00'],   // Yellow (100/300)
+        [0.33, '#FF7E00'],   // Orange (Unhealthy for Sensitive: 101-150)
+        [0.5, '#FF7E00'],    // Orange (150/300)
+        [0.5, '#FF0000'],    // Red (Unhealthy: 151-200)
+        [0.67, '#FF0000'],   // Red (200/300)
+        [0.67, '#8F3F97'],   // Purple (Very Unhealthy: 201-300)
+        [1.0, '#8F3F97']     // Purple (300/300)
       ],
       zmin: 0,
-      zmax: 150,
+      zmax: 300,
       colorbar: {
-        title: 'PM2.5<br>(µg/m³)',
+        title: 'AQI',
         titleside: 'right',
-        tickvals: [0, 12, 35.4, 55.4, 150],
-        ticktext: ['0<br>Good', '12<br>Moderate', '35.4<br>Sensitive', '55.4<br>Unhealthy', '150<br>Very Unhealthy']
+        tickvals: [0, 50, 100, 150, 200, 300],
+        ticktext: ['0<br>Good', '50<br>Moderate', '100<br>Sensitive', '150<br>Unhealthy', '200<br>Very Unhealthy', '300<br>Hazardous']
       },
       hoverongaps: false,
-      hovertemplate: 'Date: %{y}<br>Hour: %{x}<br>PM2.5: %{z:.1f} µg/m³<extra></extra>'
+      hovertemplate: 'Date: %{y}<br>Hour: %{x}<br>AQI: %{z:.1f}<extra></extra>'
     };
   };
 
@@ -345,7 +345,7 @@ function App() {
         y: recentData.map(d => d.IndoorAirQuality),
         type: 'scatter',
         mode: 'lines',
-        name: 'Indoor PM2.5',
+        name: 'Indoor AQI',
         line: { color: 'red', width: 2 }
       },
       {
@@ -353,7 +353,7 @@ function App() {
         y: recentData.map(d => d.OutdoorAirQuality),
         type: 'scatter',
         mode: 'lines',
-        name: 'Outdoor PM2.5',
+        name: 'Outdoor AQI',
         line: { color: 'blue', width: 1 }
       }
     ];
@@ -374,7 +374,7 @@ function App() {
           width: 1
         }
       },
-      text: filteredData.map(d => `Hour: ${d.hour}:00<br>Indoor: ${d.IndoorAirQuality.toFixed(1)} µg/m³`),
+      text: filteredData.map(d => `Hour: ${d.hour}:00<br>Indoor: ${d.IndoorAirQuality.toFixed(1)} AQI`),
       hovertemplate: 'Outdoor: %{x:.1f}<br>Indoor: %{y:.1f}<br>%{text}<extra></extra>'
     };
   };
@@ -450,7 +450,7 @@ function App() {
           if (isTargetYear && !isFuture) {
             const value = dailyValues[dateStr];
             allYearsData.push(value !== undefined ? value : null);
-            allYearsText.push(value !== undefined ? `${dateStr}<br>PM2.5: ${value.toFixed(1)} µg/m³` : `${dateStr}<br>No data`);
+            allYearsText.push(value !== undefined ? `${dateStr}<br>AQI: ${value.toFixed(1)}` : `${dateStr}<br>No data`);
           } else {
             // No data for dates outside target year or future dates
             allYearsData.push(null);
@@ -471,17 +471,19 @@ function App() {
       type: 'heatmap',
       colorscale: [
         [0, '#f0f0f0'],      // Light gray for no data
-        [0.001, '#00E400'],  // Green (Good: 0-12)
-        [0.08, '#00E400'],   // Green
-        [0.08, '#FFDC00'],   // Yellow (Moderate: 12.1-35.4)
-        [0.24, '#FFDC00'],   // Yellow
-        [0.24, '#FF7E00'],   // Orange (Unhealthy for Sensitive: 35.5-55.4)
-        [0.37, '#FF7E00'],   // Orange
-        [0.37, '#FF0000'],   // Red (Unhealthy: 55.5-150.4)
-        [1.0, '#8F3F97']     // Purple (Very Unhealthy: 150.5+)
+        [0.001, '#00E400'],  // Green (Good: 0-50)
+        [0.17, '#00E400'],   // Green (50/300)
+        [0.17, '#FFDC00'],   // Yellow (Moderate: 51-100)
+        [0.33, '#FFDC00'],   // Yellow (100/300)
+        [0.33, '#FF7E00'],   // Orange (Unhealthy for Sensitive: 101-150)
+        [0.5, '#FF7E00'],    // Orange (150/300)
+        [0.5, '#FF0000'],    // Red (Unhealthy: 151-200)
+        [0.67, '#FF0000'],   // Red (200/300)
+        [0.67, '#8F3F97'],   // Purple (Very Unhealthy: 201-300)
+        [1.0, '#8F3F97']     // Purple (Very Unhealthy: 301+)
       ],
       zmin: 0,
-      zmax: 150,
+      zmax: 300,
       showscale: false,
       xgap: 3,
       ygap: 3,
@@ -498,7 +500,7 @@ function App() {
       prev.mean > current.mean ? prev : current
     );
     
-    const totalSpikes = recentData.filter(d => d.IndoorAirQuality > 50).length;
+    const totalSpikes = recentData.filter(d => d.IndoorAirQuality > 150).length;
     const avgIndoor = recentData.reduce((sum, d) => sum + d.IndoorAirQuality, 0) / recentData.length;
     const avgOutdoor = recentData.reduce((sum, d) => sum + d.OutdoorAirQuality, 0) / recentData.length;
     
@@ -554,22 +556,22 @@ function App() {
         <div className="card">
           <h3>Peak Hour</h3>
           <div className="value">{summary?.peakHour}:00</div>
-          <div className="label">{summary?.peakValue} µg/m³ avg</div>
+          <div className="label">{summary?.peakValue} AQI avg</div>
         </div>
         <div className="card">
           <h3>Total Spikes</h3>
           <div className="value">{summary?.totalSpikes}</div>
-          <div className="label">&gt;50 µg/m³</div>
+          <div className="label">&gt;150 AQI</div>
         </div>
         <div className="card">
           <h3>Indoor Average</h3>
           <div className={`value ${getAQIClass(parseFloat(summary?.avgIndoor || 0))}`}>{summary?.avgIndoor}</div>
-          <div className="label">µg/m³</div>
+          <div className="label">AQI</div>
         </div>
         <div className="card">
           <h3>Outdoor Average</h3>
           <div className={`value ${getAQIClass(parseFloat(summary?.avgOutdoor || 0))}`}>{summary?.avgOutdoor}</div>
-          <div className="label">µg/m³</div>
+          <div className="label">AQI</div>
         </div>
       </div>
 
@@ -674,8 +676,8 @@ function App() {
             <div className="data-source">
               <label>Data source: </label>
               <select value={heatmapDataSource} onChange={(e) => setHeatmapDataSource(e.target.value)}>
-                <option value="indoor">Indoor PM2.5</option>
-                <option value="outdoor">Outdoor PM2.5</option>
+                <option value="indoor">Indoor AQI</option>
+                <option value="outdoor">Outdoor AQI</option>
               </select>
             </div>
           </div>
@@ -748,8 +750,8 @@ function App() {
             <div className="data-source">
               <label>Data source: </label>
               <select value={hourlyDataSource} onChange={(e) => setHourlyDataSource(e.target.value)}>
-                <option value="indoor">Indoor PM2.5</option>
-                <option value="outdoor">Outdoor PM2.5</option>
+                <option value="indoor">Indoor AQI</option>
+                <option value="outdoor">Outdoor AQI</option>
               </select>
             </div>
           </div>
@@ -825,8 +827,8 @@ function App() {
             <div className="data-source">
               <label>Data source: </label>
               <select value={annualHeatmapDataSource} onChange={(e) => setAnnualHeatmapDataSource(e.target.value)}>
-                <option value="indoor">Indoor PM2.5</option>
-                <option value="outdoor">Outdoor PM2.5</option>
+                <option value="indoor">Indoor AQI</option>
+                <option value="outdoor">Outdoor AQI</option>
               </select>
             </div>
             <div className="aggregation-type">
@@ -875,7 +877,7 @@ function App() {
       <div className="chart-container">
         {selectedView === 'heatmap' && data.length > 0 && (
           <div>
-            <h2>{heatmapDataSource === 'indoor' ? 'Indoor' : 'Outdoor'} PM2.5 Levels by Hour - {getTimeRangeDescription()}</h2>
+            <h2>{heatmapDataSource === 'indoor' ? 'Indoor' : 'Outdoor'} AQI Levels by Hour - {getTimeRangeDescription()}</h2>
             <p className="subtitle">Look for vertical patterns (time-based) or horizontal patterns (day-specific)</p>
             <Plot
               data={[getHeatmapData(heatmapDataSource)]}
@@ -892,23 +894,23 @@ function App() {
 
         {selectedView === 'hourly' && (
           <div>
-            <h2>{hourlyDataSource === 'indoor' ? 'Indoor' : 'Outdoor'} PM2.5 Hourly Pattern Analysis - {getTimeRangeDescription()}</h2>
+            <h2>{hourlyDataSource === 'indoor' ? 'Indoor' : 'Outdoor'} AQI Hourly Pattern Analysis - {getTimeRangeDescription()}</h2>
             <Plot
               data={[
                 {
                   x: getHourlyStats(hourlyDataSource, dateRange).map(h => `${h.hour}:00`),
                   y: getHourlyStats(hourlyDataSource, dateRange).map(h => h.mean),
                   type: 'bar',
-                  name: 'Average PM2.5',
+                  name: 'Average AQI',
                   marker: {
                     color: getHourlyStats(hourlyDataSource, dateRange).map(h => getAQIColor(h.mean))
                   },
-                  hovertemplate: 'Hour: %{x}<br>Average PM2.5: %{y:.1f} µg/m³<extra></extra>'
+                  hovertemplate: 'Hour: %{x}<br>Average AQI: %{y:.1f}<extra></extra>'
                 }
               ]}
               layout={{
                 xaxis: { title: 'Hour of Day' },
-                yaxis: { title: 'Average PM2.5 (µg/m³)' },
+                yaxis: { title: 'Average AQI' },
                 showlegend: false
               }}
               config={{ responsive: true }}
@@ -928,7 +930,7 @@ function App() {
                   title: 'Time',
                   rangeslider: { visible: true }
                 },
-                yaxis: { title: 'PM2.5 (µg/m³)' },
+                yaxis: { title: 'AQI' },
                 showlegend: true,
                 legend: { x: 0.1, y: 0.9 }
               }}
@@ -945,8 +947,8 @@ function App() {
             <Plot
               data={[getCorrelationData()]}
               layout={{
-                xaxis: { title: 'Outdoor PM2.5 (µg/m³)' },
-                yaxis: { title: 'Indoor PM2.5 (µg/m³)' },
+                xaxis: { title: 'Outdoor AQI' },
+                yaxis: { title: 'Indoor AQI' },
                 showlegend: false
               }}
               config={{ responsive: true }}
@@ -957,8 +959,8 @@ function App() {
 
         {selectedView === 'annual-heatmap' && (
           <div>
-            <h2>{annualHeatmapDataSource === 'indoor' ? 'Indoor' : 'Outdoor'} PM2.5 Annual Calendar - {annualHeatmapAggregation === 'average' ? 'Daily Average' : 'Daily Maximum'}</h2>
-            <p className="subtitle">Each square represents one day - colors follow PM2.5 air quality standards (last 3 years)</p>
+            <h2>{annualHeatmapDataSource === 'indoor' ? 'Indoor' : 'Outdoor'} AQI Annual Calendar - {annualHeatmapAggregation === 'average' ? 'Daily Average' : 'Daily Maximum'}</h2>
+            <p className="subtitle">Each square represents one day - colors follow AQI air quality standards (last 3 years)</p>
             
             {/* Manual color legend */}
             <div className="color-legend">
@@ -968,23 +970,23 @@ function App() {
               </div>
               <div className="legend-item">
                 <div className="legend-color" style={{backgroundColor: '#00E400'}}></div>
-                <span>Good (0-12)</span>
+                <span>Good (0-50)</span>
               </div>
               <div className="legend-item">
                 <div className="legend-color" style={{backgroundColor: '#FFDC00'}}></div>
-                <span>Moderate (12-35)</span>
+                <span>Moderate (51-100)</span>
               </div>
               <div className="legend-item">
                 <div className="legend-color" style={{backgroundColor: '#FF7E00'}}></div>
-                <span>Sensitive (35-55)</span>
+                <span>Sensitive (101-150)</span>
               </div>
               <div className="legend-item">
                 <div className="legend-color" style={{backgroundColor: '#FF0000'}}></div>
-                <span>Unhealthy (55-150)</span>
+                <span>Unhealthy (151-200)</span>
               </div>
               <div className="legend-item">
                 <div className="legend-color" style={{backgroundColor: '#8F3F97'}}></div>
-                <span>Very Unhealthy (150+)</span>
+                <span>Very Unhealthy (201+)</span>
               </div>
             </div>
             
