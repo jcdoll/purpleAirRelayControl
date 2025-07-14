@@ -27,8 +27,6 @@ const AnnualHeatmapChart = ({ data, selectedYear, aggregation, isVisible }) => {
       47: 'Dec'
     };
     
-    const monthWeeks = Object.keys(monthTickMap).map(Number);
-    
     return getHeatmapOptions({
       chart: { 
         height: 250,
