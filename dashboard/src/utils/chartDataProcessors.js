@@ -2,19 +2,6 @@
 import { getAQIColor } from './aqiUtils';
 import { AQI_COLORS } from '../constants/app';
 
-// Continuous colorscale from white through EPA colors
-const generateColorscale = () => {
-  return [
-    [0, AQI_COLORS.CLEAR],   // Clear/White (AQI 0)
-    [0.1, AQI_COLORS.GOOD],      // Green (AQI 50)
-    [0.2, AQI_COLORS.MODERATE],  // Yellow (AQI 100)
-    [0.3, AQI_COLORS.UNHEALTHY_SENSITIVE], // Orange (AQI 150)
-    [0.4, AQI_COLORS.UNHEALTHY], // Red (AQI 200)
-    [0.6, AQI_COLORS.VERY_UNHEALTHY], // Purple (AQI 300)
-    [1.0, AQI_COLORS.HAZARDOUS]  // Maroon (AQI 500+)
-  ];
-};
-
 export const processHeatmapData = (filteredData, dateRange) => {
   // Helper function to create pivot table for a data source
   const createPivotData = (dataSource) => {
