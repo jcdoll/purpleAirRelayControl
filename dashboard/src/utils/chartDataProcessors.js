@@ -1,14 +1,5 @@
 // Chart data processing functions extracted from App.js
-
-// Helper function to get AQI color based on AQI value
-export const getAQIColor = (aqiValue) => {
-  if (aqiValue <= 50) return '#00E400';       // Green (Good)
-  if (aqiValue <= 100) return '#FFDC00';     // Yellow (Moderate)
-  if (aqiValue <= 150) return '#FF7E00';     // Orange (Unhealthy for Sensitive)
-  if (aqiValue <= 200) return '#FF0000';     // Red (Unhealthy)
-  if (aqiValue <= 300) return '#8F3F97';     // Purple (Very Unhealthy)
-  return '#7E0023';                           // Maroon (Hazardous)
-};
+import { getAQIColor } from './aqiUtils';
 
 export const processHeatmapData = (filteredData, dateRange) => {
   // Helper function to create pivot table for a data source

@@ -3,8 +3,12 @@
 // Data Source
 export const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRN0PHzfkvu7IMHEf2PG6_Ne4Vr-Pstsg0Sa8-WNBSy9a_-10Vvpr_jYGZxLszyMw8CybUq_7tDGkBq/pub?gid=394013654&single=true&output=csv';
 
+// Application Info
+export const GITHUB_URL = 'https://github.com/jcdoll/purpleAirRelayControl';
+
 // Refresh Interval
 export const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
+export const REFRESH_MESSAGE = 'Data source: Google Sheets (auto-refreshes every 5 minutes)';
 
 // AQI Colors
 export const AQI_COLORS = {

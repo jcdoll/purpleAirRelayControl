@@ -22,6 +22,7 @@ import TimelineChart from './components/Charts/TimelineChart';
 import HourlyChart from './components/Charts/HourlyChart';
 import CorrelationChart from './components/Charts/CorrelationChart';
 import AnnualHeatmapChart from './components/Charts/AnnualHeatmapChart';
+import { GITHUB_URL, REFRESH_MESSAGE } from './constants/app';
 
 function App() {
   // State for view and controls
@@ -64,7 +65,7 @@ function App() {
   // Update selectedYear when data changes
   useEffect(() => {
     if (data.length > 0) {
-      // getAvailableYears is a memoized array, use it directly
+       // getAvailableYears is a memoized array, use it directly
       if (!getAvailableYears.includes(selectedYear)) {
         setSelectedYear(getAvailableYears[0]);
       }
@@ -108,8 +109,6 @@ function App() {
   return (
     <div className="App">
       <Header
-        dataPointsCount={summary?.dataPoints}
-        timeRangeDescription={getTimeRangeDescription}
         lastUpdate={lastUpdate}
         onRefresh={fetchData}
       />
@@ -188,9 +187,9 @@ function App() {
       </div>
 
       <footer>
-        <p>Data source: Google Sheets (auto-refreshes every 5 minutes)</p>
+        <p>{REFRESH_MESSAGE}</p>
         <p>
-          <a href="https://github.com/jcdoll/purpleAirRelayControl" target="_blank" rel="noopener noreferrer">
+          <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer">
             View on GitHub
           </a>
         </p>

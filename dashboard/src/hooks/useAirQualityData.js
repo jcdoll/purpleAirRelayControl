@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import Papa from 'papaparse';
-
-// Google Sheets CSV URL
-const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRN0PHzfkvu7IMHEf2PG6_Ne4Vr-Pstsg0Sa8-WNBSy9a_-10Vvpr_jYGZxLszyMw8CybUq_7tDGkBq/pub?gid=394013654&single=true&output=csv';
+import { CSV_URL, REFRESH_INTERVAL } from '../constants/app';
 
 // Function to convert timestamp based on source timezone
 const convertToTimezone = (sourceDate, sourceTimezoneOffset, targetTimezoneOffset) => {
@@ -75,8 +73,8 @@ export const useAirQualityData = (sourceTimezone, selectedTimezone) => {
 
   useEffect(() => {
     fetchData();
-    // Refresh data every 5 minutes
-    const interval = setInterval(fetchData, 5 * 60 * 1000);
+    // Refresh data automatically
+    const interval = setInterval(fetchData, REFRESH_INTERVAL);
     return () => clearInterval(interval);
   }, [fetchData]);
 

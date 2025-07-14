@@ -1,5 +1,4 @@
 import { 
-  getAQIColor,
   processHeatmapData,
   processHourlyStats,
   processTimeSeriesData,
@@ -7,6 +6,7 @@ import {
   processAnnualHeatmapData,
   calculatePatternSummary
 } from '../../utils/chartDataProcessors';
+import { getAQIColor } from '../../utils/aqiUtils';
 
 describe('chartDataProcessors', () => {
   // Mock data setup

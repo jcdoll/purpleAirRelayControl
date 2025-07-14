@@ -1,6 +1,6 @@
 import React from 'react';
 
-const Header = ({ dataPointsCount, timeRangeDescription, lastUpdate, onRefresh }) => {
+const Header = ({ lastUpdate, onRefresh }) => {
   return (
     <header>
       <div className="header-content">
