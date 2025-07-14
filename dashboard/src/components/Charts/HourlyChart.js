@@ -12,13 +12,13 @@ const HourlyChart = ({ data, timeRangeDescription, isVisible }) => {
       height: 400, 
       zoom: { enabled: false },
       animations: { enabled: false, speed: 0 },
-      toolbar: { show: false }  // Completely disable toolbar for hourly analysis
+      toolbar: { show: false }
     },
     stroke: { width: 3 },
     xaxis: {
       ...getXAxisConfig('Hour of Day'),
       categories: data[0]?.x || [],
-      crosshairs: { show: false }, // Disable crosshairs that can cause shifts
+      crosshairs: { show: false },
       title: { text: 'Hour of Day' },
     },
     yaxis: getYAxisConfig('Average AQI'),

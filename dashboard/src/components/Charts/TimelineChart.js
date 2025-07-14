@@ -10,8 +10,8 @@ const TimelineChart = ({ data, timeRangeDescription, isVisible }) => {
   const options = getLineChartOptions({
     chart: { 
       height: 500,
-      animations: { enabled: false, speed: 0 }
-      // Uses default toolbar configuration (zoom/pan enabled, download disabled)
+      animations: { enabled: false, speed: 0 },
+      toolbar: { show: false }
     },
     xaxis: {
       ...getXAxisConfig('Time', 'datetime'),
