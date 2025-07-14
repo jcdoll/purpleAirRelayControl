@@ -1,15 +1,16 @@
 import React from 'react';
+import styles from './Header.module.css';
 
 const Header = ({ lastUpdate, onRefresh }) => {
   return (
-    <header>
-      <div className="header-content">
-        <div className="header-text">
-          <h1>🏠 Air Quality Dashboard</h1>
-          <p className="last-update">Last updated: {lastUpdate.toLocaleString()}</p>
+    <header className={styles.header}>
+      <div className={styles.headerContent}>
+        <div className={styles.headerText}>
+          <h1 className={styles.title}>🏠 Air Quality Dashboard</h1>
+          <p className={styles.lastUpdate}>Last updated: {lastUpdate.toLocaleString()}</p>
         </div>
-        <div className="header-controls">
-          <button onClick={onRefresh} className="refresh-btn refresh-btn-header">
+        <div className={styles.headerControls}>
+          <button onClick={onRefresh} className={`${styles.refreshBtn} ${styles.refreshBtnHeader}`}>
             🔄 Refresh
           </button>
         </div>

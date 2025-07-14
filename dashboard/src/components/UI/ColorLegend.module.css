@@ -1,0 +1,53 @@
+/* Color Legend Component Styles */
+.colorLegend {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--spacing-lg);
+  margin: var(--spacing-lg) 0;
+  padding: var(--spacing-md);
+  background-color: var(--background-primary);
+  border-radius: var(--border-radius-lg);
+  border: 1px solid var(--border-light);
+  flex-wrap: wrap;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.legendColor {
+  width: 16px;
+  height: 16px;
+  border-radius: var(--border-radius-sm);
+  border: 1px solid rgba(0,0,0,0.2);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .colorLegend {
+    gap: var(--spacing-md);
+    justify-content: flex-start;
+  }
+
+  .legendItem {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .colorLegend {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--spacing-xs);
+  }
+  
+  .legendItem {
+    font-size: 12px;
+    min-width: 80px;
+  }
+} 

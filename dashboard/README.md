@@ -6,7 +6,7 @@ This React dashboard visualizes air quality data from the PurpleAir sensor conne
 
 ### Core Constraints
 - **GitHub Pages hosting** - Static file deployment only (hard requirement)
-- Client-side only - No server-side processing, everything runs in browser
+- Client-side only - No server-side processing, everything runs in browser, client fetches new data
 - Google Sheets data source - CSV export from Google Sheets with 5-minute auto-refresh
 - Mobile responsive - Must work effectively on mobile devices
 
@@ -37,11 +37,13 @@ This React dashboard visualizes air quality data from the PurpleAir sensor conne
 ## Technologies
 
 Technologies:
-- React
-- Plotly.js for interactive charts
+- React 18.2.0
+- ApexCharts 5.2.0 with react-apexcharts for interactive charts
 - PapaParse for CSV parsing
+- Google Sheets as data source
+- CSS Modules for styling
+- React Testing Library for testing
 - GitHub Pages for hosting 
-- Microcontroller sends data to 
 
 ## Setup
 

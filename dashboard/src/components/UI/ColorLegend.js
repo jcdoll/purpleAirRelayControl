@@ -1,18 +1,22 @@
 import React from 'react';
+import styles from './ColorLegend.module.css';
 import { AQI_LEGEND_ITEMS } from '../../constants/app';
 
-const ColorLegend = ({ includeNoData = false }) => {
+const ColorLegend = ({ includeNoData = true }) => {
   const legendItems = includeNoData 
     ? AQI_LEGEND_ITEMS 
     : AQI_LEGEND_ITEMS.slice(1); // Skip "No Data" item
 
   return (
-    <div className="color-legend">
+    <div className={styles.colorLegend}>
       {legendItems.map((item, index) => (
-        <div key={index} className="legend-item">
+        <div key={index} className={styles.legendItem}>
           <div 
-            className="legend-color" 
-            style={{ backgroundColor: item.color }}
+            className={styles.legendColor} 
+            style={{ 
+              backgroundColor: item.color,
+              border: item.border || 'none'
+            }}
           ></div>
           <span>{item.label}</span>
         </div>

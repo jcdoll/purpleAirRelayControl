@@ -1,0 +1,53 @@
+.viewSelector {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.viewSelector button {
+  padding: 10px 20px;
+  border: 2px solid #ddd;
+  background: white;
+  border-radius: 5px;
+  cursor: pointer;
+
+  font-size: 1rem;
+}
+
+.viewSelector button:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.viewSelector button.active {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .viewSelector {
+    justify-content: center;
+  }
+  
+  .viewSelector button {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 8px 15px;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .viewSelector {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .viewSelector button {
+    flex: 1;
+    min-width: 120px;
+    padding: 12px 8px;
+  }
+} 

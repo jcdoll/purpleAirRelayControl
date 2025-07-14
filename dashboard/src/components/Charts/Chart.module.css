@@ -1,0 +1,57 @@
+.chartContainer {
+  display: block;
+}
+
+.chartContainer.hidden {
+  display: none;
+}
+
+.chartTitle {
+  margin-top: 0;
+  color: #333;
+  font-size: 1.5rem;
+  margin-bottom: 20px;
+}
+
+.chartSubtitle {
+  color: #666;
+  margin-bottom: 20px;
+  font-style: italic;
+}
+
+.chartSection {
+  margin-bottom: var(--spacing-lg);
+}
+
+.chartSectionTitle {
+  color: #333;
+  font-size: 1.2rem;
+  margin-bottom: var(--spacing-md);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .chartTitle {
+    font-size: 1.3rem;
+  }
+  
+  .chartSectionTitle {
+    font-size: 1.1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .chartTitle {
+    font-size: 1.2rem;
+    margin-bottom: 10px;
+  }
+  
+  .chartSubtitle {
+    margin-bottom: 12px;
+    font-size: 0.9rem;
+  }
+  
+  .chartSectionTitle {
+    font-size: 1rem;
+  }
+} 

@@ -1,6 +1,5 @@
-// Chart data processing functions extracted from App.js
+// Chart data processing functions - simplified without timezone handling
 import { getAQIColor } from './aqiUtils';
-import { AQI_COLORS } from '../constants/app';
 
 export const processHeatmapData = (filteredData, dateRange) => {
   // Helper function to create pivot table for a data source
@@ -25,8 +24,20 @@ export const processHeatmapData = (filteredData, dateRange) => {
   const indoorPivotData = createPivotData('indoor');
   const outdoorPivotData = createPivotData('outdoor');
   
-  // Calculate averages for both datasets
-  const dates = Object.keys(indoorPivotData).sort();
+  // Only include dates that have at least some valid data for either indoor or outdoor
+  const allDates = new Set([...Object.keys(indoorPivotData), ...Object.keys(outdoorPivotData)]);
+  const validDates = [];
+  
+  allDates.forEach(date => {
+    const hasIndoorData = Object.values(indoorPivotData[date] || {}).some(values => values.length > 0);
+    const hasOutdoorData = Object.values(outdoorPivotData[date] || {}).some(values => values.length > 0);
+    
+    if (hasIndoorData || hasOutdoorData) {
+      validDates.push(date);
+    }
+  });
+  
+  const dates = validDates.sort();
   const hours = Array.from({length: 24}, (_, i) => i);
   const indoorZValues = [];
   const outdoorZValues = [];
@@ -46,34 +57,18 @@ export const processHeatmapData = (filteredData, dateRange) => {
     outdoorZValues.push(outdoorRow);
   });
 
-  // Format y-axis labels based on date range - consistent timezone handling
+  // Format y-axis labels consistently as "Jul 8" format
   const yLabels = dates.map(date => {
-    if (dateRange <= 14) {
-      // For short periods, show just month and day
-      // Parse the date in the display timezone to avoid UTC midnight issues
-      const [year, month, day] = date.split('-').map(Number);
-      const dateInDisplayTZ = new Date(year, month - 1, day); // month is 0-based
-      return dateInDisplayTZ.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    } else {
-      // For longer periods, show full date
-      return date;
-    }
+    const [year, month, day] = date.split('-').map(Number);
+    const dateObj = new Date(year, month - 1, day);
+    return dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   });
 
   const commonConfig = {
     x: hours.map(h => `${h}:00`),
     y: yLabels,
     type: 'heatmap',
-    colorscale: [
-      [0, '#f0f0f0'],  // Gray for missing data (-1)
-      [0.002, AQI_COLORS.CLEAR],   // Clear/White (AQI 0)
-      [0.102, AQI_COLORS.GOOD],      // Green (AQI 50)
-      [0.201, AQI_COLORS.MODERATE],  // Yellow (AQI 100)
-      [0.301, AQI_COLORS.UNHEALTHY_SENSITIVE], // Orange (AQI 150)
-      [0.401, AQI_COLORS.UNHEALTHY], // Red (AQI 200)
-      [0.601, AQI_COLORS.VERY_UNHEALTHY], // Purple (AQI 300)
-      [1.0, AQI_COLORS.HAZARDOUS]  // Maroon (AQI 500+)
-    ],
+    // Remove colorscale from here - it's handled in ApexCharts options
     zmin: -1,
     zmax: 500,
     showscale: false,
@@ -194,7 +189,7 @@ export const processHourlyStats = (filteredData) => {
 
 export const processTimeSeriesData = (filteredData) => {
   const timeSeriesData = filteredData.map(row => ({
-    timestamp: new Date(row.timestamp),
+    timestamp: row.timestamp,
     indoor: row.IndoorAirQuality,
     outdoor: row.OutdoorAirQuality
   }));
@@ -241,7 +236,7 @@ export const processCorrelationData = (filteredData) => {
   };
 };
 
-export const processAnnualHeatmapData = (data, selectedYear, selectedTimezone, aggregation = 'average') => {
+export const processAnnualHeatmapData = (data, selectedYear, aggregation = 'average') => {
   // Helper function to create daily data for a data source
   const createDailyData = (dataSource) => {
     // Filter data to selected year only
@@ -274,18 +269,6 @@ export const processAnnualHeatmapData = (data, selectedYear, selectedTimezone, a
     return dailyValues;
   };
 
-  // Get current time in display timezone
-  const now = new Date();
-  const browserTZOffset = -now.getTimezoneOffset() / 60;
-  let displayNow;
-  
-  if (browserTZOffset === selectedTimezone) {
-    displayNow = now;
-  } else {
-    const offsetDiff = selectedTimezone - browserTZOffset;
-    displayNow = new Date(now.getTime() + (offsetDiff * 60 * 60 * 1000));
-  }
-  
   // Create daily values for both indoor and outdoor
   const indoorDailyValues = createDailyData('indoor');
   const outdoorDailyValues = createDailyData('outdoor');
@@ -308,7 +291,7 @@ export const processAnnualHeatmapData = (data, selectedYear, selectedTimezone, a
     for (let day = 0; day < 7; day++) {
       const dateStr = currentDate.toISOString().split('T')[0];
       const isTargetYear = currentDate.getFullYear() === selectedYear;
-      const isFuture = selectedYear === displayNow.getFullYear() && currentDate > displayNow;
+      const isFuture = selectedYear === new Date().getFullYear() && currentDate > new Date();
       
       heatmapX.push(week);
       heatmapY.push(day);
@@ -317,8 +300,8 @@ export const processAnnualHeatmapData = (data, selectedYear, selectedTimezone, a
         const indoorValue = indoorDailyValues[dateStr];
         const outdoorValue = outdoorDailyValues[dateStr];
         
-        indoorHeatmapData.push(indoorValue !== undefined ? indoorValue : null);
-        outdoorHeatmapData.push(outdoorValue !== undefined ? outdoorValue : null);
+        indoorHeatmapData.push(indoorValue !== undefined ? indoorValue : -1);
+        outdoorHeatmapData.push(outdoorValue !== undefined ? outdoorValue : -1);
         
         indoorHeatmapText.push(indoorValue !== undefined 
           ? `${dateStr}<br>Indoor AQI: ${indoorValue.toFixed(1)}` 
@@ -328,8 +311,8 @@ export const processAnnualHeatmapData = (data, selectedYear, selectedTimezone, a
           : `${dateStr}<br>Outdoor AQI: No data`);
       } else {
         // No data for dates outside target year or future dates
-        indoorHeatmapData.push(null);
-        outdoorHeatmapData.push(null);
+        indoorHeatmapData.push(-1);
+        outdoorHeatmapData.push(-1);
         indoorHeatmapText.push(`${dateStr}<br>Indoor AQI: No data`);
         outdoorHeatmapText.push(`${dateStr}<br>Outdoor AQI: No data`);
       }
@@ -343,16 +326,7 @@ export const processAnnualHeatmapData = (data, selectedYear, selectedTimezone, a
     y: heatmapY,
     hoverinfo: 'text',
     type: 'heatmap',
-    colorscale: [
-      [0, '#f0f0f0'],  // Gray for missing data (-1)
-      [0.002, AQI_COLORS.CLEAR],   // Clear/White (AQI 0)
-      [0.102, AQI_COLORS.GOOD],      // Green (AQI 50)
-      [0.201, AQI_COLORS.MODERATE],  // Yellow (AQI 100)
-      [0.301, AQI_COLORS.UNHEALTHY_SENSITIVE], // Orange (AQI 150)
-      [0.401, AQI_COLORS.UNHEALTHY], // Red (AQI 200)
-      [0.601, AQI_COLORS.VERY_UNHEALTHY], // Purple (AQI 300)
-      [1.0, AQI_COLORS.HAZARDOUS]  // Maroon (AQI 500+)
-    ],
+    // Remove colorscale from here - it's handled in ApexCharts options
     zmin: -1,
     zmax: 500,
     showscale: false,
@@ -365,13 +339,13 @@ export const processAnnualHeatmapData = (data, selectedYear, selectedTimezone, a
   return [
     {
       ...commonConfig,
-      z: indoorHeatmapData.map(val => val === null ? -1 : val),
+      z: indoorHeatmapData,
       text: indoorHeatmapText,
       name: 'Indoor AQI'
     },
     {
       ...commonConfig,
-      z: outdoorHeatmapData.map(val => val === null ? -1 : val),
+      z: outdoorHeatmapData,
       text: outdoorHeatmapText,
       name: 'Outdoor AQI',
       yaxis: 'y2',

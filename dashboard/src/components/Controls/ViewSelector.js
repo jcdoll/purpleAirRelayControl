@@ -1,34 +1,35 @@
 import React from 'react';
+import styles from './ViewSelector.module.css';
 
 const ViewSelector = ({ selectedView, onViewChange }) => {
   return (
-    <div className="view-selector">
+    <div className={styles.viewSelector}>
       <button 
-        className={selectedView === 'heatmap' ? 'active' : ''}
+        className={selectedView === 'heatmap' ? styles.active : ''}
         onClick={() => onViewChange('heatmap')}
       >
         Recent
       </button>
       <button 
-        className={selectedView === 'hourly' ? 'active' : ''}
+        className={selectedView === 'hourly' ? styles.active : ''}
         onClick={() => onViewChange('hourly')}
       >
         Hourly Analysis
       </button>
       <button 
-        className={selectedView === 'timeline' ? 'active' : ''}
+        className={selectedView === 'timeline' ? styles.active : ''}
         onClick={() => onViewChange('timeline')}
       >
         Timeline
       </button>
       <button 
-        className={selectedView === 'correlation' ? 'active' : ''}
+        className={selectedView === 'correlation' ? styles.active : ''}
         onClick={() => onViewChange('correlation')}
       >
         Correlation
       </button>
       <button 
-        className={selectedView === 'annual-heatmap' ? 'active' : ''}
+        className={selectedView === 'annual-heatmap' ? styles.active : ''}
         onClick={() => onViewChange('annual-heatmap')}
       >
         Annual

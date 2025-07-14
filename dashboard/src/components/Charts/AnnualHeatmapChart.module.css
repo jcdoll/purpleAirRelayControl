@@ -1,0 +1,22 @@
+.annualHeatmap .apexcharts-heatmap-rect {
+  stroke: #ffffff !important;
+  stroke-width: 4px !important;
+  rx: 4px !important;
+  ry: 4px !important;
+}
+
+/* Ensure the heatmap has proper spacing and doesn't overlap labels */
+.annualHeatmap .apexcharts-series {
+  transform: scale(0.85);
+  transform-origin: center;
+}
+
+/* Add padding to prevent overlap with y-axis labels */
+.annualHeatmap .apexcharts-inner {
+  padding-left: 10px !important;
+}
+
+/* Ensure proper spacing between chart and labels */
+.annualHeatmap .apexcharts-yaxis-label {
+  margin-right: 8px !important;
+} 

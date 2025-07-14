@@ -1,0 +1,32 @@
+.controls {
+  background: white;
+  padding: var(--spacing-lg);
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  margin-bottom: var(--spacing-xl);
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.controls > .viewSelector {
+  order: 1;
+}
+
+.controls > .heatmapControls,
+.controls > .dateRange,
+.controls > .dataSource,
+.controls > .annualHeatmapControls,
+.controls > .hourlyControls {
+  margin-bottom: 15px;
+}
+
+
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+} 

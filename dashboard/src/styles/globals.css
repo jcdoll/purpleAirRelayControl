@@ -1,0 +1,77 @@
+/* Global CSS Reset and Base Styles */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f5f5f5;
+}
+
+/* CSS Custom Properties for Design Tokens */
+:root {
+  /* Colors */
+  --primary-color: #2196F3;
+  --primary-hover: #1976D2;
+  --success-color: #4CAF50;
+  --text-primary: #333;
+  --text-secondary: #666;
+  --text-tertiary: #888;
+  --background-primary: #ffffff;
+  --background-secondary: #f5f5f5;
+  --background-tertiary: #f8f9fa;
+  --border-color: #ddd;
+  --border-light: #e0e0e0;
+  --border-dark: #e9ecef;
+  --shadow-light: 0 2px 4px rgba(0,0,0,0.1);
+  --shadow-medium: 0 4px 8px rgba(0,0,0,0.15);
+  --shadow-dark: 0 2px 8px rgba(0,0,0,0.15);
+
+  /* AQI Colors */
+  --aqi-good: #00E400;
+  --aqi-moderate: #FFDC00;
+  --aqi-unhealthy-sensitive: #FF7E00;
+  --aqi-unhealthy: #FF0000;
+  --aqi-very-unhealthy: #8F3F97;
+  --aqi-hazardous: #7E0023;
+  --aqi-no-data: #f0f0f0;
+  --aqi-clear: #FFFFFF;
+
+  /* Spacing */
+  --spacing-xs: 5px;
+  --spacing-sm: 10px;
+  --spacing-md: 15px;
+  --spacing-lg: 20px;
+  --spacing-xl: 30px;
+  --spacing-xxl: 40px;
+
+  /* Border Radius */
+  --border-radius-sm: 3px;
+  --border-radius-md: 5px;
+  --border-radius-lg: 8px;
+
+
+}
+
+
+
+/* Global Print Styles */
+@media print {
+  .controls {
+    display: none;
+  }
+  
+  .chart-container {
+    box-shadow: none;
+    break-inside: avoid;
+  }
+  
+  footer {
+    display: none;
+  }
+} 

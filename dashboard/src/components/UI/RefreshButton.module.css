@@ -1,0 +1,32 @@
+.refreshBtn {
+  padding: 10px 20px;
+  border: 2px solid #4CAF50;
+  background: white;
+  color: #4CAF50;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 1rem;
+
+}
+
+.refreshBtn:hover {
+  background: #4CAF50;
+  color: white;
+}
+
+.refreshBtnHeader {
+  margin-top: 10px;
+  flex-shrink: 0;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .refreshBtn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  .refreshBtnHeader {
+    margin-top: 15px;
+  }
+} 

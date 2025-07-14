@@ -1,0 +1,93 @@
+/* Summary Cards Component Styles */
+.summaryCards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+}
+
+.card {
+  background: var(--background-primary);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-light);
+  text-align: center;
+}
+
+
+
+.cardTitle {
+  margin: 0 0 var(--spacing-sm) 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.cardValue {
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: var(--primary-color);
+  margin: var(--spacing-sm) 0;
+}
+
+/* AQI-specific value colors */
+.cardValue.aqiGood { 
+  color: var(--aqi-good); 
+}
+
+.cardValue.aqiModerate { 
+  color: var(--aqi-moderate); 
+}
+
+.cardValue.aqiUnhealthySensitive { 
+  color: var(--aqi-unhealthy-sensitive); 
+}
+
+.cardValue.aqiUnhealthy { 
+  color: var(--aqi-unhealthy); 
+}
+
+.cardValue.aqiVeryUnhealthy { 
+  color: var(--aqi-very-unhealthy); 
+}
+
+.cardValue.aqiHazardous { 
+  color: var(--aqi-hazardous); 
+}
+
+.cardLabel {
+  color: var(--text-tertiary);
+  font-size: 0.9rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .summaryCards {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-sm);
+  }
+  
+  .card {
+    padding: var(--spacing-md);
+  }
+  
+  .cardValue {
+    font-size: 2rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .summaryCards {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-xs);
+  }
+  
+  .card {
+    padding: 12px;
+  }
+  
+  .cardValue {
+    font-size: 1.8rem;
+  }
+} 

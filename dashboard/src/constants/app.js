@@ -57,40 +57,10 @@ export const CHART_MARGINS = {
   ANNUAL_HEATMAP: { t: 50, r: 20, b: 80, l: 50 }
 };
 
-// Animation Duration
-export const ANIMATION_DURATION = 500;
+
 
 // Data Processing
-export const MAX_DATA_POINTS = 10000; // Limit for performance
-
-// Timezone Options
-export const TIMEZONE_OPTIONS = [
-  { value: -11, label: 'UTC-11 (Hawaii)' },
-  { value: -10, label: 'UTC-10 (Alaska)' },
-  { value: -9, label: 'UTC-9 (Alaska)' },
-  { value: -8, label: 'UTC-8 (Pacific)' },
-  { value: -7, label: 'UTC-7 (Mountain/PDT)' },
-  { value: -6, label: 'UTC-6 (Central/MDT)' },
-  { value: -5, label: 'UTC-5 (Eastern/CDT)' },
-  { value: -4, label: 'UTC-4 (Atlantic/EDT)' },
-  { value: -3, label: 'UTC-3 (Argentina)' },
-  { value: -2, label: 'UTC-2 (Mid-Atlantic)' },
-  { value: -1, label: 'UTC-1 (Azores)' },
-  { value: 0, label: 'UTC+0 (London)' },
-  { value: 1, label: 'UTC+1 (Paris)' },
-  { value: 2, label: 'UTC+2 (Cairo)' },
-  { value: 3, label: 'UTC+3 (Moscow)' },
-  { value: 4, label: 'UTC+4 (Dubai)' },
-  { value: 5, label: 'UTC+5 (Karachi)' },
-  { value: 5.5, label: 'UTC+5:30 (Mumbai)' },
-  { value: 6, label: 'UTC+6 (Dhaka)' },
-  { value: 7, label: 'UTC+7 (Bangkok)' },
-  { value: 8, label: 'UTC+8 (Beijing)' },
-  { value: 9, label: 'UTC+9 (Tokyo)' },
-  { value: 10, label: 'UTC+10 (Sydney)' },
-  { value: 11, label: 'UTC+11 (New Caledonia)' },
-  { value: 12, label: 'UTC+12 (Auckland)' }
-];
+export const MAX_DATA_POINTS = 1000; // Limit for performance
 
 // Date Range Options
 export const DATE_RANGE_OPTIONS = [
@@ -151,4 +121,16 @@ export const LOADING_MESSAGES = {
   INITIAL: 'Loading air quality data...',
   REFRESH: 'Refreshing data...',
   PROCESSING: 'Processing data...'
-}; 
+};
+
+// AQI Legend Items
+export const AQI_LEGEND_ITEMS = [
+  { color: '#f0f0f0', label: 'No Data' },
+  { color: '#FFFFFF', label: 'Clear (=0)', border: '1px solid #ccc' },
+  { color: '#00E400', label: 'Good (<50)' },
+  { color: '#FFDC00', label: 'Moderate (<100)' },
+  { color: '#FF7E00', label: 'Sensitive (<150)' },
+  { color: '#FF0000', label: 'Unhealthy (<200)' },
+  { color: '#8F3F97', label: 'Very Unhealthy (<300)' },
+  { color: '#7E0023', label: 'Hazardous (>300)' }
+]; 

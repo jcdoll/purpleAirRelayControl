@@ -1,4 +1,5 @@
 import React from 'react';
+import styles from './DateRangeControls.module.css';
 
 const DateRangeControls = ({
   selectedView,
@@ -31,9 +32,9 @@ const DateRangeControls = ({
 
   // Common date range controls for heatmap, hourly, timeline, and correlation views
   const renderCommonDateControls = () => (
-    <div className="date-range">
+    <div className={styles.dateRange}>
       <label>Time frame: </label>
-      <div className="time-range-toggle">
+      <div className={styles.timeRangeToggle}>
         <label>
           <input 
             type="radio" 
@@ -70,7 +71,7 @@ const DateRangeControls = ({
           <option value="previous_year">Previous year</option>
         </select>
       ) : (
-        <div className="custom-date-range">
+        <div className={styles.customDateRange}>
           <input
             type="date"
             value={customStartDate}
@@ -91,7 +92,7 @@ const DateRangeControls = ({
 
   if (selectedView === 'heatmap') {
     return (
-      <div className="heatmap-controls">
+      <div className={styles.heatmapControls}>
         {renderCommonDateControls()}
       </div>
     );
@@ -99,7 +100,7 @@ const DateRangeControls = ({
 
   if (selectedView === 'hourly') {
     return (
-      <div className="hourly-controls">
+      <div className={styles.hourlyControls}>
         {renderCommonDateControls()}
       </div>
     );
@@ -111,8 +112,8 @@ const DateRangeControls = ({
 
   if (selectedView === 'annual-heatmap') {
     return (
-      <div className="annual-heatmap-controls">
-        <div className="year-selector">
+      <div className={styles.annualHeatmapControls}>
+        <div className={styles.yearSelector}>
           <label>Year: </label>
           <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))}>
             {getAvailableYears.map(year => (
@@ -120,7 +121,7 @@ const DateRangeControls = ({
             ))}
           </select>
         </div>
-        <div className="aggregation-type">
+        <div className={styles.aggregationType}>
           <label>Aggregation: </label>
           <select value={annualHeatmapAggregation} onChange={(e) => setAnnualHeatmapAggregation(e.target.value)}>
             <option value="average">Daily Average</option>
