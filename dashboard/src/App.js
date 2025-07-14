@@ -251,14 +251,12 @@ function App() {
 
       <div className={styles.chartContainer}>
         {/* Pre-render all charts for instant tab switching */}
-        {data.length > 0 && (
-          <RecentHeatmapChart 
-            data={heatmapData} 
-            timeRangeDescription={timeRangeDescription} 
-            isVisible={state.selectedView === 'heatmap'}
-            dateRange={state.dateRange}
-          />
-        )}
+        <RecentHeatmapChart 
+          data={heatmapData} 
+          timeRangeDescription={timeRangeDescription} 
+          isVisible={state.selectedView === 'heatmap'}
+          dateRange={state.dateRange}
+        />
         <HourlyChart 
           data={hourlyData} 
           timeRangeDescription={timeRangeDescription} 
