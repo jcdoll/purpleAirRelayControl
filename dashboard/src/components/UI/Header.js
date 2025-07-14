@@ -8,9 +8,11 @@ const Header = ({ lastUpdate, onRefresh }) => {
           <h1>🏠 Air Quality Dashboard</h1>
           <p className="last-update">Last updated: {lastUpdate.toLocaleString()}</p>
         </div>
-        <button onClick={onRefresh} className="refresh-btn refresh-btn-header">
-          🔄 Refresh
-        </button>
+        <div className="header-controls">
+          <button onClick={onRefresh} className="refresh-btn refresh-btn-header">
+            🔄 Refresh
+          </button>
+        </div>
       </div>
     </header>
   );

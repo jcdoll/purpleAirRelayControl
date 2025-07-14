@@ -1,6 +1,9 @@
 import React from 'react';
 import Plot from 'react-plotly.js';
 
+// TODO: Switch from Plotly to a different charting library that supports proper cell borders
+// Plotly heatmaps don't have native border/stroke properties for individual cells
+
 const AnnualHeatmapChart = ({ data, selectedYear, aggregation }) => {
   return (
     <div>
@@ -13,28 +16,32 @@ const AnnualHeatmapChart = ({ data, selectedYear, aggregation }) => {
           <span>No Data</span>
         </div>
         <div className="legend-item">
+          <div className="legend-color" style={{backgroundColor: '#FFFFFF', border: '1px solid #ccc'}}></div>
+          <span>Clear (=0)</span>
+        </div>
+        <div className="legend-item">
           <div className="legend-color" style={{backgroundColor: '#00E400'}}></div>
-          <span>Good (0-50)</span>
+          <span>Good (&lt;50)</span>
         </div>
         <div className="legend-item">
           <div className="legend-color" style={{backgroundColor: '#FFDC00'}}></div>
-          <span>Moderate (51-100)</span>
+          <span>Moderate (&lt;100)</span>
         </div>
         <div className="legend-item">
           <div className="legend-color" style={{backgroundColor: '#FF7E00'}}></div>
-          <span>Sensitive (101-150)</span>
+          <span>Sensitive (&lt;150)</span>
         </div>
         <div className="legend-item">
           <div className="legend-color" style={{backgroundColor: '#FF0000'}}></div>
-          <span>Unhealthy (151-200)</span>
+          <span>Unhealthy (&lt;200)</span>
         </div>
         <div className="legend-item">
           <div className="legend-color" style={{backgroundColor: '#8F3F97'}}></div>
-          <span>Very Unhealthy (201-300)</span>
+          <span>Very Unhealthy (&lt;300)</span>
         </div>
         <div className="legend-item">
           <div className="legend-color" style={{backgroundColor: '#7E0023'}}></div>
-          <span>Hazardous (301-500)</span>
+          <span>Hazardous (&gt;300)</span>
         </div>
       </div>
       
@@ -42,73 +49,87 @@ const AnnualHeatmapChart = ({ data, selectedYear, aggregation }) => {
         data={data}
         layout={{
           xaxis: { 
-            title: '',
+            title: '', 
             showticklabels: true,
-            tickangle: 0,
             tickmode: 'array',
-            tickvals: [0, 4, 13, 22, 30, 39, 48], // Approximate month starts
-            ticktext: ['Jan', 'Feb', 'Apr', 'Jun', 'Aug', 'Oct', 'Dec'],
+            tickvals: [0, 4, 8, 13, 17, 21, 26, 30, 35, 39, 43, 47],
+            ticktext: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+            fixedrange: true,
+            range: [-0.5, 51.5],
             showgrid: false,
             zeroline: false,
-            side: 'top',
+            scaleanchor: 'y',
+            scaleratio: 1
+          },
+          xaxis2: { 
+            title: '', 
+            showticklabels: true,
+            tickmode: 'array',
+            tickvals: [0, 4, 8, 13, 17, 21, 26, 30, 35, 39, 43, 47],
+            ticktext: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+            fixedrange: true,
             range: [-0.5, 51.5],
-            domain: [0, 1]
+            showgrid: false,
+            zeroline: false,
+            scaleanchor: 'y2',
+            scaleratio: 1,
+            anchor: 'y2',
+            side: 'bottom'
           },
           yaxis: { 
             title: '',
             tickmode: 'array',
             tickvals: [0, 1, 2, 3, 4, 5, 6],
             ticktext: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+            fixedrange: true,
+            autorange: 'reversed',
             showgrid: false,
             zeroline: false,
-            autorange: 'reversed',
-            side: 'left',
-            domain: [0.55, 1]
+            domain: [0.52, 1.0]
           },
           yaxis2: { 
             title: '',
             tickmode: 'array',
             tickvals: [0, 1, 2, 3, 4, 5, 6],
             ticktext: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+            fixedrange: true,
+            autorange: 'reversed',
+            domain: [0, 0.48],
             showgrid: false,
             zeroline: false,
-            autorange: 'reversed',
-            side: 'left',
-            domain: [0, 0.45]
+            scaleanchor: 'y',
+            scaleratio: 1
           },
           plot_bgcolor: 'rgba(0,0,0,0)',
           paper_bgcolor: 'rgba(0,0,0,0)',
-          margin: { l: 50, r: 20, t: 50, b: 20 },
-          height: 400,
+          margin: { l: 120, r: 20, t: 80, b: 80 },
           annotations: [
             {
               text: 'Indoor AQI',
-              x: -0.1,
-              y: 0.775,
+              x: 0,
+              y: 1.03,
               xref: 'paper',
               yref: 'paper',
-              xanchor: 'center',
-              yanchor: 'middle',
-              textangle: -90,
-              font: { size: 14 },
+              xanchor: 'left',
+              yanchor: 'bottom',
+              font: { size: 16, weight: 'bold' },
               showarrow: false
             },
             {
               text: 'Outdoor AQI',
-              x: -0.1,
-              y: 0.225,
+              x: 0,
+              y: 0.50,
               xref: 'paper',
               yref: 'paper',
-              xanchor: 'center',
-              yanchor: 'middle',
-              textangle: -90,
-              font: { size: 14 },
+              xanchor: 'left',
+              yanchor: 'bottom',
+              font: { size: 16, weight: 'bold' },
               showarrow: false
             }
           ]
         }}
         config={{ responsive: true }}
-        style={{ width: '100%', height: '500px' }}
+        style={{ width: '100%', height: '600px' }}
       />
     </div>
   );

@@ -72,7 +72,7 @@ function App() {
     }
   }, [data, selectedYear, getAvailableYears]);
 
-  // Memoized chart data processing
+  // Memoized chart data processing - simplified to only use continuous colors
   const heatmapData = useMemo(() => processHeatmapData(filteredData, dateRange), [filteredData, dateRange]);
   const hourlyData = useMemo(() => processHourlyStats(filteredData), [filteredData]);
   const timeSeriesData = useMemo(() => processTimeSeriesData(filteredData), [filteredData]);

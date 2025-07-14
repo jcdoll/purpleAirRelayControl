@@ -17,20 +17,20 @@ const SummaryCards = ({ summary }) => {
     <div className="summary-cards">
       <div className="card">
         <h3>Peak Hour</h3>
-        <div className="value">{summary.peakHour}:00</div>
-        <div className="label">{summary.peakValue} AQI avg</div>
+        <div className="value">{summary.peakHour.hour}</div>
+        <div className="label">{summary.peakHour.aqi} AQI avg</div>
       </div>
       <div className="card">
         <h3>Indoor Average</h3>
-        <div className={`value ${getAQIClass(parseFloat(summary.avgIndoor || 0))}`}>
-          {summary.avgIndoor}
+        <div className={`value ${getAQIClass(parseFloat(summary.indoorAvg || 0))}`}>
+          {summary.indoorAvg}
         </div>
         <div className="label">AQI</div>
       </div>
       <div className="card">
         <h3>Outdoor Average</h3>
-        <div className={`value ${getAQIClass(parseFloat(summary.avgOutdoor || 0))}`}>
-          {summary.avgOutdoor}
+        <div className={`value ${getAQIClass(parseFloat(summary.outdoorAvg || 0))}`}>
+          {summary.outdoorAvg}
         </div>
         <div className="label">AQI</div>
       </div>
