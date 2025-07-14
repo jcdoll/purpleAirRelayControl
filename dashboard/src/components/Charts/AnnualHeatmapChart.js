@@ -9,24 +9,24 @@ import styles from './AnnualHeatmapChart.module.css';
 const AnnualHeatmapChart = ({ data, selectedYear, aggregation, isVisible }) => {
   const { indoor, outdoor } = createAnnualHeatmapSeries(data);
   
-  // Helper function to create chart options (eliminates duplication)
+  // Single source of truth for month positions and labels
+  const monthTickMap = {
+    0: 'Jan',
+    4: 'Feb', 
+    8: 'Mar',
+    13: 'Apr',
+    17: 'May',
+    21: 'Jun',
+    26: 'Jul',
+    30: 'Aug',
+    35: 'Sep',
+    39: 'Oct',
+    43: 'Nov',
+    47: 'Dec'
+  };
+  
+  // Generic chart options creator
   const createAnnualHeatmapOptions = (type) => {
-    // Single source of truth for month positions and labels
-    const monthTickMap = {
-      0: 'Jan',
-      4: 'Feb', 
-      8: 'Mar',
-      13: 'Apr',
-      17: 'May',
-      21: 'Jun',
-      26: 'Jul',
-      30: 'Aug',
-      35: 'Sep',
-      39: 'Oct',
-      43: 'Nov',
-      47: 'Dec'
-    };
-    
     return getHeatmapOptions({
       chart: { 
         height: 250,
@@ -69,7 +69,6 @@ const AnnualHeatmapChart = ({ data, selectedYear, aggregation, isVisible }) => {
         labels: {
           formatter: function(value) {
             const weekNum = Math.round(value);
-            // Only show labels for weeks that are in our monthTickMap
             if (monthTickMap[weekNum]) {
               return monthTickMap[weekNum];
             }
@@ -94,25 +93,26 @@ const AnnualHeatmapChart = ({ data, selectedYear, aggregation, isVisible }) => {
     });
   };
   
-  const indoorOptions = createAnnualHeatmapOptions('Indoor');
-  const outdoorOptions = createAnnualHeatmapOptions('Outdoor');
+  // Generic chart section renderer
+  const renderChartSection = (dataType, series) => {
+    const options = createAnnualHeatmapOptions(dataType);
+    
+    return (
+      <div className={chartStyles.chartSection}>
+        <h3 className={chartStyles.chartSectionTitle}>{dataType} AQI</h3>
+        <div className={styles.annualHeatmap}>
+          <Chart options={options} series={series} type="heatmap" height={250} />
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className={`${chartStyles.chartContainer} ${!isVisible ? chartStyles.hidden : ''}`}>
       <h2 className={chartStyles.chartTitle}>Indoor & Outdoor AQI Annual Calendar {selectedYear} - Daily {aggregation === 'average' ? 'Average' : 'Maximum'}</h2>
       <ColorLegend />
-      <div className={chartStyles.chartSection}>
-        <h3 className={chartStyles.chartSectionTitle}>Indoor AQI</h3>
-        <div className={styles.annualHeatmap}>
-          <Chart options={indoorOptions} series={indoor} type="heatmap" height={250} />
-        </div>
-      </div>
-      <div className={chartStyles.chartSection}>
-        <h3 className={chartStyles.chartSectionTitle}>Outdoor AQI</h3>
-        <div className={styles.annualHeatmap}>
-          <Chart options={outdoorOptions} series={outdoor} type="heatmap" height={250} />
-        </div>
-      </div>
+      {renderChartSection('Indoor', indoor)}
+      {renderChartSection('Outdoor', outdoor)}
     </div>
   );
 };

@@ -1,64 +1,130 @@
-// Chart data processing functions - simplified without timezone handling
+// Chart data processing functions - refactored to eliminate indoor/outdoor duplication
 import { getAQIColor } from './aqiUtils';
 
-export const processHeatmapData = (filteredData, dateRange) => {
-  // Helper function to create pivot table for a data source
-  const createPivotData = (dataSource) => {
-    const pivotData = {};
-    filteredData.forEach(row => {
-      if (!pivotData[row.date]) {
-        pivotData[row.date] = {};
-      }
-      if (!pivotData[row.date][row.hour]) {
-        pivotData[row.date][row.hour] = [];
-      }
-      const value = dataSource === 'indoor' ? row.IndoorAirQuality : row.OutdoorAirQuality;
-      if (value !== null && value !== undefined) {
-        pivotData[row.date][row.hour].push(value);
-      }
-    });
-    return pivotData;
-  };
+// Generic utilities for data processing
+const isValidValue = (value) => value !== null && value !== undefined;
 
-  // Create pivot tables for both indoor and outdoor
-  const indoorPivotData = createPivotData('indoor');
-  const outdoorPivotData = createPivotData('outdoor');
+const calculateAverage = (values) => {
+  if (values.length === 0) return null;
+  return values.reduce((a, b) => a + b) / values.length;
+};
+
+const getFieldName = (dataType) => {
+  return dataType === 'indoor' ? 'IndoorAirQuality' : 'OutdoorAirQuality';
+};
+
+// Generic single-dataset processors
+const processSingleHeatmapDataset = (filteredData, dataType) => {
+  const fieldName = getFieldName(dataType);
+  const pivotData = {};
   
-  // Only include dates that have at least some valid data for either indoor or outdoor
-  const allDates = new Set([...Object.keys(indoorPivotData), ...Object.keys(outdoorPivotData)]);
-  const validDates = [];
-  
-  allDates.forEach(date => {
-    const hasIndoorData = Object.values(indoorPivotData[date] || {}).some(values => values.length > 0);
-    const hasOutdoorData = Object.values(outdoorPivotData[date] || {}).some(values => values.length > 0);
-    
-    if (hasIndoorData || hasOutdoorData) {
-      validDates.push(date);
+  filteredData.forEach(row => {
+    if (!pivotData[row.date]) {
+      pivotData[row.date] = {};
+    }
+    if (!pivotData[row.date][row.hour]) {
+      pivotData[row.date][row.hour] = [];
+    }
+    const value = row[fieldName];
+    if (isValidValue(value)) {
+      pivotData[row.date][row.hour].push(value);
     }
   });
   
-  const dates = validDates.sort();
-  const hours = Array.from({length: 24}, (_, i) => i);
-  const indoorZValues = [];
-  const outdoorZValues = [];
+  return pivotData;
+};
+
+const processSingleHourlyDataset = (filteredData, dataType) => {
+  const fieldName = getFieldName(dataType);
+  const hourlyData = {};
   
-  dates.forEach(date => {
-    const indoorRow = [];
-    const outdoorRow = [];
-    hours.forEach(hour => {
-      const indoorValues = indoorPivotData[date]?.[hour] || [];
-      const outdoorValues = outdoorPivotData[date]?.[hour] || [];
-      const indoorAvg = indoorValues.length > 0 ? indoorValues.reduce((a, b) => a + b) / indoorValues.length : null;
-      const outdoorAvg = outdoorValues.length > 0 ? outdoorValues.reduce((a, b) => a + b) / outdoorValues.length : null;
-      indoorRow.push(indoorAvg);
-      outdoorRow.push(outdoorAvg);
+  filteredData.forEach(row => {
+    if (!hourlyData[row.hour]) {
+      hourlyData[row.hour] = [];
+    }
+    const value = row[fieldName];
+    if (isValidValue(value)) {
+      hourlyData[row.hour].push(value);
+    }
+  });
+  
+  return hourlyData;
+};
+
+const processSingleDailyDataset = (data, selectedYear, dataType) => {
+  const fieldName = getFieldName(dataType);
+  const yearData = data.filter(d => d.timestamp.getFullYear() === selectedYear);
+  
+  const dailyData = {};
+  yearData.forEach(row => {
+    const date = row.date;
+    if (!dailyData[date]) {
+      dailyData[date] = [];
+    }
+    const value = row[fieldName];
+    if (isValidValue(value)) {
+      dailyData[date].push(value);
+    }
+  });
+  
+  return dailyData;
+};
+
+const createHoverText = (values, labels, dataType, hours) => {
+  return values.map((row, dateIndex) => 
+    row.map((val, hourIndex) => {
+      const date = labels[dateIndex];
+      const hour = hours[hourIndex];
+      const displayType = dataType === 'indoor' ? 'Indoor' : 'Outdoor';
+      if (val === null) {
+        return `${displayType}<br>Date: ${date}<br>Hour: ${hour}:00<br>AQI: No data`;
+      }
+      return `${displayType}<br>Date: ${date}<br>Hour: ${hour}:00<br>AQI: ${val.toFixed(1)}`;
+    })
+  );
+};
+
+// Main processing functions using the generic utilities
+export const processHeatmapData = (filteredData, dateRange) => {
+  const dataTypes = ['indoor', 'outdoor'];
+  const pivotDatasets = {};
+  
+  // Process both datasets using the generic processor
+  dataTypes.forEach(dataType => {
+    pivotDatasets[dataType] = processSingleHeatmapDataset(filteredData, dataType);
+  });
+  
+  // Find valid dates that have data for either dataset
+  const allDates = new Set([
+    ...Object.keys(pivotDatasets.indoor), 
+    ...Object.keys(pivotDatasets.outdoor)
+  ]);
+  
+  const validDates = Array.from(allDates).filter(date => {
+    const hasIndoorData = Object.values(pivotDatasets.indoor[date] || {}).some(values => values.length > 0);
+    const hasOutdoorData = Object.values(pivotDatasets.outdoor[date] || {}).some(values => values.length > 0);
+    return hasIndoorData || hasOutdoorData;
+  }).sort();
+  
+  const hours = Array.from({length: 24}, (_, i) => i);
+  const datasets = {};
+  
+  // Process each dataset to create Z values
+  dataTypes.forEach(dataType => {
+    datasets[dataType] = [];
+    validDates.forEach(date => {
+      const row = [];
+      hours.forEach(hour => {
+        const values = pivotDatasets[dataType][date]?.[hour] || [];
+        const avg = calculateAverage(values);
+        row.push(avg);
+      });
+      datasets[dataType].push(row);
     });
-    indoorZValues.push(indoorRow);
-    outdoorZValues.push(outdoorRow);
   });
 
-  // Format y-axis labels consistently as "Jul 8" format
-  const yLabels = dates.map(date => {
+  // Format y-axis labels
+  const yLabels = validDates.map(date => {
     const [year, month, day] = date.split('-').map(Number);
     const dateObj = new Date(year, month - 1, day);
     return dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -68,153 +134,82 @@ export const processHeatmapData = (filteredData, dateRange) => {
     x: hours.map(h => `${h}:00`),
     y: yLabels,
     type: 'heatmap',
-    // Remove colorscale from here - it's handled in ApexCharts options
     zmin: -1,
     zmax: 500,
     showscale: false,
     hoverongaps: false
   };
   
-  // Create custom hover text for missing data
-  const indoorHoverText = indoorZValues.map((row, dateIndex) => 
-    row.map((val, hourIndex) => {
-      const date = yLabels[dateIndex];
-      const hour = hours[hourIndex];
-      if (val === null) {
-        return `Indoor<br>Date: ${date}<br>Hour: ${hour}:00<br>AQI: No data`;
-      }
-      return `Indoor<br>Date: ${date}<br>Hour: ${hour}:00<br>AQI: ${val.toFixed(1)}`;
-    })
-  );
-
-  const outdoorHoverText = outdoorZValues.map((row, dateIndex) => 
-    row.map((val, hourIndex) => {
-      const date = yLabels[dateIndex];
-      const hour = hours[hourIndex];
-      if (val === null) {
-        return `Outdoor<br>Date: ${date}<br>Hour: ${hour}:00<br>AQI: No data`;
-      }
-      return `Outdoor<br>Date: ${date}<br>Hour: ${hour}:00<br>AQI: ${val.toFixed(1)}`;
-    })
-  );
-
-  const indoorConfig = {
+  // Create configurations for both datasets
+  const configs = dataTypes.map((dataType, index) => ({
     ...commonConfig,
-    z: indoorZValues.map(row => row.map(val => val === null ? -1 : val)),
-    text: indoorHoverText,
+    z: datasets[dataType].map(row => row.map(val => val === null ? -1 : val)),
+    text: createHoverText(datasets[dataType], yLabels, dataType, hours),
     hoverinfo: 'text',
-    name: 'Indoor AQI'
-  };
+    name: `${dataType === 'indoor' ? 'Indoor' : 'Outdoor'} AQI`,
+    ...(index === 1 && { xaxis: 'x2', yaxis: 'y2' })
+  }));
 
-  const outdoorConfig = {
-    ...commonConfig,
-    z: outdoorZValues.map(row => row.map(val => val === null ? -1 : val)),
-    text: outdoorHoverText,
-    hoverinfo: 'text',
-    name: 'Outdoor AQI',
-    xaxis: 'x2',
-    yaxis: 'y2'
-  };
-
-  return [indoorConfig, outdoorConfig];
+  return configs;
 };
 
 export const processHourlyStats = (filteredData) => {
-  const indoorHourlyData = {};
-  const outdoorHourlyData = {};
+  const dataTypes = ['indoor', 'outdoor'];
+  const results = [];
   
-  filteredData.forEach(row => {
-    if (!indoorHourlyData[row.hour]) {
-      indoorHourlyData[row.hour] = [];
-    }
-    if (!outdoorHourlyData[row.hour]) {
-      outdoorHourlyData[row.hour] = [];
+  dataTypes.forEach(dataType => {
+    const hourlyData = processSingleHourlyDataset(filteredData, dataType);
+    const stats = [];
+    
+    for (let hour = 0; hour < 24; hour++) {
+      const values = hourlyData[hour] || [];
+      const average = calculateAverage(values);
+      stats.push({
+        hour: hour,
+        average: average,
+        count: values.length
+      });
     }
     
-    if (row.IndoorAirQuality !== null && row.IndoorAirQuality !== undefined) {
-      indoorHourlyData[row.hour].push(row.IndoorAirQuality);
-    }
-    if (row.OutdoorAirQuality !== null && row.OutdoorAirQuality !== undefined) {
-      outdoorHourlyData[row.hour].push(row.OutdoorAirQuality);
-    }
+    const displayType = dataType === 'indoor' ? 'Indoor' : 'Outdoor';
+    const color = dataType === 'indoor' ? '#007bff' : '#ff6b6b';
+    
+    results.push({
+      x: stats.map(s => `${s.hour}:00`),
+      y: stats.map(s => s.average),
+      type: 'scatter',
+      mode: 'lines+markers',
+      name: displayType,
+      line: { color },
+      marker: { color },
+      hovertemplate: `${displayType}<br>Hour: %{x}<br>Average AQI: %{y:.1f}<extra></extra>`
+    });
   });
 
-  const indoorStats = [];
-  const outdoorStats = [];
-  
-  for (let hour = 0; hour < 24; hour++) {
-    const indoorValues = indoorHourlyData[hour] || [];
-    const outdoorValues = outdoorHourlyData[hour] || [];
-    
-    const indoorAvg = indoorValues.length > 0 ? indoorValues.reduce((a, b) => a + b) / indoorValues.length : null;
-    const outdoorAvg = outdoorValues.length > 0 ? outdoorValues.reduce((a, b) => a + b) / outdoorValues.length : null;
-    
-    indoorStats.push({
-      hour: hour,
-      average: indoorAvg,
-      count: indoorValues.length
-    });
-    
-    outdoorStats.push({
-      hour: hour,
-      average: outdoorAvg,
-      count: outdoorValues.length
-    });
-  }
-
-  const indoorData = {
-    x: indoorStats.map(s => `${s.hour}:00`),
-    y: indoorStats.map(s => s.average),
-    type: 'scatter',
-    mode: 'lines+markers',
-    name: 'Indoor',
-    line: { color: '#007bff' },
-    marker: { color: '#007bff' },
-    hovertemplate: 'Indoor<br>Hour: %{x}<br>Average AQI: %{y:.1f}<extra></extra>'
-  };
-
-  const outdoorData = {
-    x: outdoorStats.map(s => `${s.hour}:00`),
-    y: outdoorStats.map(s => s.average),
-    type: 'scatter',
-    mode: 'lines+markers',
-    name: 'Outdoor',
-    line: { color: '#ff6b6b' },
-    marker: { color: '#ff6b6b' },
-    hovertemplate: 'Outdoor<br>Hour: %{x}<br>Average AQI: %{y:.1f}<extra></extra>'
-  };
-
-  return [indoorData, outdoorData];
+  return results;
 };
 
 export const processTimeSeriesData = (filteredData) => {
-  const timeSeriesData = filteredData.map(row => ({
-    timestamp: row.timestamp,
-    indoor: row.IndoorAirQuality,
-    outdoor: row.OutdoorAirQuality
-  }));
+  const dataTypes = ['indoor', 'outdoor'];
+  const results = [];
+  
+  dataTypes.forEach(dataType => {
+    const fieldName = getFieldName(dataType);
+    const displayType = dataType === 'indoor' ? 'Indoor' : 'Outdoor';
+    const color = dataType === 'indoor' ? '#007bff' : '#ff6b6b';
+    
+    results.push({
+      x: filteredData.map(row => row.timestamp),
+      y: filteredData.map(row => row[fieldName]),
+      type: 'scatter',
+      mode: 'lines',
+      name: displayType,
+      line: { color },
+      hovertemplate: `${displayType}<br>Time: %{x}<br>AQI: %{y:.1f}<extra></extra>`
+    });
+  });
 
-  const indoorData = {
-    x: timeSeriesData.map(d => d.timestamp),
-    y: timeSeriesData.map(d => d.indoor),
-    type: 'scatter',
-    mode: 'lines',
-    name: 'Indoor',
-    line: { color: '#007bff' },
-    hovertemplate: 'Indoor<br>Time: %{x}<br>AQI: %{y:.1f}<extra></extra>'
-  };
-
-  const outdoorData = {
-    x: timeSeriesData.map(d => d.timestamp),
-    y: timeSeriesData.map(d => d.outdoor),
-    type: 'scatter',
-    mode: 'lines',
-    name: 'Outdoor',
-    line: { color: '#ff6b6b' },
-    hovertemplate: 'Outdoor<br>Time: %{x}<br>AQI: %{y:.1f}<extra></extra>'
-  };
-
-  return [indoorData, outdoorData];
+  return results;
 };
 
 export const processCorrelationData = (filteredData) => {
@@ -237,56 +232,40 @@ export const processCorrelationData = (filteredData) => {
 };
 
 export const processAnnualHeatmapData = (data, selectedYear, aggregation = 'average') => {
-  // Helper function to create daily data for a data source
-  const createDailyData = (dataSource) => {
-    // Filter data to selected year only
-    const yearData = data.filter(d => d.timestamp.getFullYear() === selectedYear);
-    
-    // Group data by date
-    const dailyData = {};
-    yearData.forEach(row => {
-      const date = row.date; // Already in format YYYY-MM-DD
-      if (!dailyData[date]) {
-        dailyData[date] = [];
-      }
-      const value = dataSource === 'indoor' ? row.IndoorAirQuality : row.OutdoorAirQuality;
-      if (value !== null && value !== undefined) {
-        dailyData[date].push(value);
-      }
-    });
-    
-    // Calculate daily aggregations
+  const dataTypes = ['indoor', 'outdoor'];
+  const dailyDatasets = {};
+  
+  // Process both datasets
+  dataTypes.forEach(dataType => {
+    const dailyData = processSingleDailyDataset(data, selectedYear, dataType);
     const dailyValues = {};
+    
     Object.keys(dailyData).forEach(date => {
       const values = dailyData[date];
       if (values.length > 0) {
         dailyValues[date] = aggregation === 'average' 
-          ? values.reduce((a, b) => a + b) / values.length
+          ? calculateAverage(values)
           : Math.max(...values);
       }
     });
     
-    return dailyValues;
-  };
-
-  // Create daily values for both indoor and outdoor
-  const indoorDailyValues = createDailyData('indoor');
-  const outdoorDailyValues = createDailyData('outdoor');
+    dailyDatasets[dataType] = dailyValues;
+  });
   
-  // Create GitHub-style calendar for the selected year
+  // Generate calendar data
   const yearStart = new Date(selectedYear, 0, 1);
   const firstSunday = new Date(yearStart);
   firstSunday.setDate(firstSunday.getDate() - firstSunday.getDay());
   
   let currentDate = new Date(firstSunday);
-  const indoorHeatmapData = [];
-  const outdoorHeatmapData = [];
-  const indoorHeatmapText = [];
-  const outdoorHeatmapText = [];
+  const results = dataTypes.map(dataType => ({
+    heatmapData: [],
+    heatmapText: []
+  }));
+  
   const heatmapX = [];
   const heatmapY = [];
   
-  // Generate 52 weeks × 7 days
   for (let week = 0; week < 52; week++) {
     for (let day = 0; day < 7; day++) {
       const dateStr = currentDate.toISOString().split('T')[0];
@@ -296,26 +275,20 @@ export const processAnnualHeatmapData = (data, selectedYear, aggregation = 'aver
       heatmapX.push(week);
       heatmapY.push(day);
       
-      if (isTargetYear && !isFuture) {
-        const indoorValue = indoorDailyValues[dateStr];
-        const outdoorValue = outdoorDailyValues[dateStr];
+      dataTypes.forEach((dataType, index) => {
+        const displayType = dataType === 'indoor' ? 'Indoor' : 'Outdoor';
         
-        indoorHeatmapData.push(indoorValue !== undefined ? indoorValue : -1);
-        outdoorHeatmapData.push(outdoorValue !== undefined ? outdoorValue : -1);
-        
-        indoorHeatmapText.push(indoorValue !== undefined 
-          ? `${dateStr}<br>Indoor AQI: ${indoorValue.toFixed(1)}` 
-          : `${dateStr}<br>Indoor AQI: No data`);
-        outdoorHeatmapText.push(outdoorValue !== undefined 
-          ? `${dateStr}<br>Outdoor AQI: ${outdoorValue.toFixed(1)}` 
-          : `${dateStr}<br>Outdoor AQI: No data`);
-      } else {
-        // No data for dates outside target year or future dates
-        indoorHeatmapData.push(-1);
-        outdoorHeatmapData.push(-1);
-        indoorHeatmapText.push(`${dateStr}<br>Indoor AQI: No data`);
-        outdoorHeatmapText.push(`${dateStr}<br>Outdoor AQI: No data`);
-      }
+        if (isTargetYear && !isFuture) {
+          const value = dailyDatasets[dataType][dateStr];
+          results[index].heatmapData.push(value !== undefined ? value : -1);
+          results[index].heatmapText.push(value !== undefined 
+            ? `${dateStr}<br>${displayType} AQI: ${value.toFixed(1)}` 
+            : `${dateStr}<br>${displayType} AQI: No data`);
+        } else {
+          results[index].heatmapData.push(-1);
+          results[index].heatmapText.push(`${dateStr}<br>${displayType} AQI: No data`);
+        }
+      });
       
       currentDate.setDate(currentDate.getDate() + 1);
     }
@@ -326,7 +299,6 @@ export const processAnnualHeatmapData = (data, selectedYear, aggregation = 'aver
     y: heatmapY,
     hoverinfo: 'text',
     type: 'heatmap',
-    // Remove colorscale from here - it's handled in ApexCharts options
     zmin: -1,
     zmax: 500,
     showscale: false,
@@ -336,22 +308,13 @@ export const processAnnualHeatmapData = (data, selectedYear, aggregation = 'aver
     connectgaps: false
   };
   
-  return [
-    {
-      ...commonConfig,
-      z: indoorHeatmapData,
-      text: indoorHeatmapText,
-      name: 'Indoor AQI'
-    },
-    {
-      ...commonConfig,
-      z: outdoorHeatmapData,
-      text: outdoorHeatmapText,
-      name: 'Outdoor AQI',
-      yaxis: 'y2',
-      xaxis: 'x2'
-    }
-  ];
+  return dataTypes.map((dataType, index) => ({
+    ...commonConfig,
+    z: results[index].heatmapData,
+    text: results[index].heatmapText,
+    name: `${dataType === 'indoor' ? 'Indoor' : 'Outdoor'} AQI`,
+    ...(index === 1 && { yaxis: 'y2', xaxis: 'x2' })
+  }));
 };
 
 export const calculatePatternSummary = (data, filteredData) => {
@@ -370,10 +333,10 @@ export const calculatePatternSummary = (data, filteredData) => {
       hourlyData[row.hour] = [];
     }
     // Use both indoor and outdoor values for peak calculation
-    if (row.IndoorAirQuality !== null && row.IndoorAirQuality !== undefined) {
+    if (isValidValue(row.IndoorAirQuality)) {
       hourlyData[row.hour].push(row.IndoorAirQuality);
     }
-    if (row.OutdoorAirQuality !== null && row.OutdoorAirQuality !== undefined) {
+    if (isValidValue(row.OutdoorAirQuality)) {
       hourlyData[row.hour].push(row.OutdoorAirQuality);
     }
   });
@@ -384,7 +347,7 @@ export const calculatePatternSummary = (data, filteredData) => {
   Object.keys(hourlyData).forEach(hour => {
     const values = hourlyData[hour];
     if (values.length > 0) {
-      const avgAqi = values.reduce((a, b) => a + b) / values.length;
+      const avgAqi = calculateAverage(values);
       if (avgAqi > maxAqi) {
         maxAqi = avgAqi;
         peakHour = { hour: `${hour}:00`, aqi: avgAqi.toFixed(1) };
@@ -392,26 +355,19 @@ export const calculatePatternSummary = (data, filteredData) => {
     }
   });
 
-  // Calculate indoor and outdoor averages
-  const indoorValues = filteredData
-    .filter(row => row.IndoorAirQuality !== null && row.IndoorAirQuality !== undefined)
-    .map(row => row.IndoorAirQuality);
-  
-  const outdoorValues = filteredData
-    .filter(row => row.OutdoorAirQuality !== null && row.OutdoorAirQuality !== undefined)
-    .map(row => row.OutdoorAirQuality);
-
-  const indoorAvg = indoorValues.length > 0 
-    ? (indoorValues.reduce((a, b) => a + b) / indoorValues.length).toFixed(1)
-    : 'N/A';
-  
-  const outdoorAvg = outdoorValues.length > 0 
-    ? (outdoorValues.reduce((a, b) => a + b) / outdoorValues.length).toFixed(1)
-    : 'N/A';
+  // Calculate averages for both datasets using generic approach
+  const getAverage = (dataType) => {
+    const fieldName = getFieldName(dataType);
+    const values = filteredData
+      .filter(row => isValidValue(row[fieldName]))
+      .map(row => row[fieldName]);
+    
+    return values.length > 0 ? calculateAverage(values).toFixed(1) : 'N/A';
+  };
 
   return {
     peakHour,
-    indoorAvg,
-    outdoorAvg
+    indoorAvg: getAverage('indoor'),
+    outdoorAvg: getAverage('outdoor')
   };
 }; 

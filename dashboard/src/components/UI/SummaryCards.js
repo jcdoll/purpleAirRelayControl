@@ -1,14 +1,22 @@
 import React from 'react';
 import styles from './SummaryCards.module.css';
+import { getAQIClass } from '../../utils/aqiUtils';
 
-// Function to get AQI CSS class based on AQI value
-const getAQIClass = (aqiValue) => {
-  if (aqiValue <= 50) return styles.aqiGood;
-  if (aqiValue <= 100) return styles.aqiModerate;
-  if (aqiValue <= 150) return styles.aqiUnhealthySensitive;
-  if (aqiValue <= 200) return styles.aqiUnhealthy;
-  if (aqiValue <= 300) return styles.aqiVeryUnhealthy;
-  return styles.aqiHazardous;
+// Create CSS class mapper that uses the centralized AQI classification
+const getAQICSSClass = (aqiValue) => {
+  const baseClass = getAQIClass(aqiValue);
+  
+  // Map AQI utility classes to CSS module classes
+  const classMap = {
+    'aqi-good': styles.aqiGood,
+    'aqi-moderate': styles.aqiModerate,
+    'aqi-unhealthy-sensitive': styles.aqiUnhealthySensitive,
+    'aqi-unhealthy': styles.aqiUnhealthy,
+    'aqi-very-unhealthy': styles.aqiVeryUnhealthy,
+    'aqi-hazardous': styles.aqiHazardous
+  };
+  
+  return classMap[baseClass] || '';
 };
 
 const SummaryCards = ({ summary }) => {
@@ -23,14 +31,14 @@ const SummaryCards = ({ summary }) => {
       </div>
       <div className={styles.card}>
         <h3 className={styles.cardTitle}>Indoor Average</h3>
-        <div className={`${styles.cardValue} ${getAQIClass(parseFloat(summary.indoorAvg || 0))}`}>
+        <div className={`${styles.cardValue} ${getAQICSSClass(parseFloat(summary.indoorAvg || 0))}`}>
           {summary.indoorAvg}
         </div>
         <div className={styles.cardLabel}>AQI</div>
       </div>
       <div className={styles.card}>
         <h3 className={styles.cardTitle}>Outdoor Average</h3>
-        <div className={`${styles.cardValue} ${getAQIClass(parseFloat(summary.outdoorAvg || 0))}`}>
+        <div className={`${styles.cardValue} ${getAQICSSClass(parseFloat(summary.outdoorAvg || 0))}`}>
           {summary.outdoorAvg}
         </div>
         <div className={styles.cardLabel}>AQI</div>

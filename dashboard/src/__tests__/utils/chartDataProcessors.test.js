@@ -49,7 +49,6 @@ describe('chartDataProcessors', () => {
       expect(result[0]).toHaveProperty('x');
       expect(result[0]).toHaveProperty('y');
       expect(result[0]).toHaveProperty('z');
-      expect(result[0]).toHaveProperty('colorscale');
       expect(result[0]).toHaveProperty('zmin');
       expect(result[0]).toHaveProperty('zmax');
       expect(result[0].name).toBe('Indoor AQI');
@@ -71,12 +70,14 @@ describe('chartDataProcessors', () => {
       expect(result[1].y).toHaveLength(0);
     });
 
-    test('uses continuous color scale', () => {
+    test('uses correct data structure for ApexCharts', () => {
       const result = processHeatmapData(mockData, 30);
       
-      expect(result[0].colorscale).toBeDefined();
-      expect(result[0].zmin).toBe(0);
-      expect(result[0].zmax).toBe(500);
+      expect(result[0]).toHaveProperty('type', 'heatmap');
+      expect(result[0]).toHaveProperty('zmin', -1);
+      expect(result[0]).toHaveProperty('zmax', 500);
+      expect(result[0]).toHaveProperty('showscale', false);
+      expect(result[0]).toHaveProperty('hoverongaps', false);
     });
   });
 
@@ -161,7 +162,7 @@ describe('chartDataProcessors', () => {
 
   describe('processAnnualHeatmapData', () => {
     test('processes annual heatmap data correctly', () => {
-      const result = processAnnualHeatmapData(mockData, 2024, -8, 'average');
+      const result = processAnnualHeatmapData(mockData, 2024, 'average');
       
       expect(Array.isArray(result)).toBe(true);
       expect(result).toHaveLength(2); // Indoor and outdoor traces
@@ -169,13 +170,15 @@ describe('chartDataProcessors', () => {
       expect(result[0]).toHaveProperty('y');
       expect(result[0]).toHaveProperty('z');
       expect(result[0]).toHaveProperty('text');
-      expect(result[0]).toHaveProperty('colorscale');
+      expect(result[0]).toHaveProperty('type', 'heatmap');
+      expect(result[0]).toHaveProperty('zmin', -1);
+      expect(result[0]).toHaveProperty('zmax', 500);
       expect(result[0].name).toBe('Indoor AQI');
       expect(result[1].name).toBe('Outdoor AQI');
     });
 
     test('handles empty data gracefully', () => {
-      const result = processAnnualHeatmapData([], 2024, -8, 'average');
+      const result = processAnnualHeatmapData([], 2024, 'average');
       
       expect(Array.isArray(result)).toBe(true);
       expect(result).toHaveLength(2);
