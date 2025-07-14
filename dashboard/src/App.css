@@ -105,21 +105,6 @@ header p {
   font-size: 0.9rem;
 }
 
-/* Spike Summary */
-.spike-summary {
-  background: #fff3cd;
-  border-left: 4px solid #ffc107;
-  padding: 15px;
-  margin-bottom: 20px;
-  border-radius: 4px;
-}
-
-.spike-summary p {
-  margin: 0;
-  color: #856404;
-  font-weight: 500;
-}
-
 /* Controls */
 .controls {
   background: white;
@@ -175,6 +160,7 @@ header p {
   margin-bottom: 15px;
 }
 
+.annual-heatmap-controls .year-selector,
 .annual-heatmap-controls .data-source,
 .annual-heatmap-controls .aggregation-type {
   display: flex;
@@ -182,20 +168,23 @@ header p {
   gap: 10px;
 }
 
+.annual-heatmap-controls .year-selector label,
 .annual-heatmap-controls .data-source label,
 .annual-heatmap-controls .aggregation-type label {
-  font-weight: bold;
-  color: #333;
-  white-space: nowrap;
+  font-weight: 500;
+  color: #666;
+  min-width: 60px;
 }
 
+.annual-heatmap-controls .year-selector select,
 .annual-heatmap-controls .data-source select,
 .annual-heatmap-controls .aggregation-type select {
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
-  background-color: white;
+  padding: 8px 15px;
+  border: 2px solid #ddd;
+  border-radius: 5px;
+  font-size: 1rem;
+  background: white;
+  cursor: pointer;
 }
 
 .color-legend {
@@ -205,7 +194,7 @@ header p {
   gap: 20px;
   margin: 20px 0;
   padding: 15px;
-  background-color: #f9f9f9;
+  background-color: white;
   border-radius: 8px;
   border: 1px solid #e0e0e0;
   flex-wrap: wrap;
@@ -458,6 +447,12 @@ footer a:hover {
     font-size: 2rem;
   }
   
+  /* Better touch targets */
+  .refresh-btn, .view-selector button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
   .header-content {
     flex-direction: column;
     align-items: center;
@@ -512,6 +507,13 @@ footer a:hover {
     padding: 10px;
   }
   
+  /* Fix timezone selector width on mobile */
+  .timezone-selector select {
+    width: 100%;
+    max-width: 200px;
+    font-size: 14px;
+  }
+  
   .time-range-toggle {
     flex-direction: column;
     gap: 8px;
@@ -536,6 +538,101 @@ footer a:hover {
 
   .legend-item {
     font-size: 13px;
+  }
+}
+
+/* Mobile phones - smaller screens */
+@media (max-width: 480px) {
+  .App {
+    padding: 5px;
+  }
+  
+  header h1 {
+    font-size: 1.5rem;
+  }
+  
+  .summary-cards {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  
+  .card {
+    padding: 12px;
+  }
+  
+  .card .value {
+    font-size: 1.8rem;
+  }
+  
+  .view-selector {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .view-selector button {
+    flex: 1;
+    min-width: 120px;
+    padding: 12px 8px;
+  }
+  
+  .chart-container {
+    padding: 8px;
+    margin: 8px 0;
+  }
+  
+  /* Reduce chart padding on mobile */
+  .chart-container .js-plotly-plot {
+    margin: 0 !important;
+  }
+  
+  /* Make plots more compact on mobile */
+  .chart-container h2 {
+    font-size: 1.2rem;
+    margin-bottom: 10px;
+  }
+  
+  .chart-container .subtitle {
+    margin-bottom: 12px;
+    font-size: 0.9rem;
+  }
+  
+  /* Improve form controls on mobile */
+  .date-range select, .timezone-selector select {
+    font-size: 16px; /* Prevents zoom on iOS */
+    padding: 12px 8px;
+  }
+  
+  .timezone-controls {
+    padding: 8px;
+  }
+  
+  .color-legend {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+  }
+  
+  .legend-item {
+    font-size: 12px;
+    min-width: 80px;
+  }
+  
+  /* Make annual heatmap more compact on mobile */
+  .annual-heatmap-controls {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  
+  .annual-heatmap-controls .year-selector,
+  .annual-heatmap-controls .data-source,
+  .annual-heatmap-controls .aggregation-type {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .annual-heatmap-controls select {
+    max-width: 150px;
   }
 }
 

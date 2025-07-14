@@ -12,11 +12,18 @@ function App() {
   const [error, setError] = useState(null);
   const [dateRange, setDateRange] = useState(30);
   const [selectedView, setSelectedView] = useState('heatmap');
-  const [heatmapDataSource, setHeatmapDataSource] = useState('indoor');
-  const [hourlyDataSource, setHourlyDataSource] = useState('indoor');
-  const [annualHeatmapDataSource, setAnnualHeatmapDataSource] = useState('indoor');
+
   const [annualHeatmapAggregation, setAnnualHeatmapAggregation] = useState('average');
+  const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
   const [timeRangeType, setTimeRangeType] = useState('recent'); // 'recent' or 'previous_year'
+  
+  // Function to get available years from data
+  const getAvailableYears = () => {
+    if (data.length === 0) return [new Date().getFullYear()];
+    
+    const years = [...new Set(data.map(row => row.timestamp.getFullYear()))];
+    return years.sort((a, b) => b - a); // Sort in descending order (newest first)
+  };
   const [dateRangeMode, setDateRangeMode] = useState('predefined'); // 'predefined' or 'custom'
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
@@ -227,41 +234,63 @@ function App() {
     }
   }, [data.length, fetchData]);
 
-  const getHeatmapData = (dataSource = 'indoor') => {
+  // Update selectedYear when data changes
+  useEffect(() => {
+    if (data.length > 0) {
+      const availableYears = getAvailableYears();
+      // If current selectedYear is not in available years, select the most recent available year
+      if (!availableYears.includes(selectedYear)) {
+        setSelectedYear(availableYears[0]);
+      }
+    }
+  }, [data, selectedYear]);
+
+  const getHeatmapData = () => {
     const recentData = getFilteredData();
     
+    // Helper function to create pivot table for a data source
+    const createPivotData = (dataSource) => {
+      const pivotData = {};
+      recentData.forEach(row => {
+        if (!pivotData[row.date]) {
+          pivotData[row.date] = {};
+        }
+        if (!pivotData[row.date][row.hour]) {
+          pivotData[row.date][row.hour] = [];
+        }
+        const value = dataSource === 'indoor' ? row.IndoorAirQuality : row.OutdoorAirQuality;
+        if (value !== null && value !== undefined) {
+          pivotData[row.date][row.hour].push(value);
+        }
+      });
+      return pivotData;
+    };
 
+    // Create pivot tables for both indoor and outdoor
+    const indoorPivotData = createPivotData('indoor');
+    const outdoorPivotData = createPivotData('outdoor');
     
-    // Create pivot table
-    const pivotData = {};
-    recentData.forEach(row => {
-      if (!pivotData[row.date]) {
-        pivotData[row.date] = {};
-      }
-      if (!pivotData[row.date][row.hour]) {
-        pivotData[row.date][row.hour] = [];
-      }
-      const value = dataSource === 'indoor' ? row.IndoorAirQuality : row.OutdoorAirQuality;
-      if (value !== null && value !== undefined) {
-        pivotData[row.date][row.hour].push(value);
-      }
-    });
-    
-    // Calculate averages
-    const dates = Object.keys(pivotData).sort();
+    // Calculate averages for both datasets
+    const dates = Object.keys(indoorPivotData).sort();
     const hours = Array.from({length: 24}, (_, i) => i);
-    const zValues = [];
+    const indoorZValues = [];
+    const outdoorZValues = [];
     
 
     
     dates.forEach(date => {
-      const row = [];
+      const indoorRow = [];
+      const outdoorRow = [];
       hours.forEach(hour => {
-        const values = pivotData[date][hour] || [];
-        const avg = values.length > 0 ? values.reduce((a, b) => a + b) / values.length : null;
-        row.push(avg);
+        const indoorValues = indoorPivotData[date]?.[hour] || [];
+        const outdoorValues = outdoorPivotData[date]?.[hour] || [];
+        const indoorAvg = indoorValues.length > 0 ? indoorValues.reduce((a, b) => a + b) / indoorValues.length : null;
+        const outdoorAvg = outdoorValues.length > 0 ? outdoorValues.reduce((a, b) => a + b) / outdoorValues.length : null;
+        indoorRow.push(indoorAvg);
+        outdoorRow.push(outdoorAvg);
       });
-      zValues.push(row);
+      indoorZValues.push(indoorRow);
+      outdoorZValues.push(outdoorRow);
     });
 
     // Format y-axis labels based on date range - consistent timezone handling
@@ -278,51 +307,64 @@ function App() {
       }
     });
     
-    return {
-      z: zValues,
+    const commonConfig = {
       x: hours.map(h => `${h}:00`),
       y: yLabels,
       type: 'heatmap',
       colorscale: [
         [0, '#00E400'],      // Green (Good: 0-50)
-        [0.17, '#00E400'],   // Green (50/300)
-        [0.17, '#FFDC00'],   // Yellow (Moderate: 51-100)
-        [0.33, '#FFDC00'],   // Yellow (100/300)
-        [0.33, '#FF7E00'],   // Orange (Unhealthy for Sensitive: 101-150)
-        [0.5, '#FF7E00'],    // Orange (150/300)
-        [0.5, '#FF0000'],    // Red (Unhealthy: 151-200)
-        [0.67, '#FF0000'],   // Red (200/300)
-        [0.67, '#8F3F97'],   // Purple (Very Unhealthy: 201-300)
-        [1.0, '#8F3F97']     // Purple (300/300)
+        [0.1, '#00E400'],    // Green (50/500)
+        [0.1, '#FFDC00'],    // Yellow (Moderate: 51-100)
+        [0.2, '#FFDC00'],    // Yellow (100/500)
+        [0.2, '#FF7E00'],    // Orange (Unhealthy for Sensitive: 101-150)
+        [0.3, '#FF7E00'],    // Orange (150/500)
+        [0.3, '#FF0000'],    // Red (Unhealthy: 151-200)
+        [0.4, '#FF0000'],    // Red (200/500)
+        [0.4, '#8F3F97'],    // Purple (Very Unhealthy: 201-300)
+        [0.6, '#8F3F97'],    // Purple (300/500)
+        [0.6, '#7E0023'],    // Maroon (Hazardous: 301-500)
+        [1.0, '#7E0023']     // Maroon (500/500)
       ],
       zmin: 0,
-      zmax: 300,
-      colorbar: {
-        title: 'AQI',
-        titleside: 'right',
-        tickvals: [0, 50, 100, 150, 200, 300],
-        ticktext: ['0<br>Good', '50<br>Moderate', '100<br>Sensitive', '150<br>Unhealthy', '200<br>Very Unhealthy', '300<br>Hazardous']
-      },
-      hoverongaps: false,
-      hovertemplate: 'Date: %{y}<br>Hour: %{x}<br>AQI: %{z:.1f}<extra></extra>'
+      zmax: 500,
+      showscale: false,
+      hoverongaps: false
     };
+    
+    return [
+      {
+        ...commonConfig,
+        z: indoorZValues,
+        name: 'Indoor AQI',
+        hovertemplate: 'Indoor<br>Date: %{y}<br>Hour: %{x}<br>AQI: %{z:.1f}<extra></extra>'
+      },
+      {
+        ...commonConfig,
+        z: outdoorZValues,
+        name: 'Outdoor AQI',
+        yaxis: 'y2',
+        hovertemplate: 'Outdoor<br>Date: %{y}<br>Hour: %{x}<br>AQI: %{z:.1f}<extra></extra>'
+      }
+    ];
   };
 
-  const getHourlyStats = (dataSource = 'indoor', timeFrameDays = 30) => {
+  const getHourlyStats = () => {
     const recentData = getFilteredData();
-    const hourlyData = {};
+    const indoorHourlyData = {};
+    const outdoorHourlyData = {};
     
     recentData.forEach(row => {
-      if (!hourlyData[row.hour]) {
-        hourlyData[row.hour] = [];
+      if (!indoorHourlyData[row.hour]) {
+        indoorHourlyData[row.hour] = [];
+        outdoorHourlyData[row.hour] = [];
       }
-      const value = dataSource === 'indoor' ? row.IndoorAirQuality : row.OutdoorAirQuality;
-      hourlyData[row.hour].push(value);
+      indoorHourlyData[row.hour].push(row.IndoorAirQuality);
+      outdoorHourlyData[row.hour].push(row.OutdoorAirQuality);
     });
     
     const hours = Array.from({length: 24}, (_, i) => i);
-    const stats = hours.map(hour => {
-      const values = hourlyData[hour] || [];
+    const indoorStats = hours.map(hour => {
+      const values = indoorHourlyData[hour] || [];
       return {
         hour,
         mean: values.length > 0 ? values.reduce((a, b) => a + b) / values.length : 0,
@@ -332,7 +374,46 @@ function App() {
       };
     });
     
-    return stats;
+    const outdoorStats = hours.map(hour => {
+      const values = outdoorHourlyData[hour] || [];
+      return {
+        hour,
+        mean: values.length > 0 ? values.reduce((a, b) => a + b) / values.length : 0,
+        max: values.length > 0 ? Math.max(...values) : 0,
+        min: values.length > 0 ? Math.min(...values) : 0,
+        count: values.length
+      };
+    });
+    
+    return [
+      {
+        name: 'Indoor AQI',
+        x: hours,
+        y: indoorStats.map(s => s.mean),
+        type: 'scatter',
+        mode: 'lines+markers',
+        line: { color: 'red', width: 2 },
+        marker: { 
+          color: 'white',
+          size: 8,
+          line: { color: 'red', width: 2 }
+        },
+        hovertemplate: 'Hour: %{x}:00<br>Indoor AQI: %{y:.1f}<extra></extra>'
+      },
+      {
+        name: 'Outdoor AQI',
+        x: hours,
+        y: outdoorStats.map(s => s.mean),
+        type: 'scatter',
+        mode: 'lines+markers',
+        line: { color: 'blue', width: 2 },
+        marker: { 
+          color: 'blue',
+          size: 8
+        },
+        hovertemplate: 'Hour: %{x}:00<br>Outdoor AQI: %{y:.1f}<extra></extra>'
+      }
+    ];
   };
 
   const getTimeSeriesData = () => {
@@ -379,31 +460,11 @@ function App() {
     };
   };
 
-  const getAnnualHeatmapData = (dataSource = 'indoor', aggregation = 'average') => {
-    // Get current time in display timezone
-    const now = new Date();
-    const browserTZOffset = -now.getTimezoneOffset() / 60;
-    let displayNow;
-    
-    if (browserTZOffset === selectedTimezone) {
-      displayNow = now;
-    } else {
-      const offsetDiff = selectedTimezone - browserTZOffset;
-      displayNow = new Date(now.getTime() + (offsetDiff * 60 * 60 * 1000));
-    }
-    
-    const currentYear = displayNow.getFullYear();
-    const years = [currentYear - 2, currentYear - 1, currentYear]; // Last 3 years
-    
-    // Process data for all 3 years
-    const allYearsData = [];
-    const allYearsText = [];
-    const allYearsX = [];
-    const allYearsY = [];
-    
-    years.forEach((year, yearIndex) => {
-      // Filter data to specific year
-      const yearData = data.filter(d => d.timestamp.getFullYear() === year);
+  const getAnnualHeatmapData = (aggregation = 'average') => {
+    // Helper function to create daily data for a data source
+    const createDailyData = (dataSource) => {
+      // Filter data to selected year only
+      const yearData = data.filter(d => d.timestamp.getFullYear() === selectedYear);
       
       // Group data by date
       const dailyData = {};
@@ -429,66 +490,116 @@ function App() {
         }
       });
       
-      // Create GitHub-style week grid for this year
-      const yearStart = new Date(year, 0, 1);
-      const firstSunday = new Date(yearStart);
-      firstSunday.setDate(firstSunday.getDate() - firstSunday.getDay());
-      
-      let currentDate = new Date(firstSunday);
-      
-      // Generate 52 weeks for this year
-      for (let week = 0; week < 52; week++) {
-        for (let day = 0; day < 7; day++) {
-          const dateStr = currentDate.toISOString().split('T')[0];
-          const isTargetYear = currentDate.getFullYear() === year;
-          const isFuture = year === currentYear && currentDate > displayNow;
-          
-          // X position: week + (yearIndex * 54) to space out years
-          allYearsX.push(week + (yearIndex * 54));
-          allYearsY.push(day);
-          
-          if (isTargetYear && !isFuture) {
-            const value = dailyValues[dateStr];
-            allYearsData.push(value !== undefined ? value : null);
-            allYearsText.push(value !== undefined ? `${dateStr}<br>AQI: ${value.toFixed(1)}` : `${dateStr}<br>No data`);
-          } else {
-            // No data for dates outside target year or future dates
-            allYearsData.push(null);
-            allYearsText.push(`${dateStr}<br>No data`);
-          }
-          
-          currentDate.setDate(currentDate.getDate() + 1);
-        }
-      }
-    });
+      return dailyValues;
+    };
+
+    // Get current time in display timezone
+    const now = new Date();
+    const browserTZOffset = -now.getTimezoneOffset() / 60;
+    let displayNow;
     
-    return {
-      x: allYearsX,
-      y: allYearsY,
-      z: allYearsData,
-      text: allYearsText,
+    if (browserTZOffset === selectedTimezone) {
+      displayNow = now;
+    } else {
+      const offsetDiff = selectedTimezone - browserTZOffset;
+      displayNow = new Date(now.getTime() + (offsetDiff * 60 * 60 * 1000));
+    }
+    
+    // Create daily values for both indoor and outdoor
+    const indoorDailyValues = createDailyData('indoor');
+    const outdoorDailyValues = createDailyData('outdoor');
+    
+    // Create GitHub-style calendar for the selected year
+    const yearStart = new Date(selectedYear, 0, 1);
+    const firstSunday = new Date(yearStart);
+    firstSunday.setDate(firstSunday.getDate() - firstSunday.getDay());
+    
+    let currentDate = new Date(firstSunday);
+    const indoorHeatmapData = [];
+    const outdoorHeatmapData = [];
+    const indoorHeatmapText = [];
+    const outdoorHeatmapText = [];
+    const heatmapX = [];
+    const heatmapY = [];
+    
+    // Generate 52 weeks × 7 days
+    for (let week = 0; week < 52; week++) {
+      for (let day = 0; day < 7; day++) {
+        const dateStr = currentDate.toISOString().split('T')[0];
+        const isTargetYear = currentDate.getFullYear() === selectedYear;
+        const isFuture = selectedYear === displayNow.getFullYear() && currentDate > displayNow;
+        
+        heatmapX.push(week);
+        heatmapY.push(day);
+        
+        if (isTargetYear && !isFuture) {
+          const indoorValue = indoorDailyValues[dateStr];
+          const outdoorValue = outdoorDailyValues[dateStr];
+          
+          indoorHeatmapData.push(indoorValue !== undefined ? indoorValue : null);
+          outdoorHeatmapData.push(outdoorValue !== undefined ? outdoorValue : null);
+          
+          indoorHeatmapText.push(indoorValue !== undefined 
+            ? `${dateStr}<br>Indoor AQI: ${indoorValue.toFixed(1)}` 
+            : `${dateStr}<br>No indoor data`);
+          outdoorHeatmapText.push(outdoorValue !== undefined 
+            ? `${dateStr}<br>Outdoor AQI: ${outdoorValue.toFixed(1)}` 
+            : `${dateStr}<br>No outdoor data`);
+        } else {
+          // No data for dates outside target year or future dates
+          indoorHeatmapData.push(null);
+          outdoorHeatmapData.push(null);
+          indoorHeatmapText.push(`${dateStr}<br>No data`);
+          outdoorHeatmapText.push(`${dateStr}<br>No data`);
+        }
+        
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+    }
+    
+    const commonConfig = {
+      x: heatmapX,
+      y: heatmapY,
       hoverinfo: 'text',
       type: 'heatmap',
       colorscale: [
         [0, '#f0f0f0'],      // Light gray for no data
         [0.001, '#00E400'],  // Green (Good: 0-50)
-        [0.17, '#00E400'],   // Green (50/300)
-        [0.17, '#FFDC00'],   // Yellow (Moderate: 51-100)
-        [0.33, '#FFDC00'],   // Yellow (100/300)
-        [0.33, '#FF7E00'],   // Orange (Unhealthy for Sensitive: 101-150)
-        [0.5, '#FF7E00'],    // Orange (150/300)
-        [0.5, '#FF0000'],    // Red (Unhealthy: 151-200)
-        [0.67, '#FF0000'],   // Red (200/300)
-        [0.67, '#8F3F97'],   // Purple (Very Unhealthy: 201-300)
-        [1.0, '#8F3F97']     // Purple (Very Unhealthy: 301+)
+        [0.1, '#00E400'],    // Green (50/500)
+        [0.1, '#FFDC00'],    // Yellow (Moderate: 51-100)
+        [0.2, '#FFDC00'],    // Yellow (100/500)
+        [0.2, '#FF7E00'],    // Orange (Unhealthy for Sensitive: 101-150)
+        [0.3, '#FF7E00'],    // Orange (150/500)
+        [0.3, '#FF0000'],    // Red (Unhealthy: 151-200)
+        [0.4, '#FF0000'],    // Red (200/500)
+        [0.4, '#8F3F97'],    // Purple (Very Unhealthy: 201-300)
+        [0.6, '#8F3F97'],    // Purple (300/500)
+        [0.6, '#7E0023'],    // Maroon (Hazardous: 301-500)
+        [1.0, '#7E0023']     // Maroon (500/500)
       ],
       zmin: 0,
-      zmax: 300,
+      zmax: 500,
       showscale: false,
       xgap: 3,
       ygap: 3,
       hoverongaps: false
     };
+    
+    return [
+      {
+        ...commonConfig,
+        z: indoorHeatmapData,
+        text: indoorHeatmapText,
+        name: 'Indoor AQI'
+      },
+      {
+        ...commonConfig,
+        z: outdoorHeatmapData,
+        text: outdoorHeatmapText,
+        name: 'Outdoor AQI',
+        yaxis: 'y2'
+      }
+    ];
   };
 
   const calculatePatternSummary = () => {
@@ -496,18 +607,21 @@ function App() {
     
     const recentData = getFilteredData();
     
-    const peakHour = getHourlyStats(hourlyDataSource, dateRange).reduce((prev, current) => 
-      prev.mean > current.mean ? prev : current
-    );
+    // Get indoor stats from the new getHourlyStats format
+    const hourlyStats = getHourlyStats();
+    const indoorStats = hourlyStats[0]; // Indoor AQI is first in the array
     
-    const totalSpikes = recentData.filter(d => d.IndoorAirQuality > 150).length;
+    // Find peak hour from indoor data
+    const peakHour = indoorStats.x.reduce((peakIdx, hour, idx) => 
+      indoorStats.y[idx] > indoorStats.y[peakIdx] ? idx : peakIdx
+    , 0);
+    
     const avgIndoor = recentData.reduce((sum, d) => sum + d.IndoorAirQuality, 0) / recentData.length;
     const avgOutdoor = recentData.reduce((sum, d) => sum + d.OutdoorAirQuality, 0) / recentData.length;
     
     return {
-      peakHour: peakHour.hour,
-      peakValue: peakHour.mean.toFixed(1),
-      totalSpikes,
+      peakHour: indoorStats.x[peakHour],
+      peakValue: indoorStats.y[peakHour].toFixed(1),
       avgIndoor: avgIndoor.toFixed(1),
       avgOutdoor: avgOutdoor.toFixed(1),
       dataPoints: recentData.length
@@ -559,11 +673,6 @@ function App() {
           <div className="label">{summary?.peakValue} AQI avg</div>
         </div>
         <div className="card">
-          <h3>Total Spikes</h3>
-          <div className="value">{summary?.totalSpikes}</div>
-          <div className="label">&gt;150 AQI</div>
-        </div>
-        <div className="card">
           <h3>Indoor Average</h3>
           <div className={`value ${getAQIClass(parseFloat(summary?.avgIndoor || 0))}`}>{summary?.avgIndoor}</div>
           <div className="label">AQI</div>
@@ -581,7 +690,7 @@ function App() {
             className={selectedView === 'heatmap' ? 'active' : ''}
             onClick={() => setSelectedView('heatmap')}
           >
-            Heat Map
+            Recent
           </button>
           <button 
             className={selectedView === 'hourly' ? 'active' : ''}
@@ -605,7 +714,7 @@ function App() {
             className={selectedView === 'annual-heatmap' ? 'active' : ''}
             onClick={() => setSelectedView('annual-heatmap')}
           >
-            Annual Heatmap
+            Annual
           </button>
         </div>
         
@@ -673,13 +782,7 @@ function App() {
                 </div>
               )}
             </div>
-            <div className="data-source">
-              <label>Data source: </label>
-              <select value={heatmapDataSource} onChange={(e) => setHeatmapDataSource(e.target.value)}>
-                <option value="indoor">Indoor AQI</option>
-                <option value="outdoor">Outdoor AQI</option>
-              </select>
-            </div>
+
           </div>
         )}
         
@@ -747,13 +850,7 @@ function App() {
                 </div>
               )}
             </div>
-            <div className="data-source">
-              <label>Data source: </label>
-              <select value={hourlyDataSource} onChange={(e) => setHourlyDataSource(e.target.value)}>
-                <option value="indoor">Indoor AQI</option>
-                <option value="outdoor">Outdoor AQI</option>
-              </select>
-            </div>
+
           </div>
         )}
         
@@ -824,11 +921,13 @@ function App() {
 
         {selectedView === 'annual-heatmap' && (
           <div className="annual-heatmap-controls">
-            <div className="data-source">
-              <label>Data source: </label>
-              <select value={annualHeatmapDataSource} onChange={(e) => setAnnualHeatmapDataSource(e.target.value)}>
-                <option value="indoor">Indoor AQI</option>
-                <option value="outdoor">Outdoor AQI</option>
+
+            <div className="year-selector">
+              <label>Year: </label>
+              <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))}>
+                {getAvailableYears().map(year => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
               </select>
             </div>
             <div className="aggregation-type">
@@ -877,90 +976,7 @@ function App() {
       <div className="chart-container">
         {selectedView === 'heatmap' && data.length > 0 && (
           <div>
-            <h2>{heatmapDataSource === 'indoor' ? 'Indoor' : 'Outdoor'} AQI Levels by Hour - {getTimeRangeDescription()}</h2>
-            <p className="subtitle">Look for vertical patterns (time-based) or horizontal patterns (day-specific)</p>
-            <Plot
-              data={[getHeatmapData(heatmapDataSource)]}
-              layout={{
-                xaxis: { title: 'Hour of Day', tickmode: 'linear' },
-                yaxis: { title: 'Date', tickmode: 'auto', nticks: 20 },
-                margin: { l: 100, r: 50, t: 50, b: 50 }
-              }}
-              config={{ responsive: true }}
-              style={{ width: '100%', height: '600px' }}
-            />
-          </div>
-        )}
-
-        {selectedView === 'hourly' && (
-          <div>
-            <h2>{hourlyDataSource === 'indoor' ? 'Indoor' : 'Outdoor'} AQI Hourly Pattern Analysis - {getTimeRangeDescription()}</h2>
-            <Plot
-              data={[
-                {
-                  x: getHourlyStats(hourlyDataSource, dateRange).map(h => `${h.hour}:00`),
-                  y: getHourlyStats(hourlyDataSource, dateRange).map(h => h.mean),
-                  type: 'bar',
-                  name: 'Average AQI',
-                  marker: {
-                    color: getHourlyStats(hourlyDataSource, dateRange).map(h => getAQIColor(h.mean))
-                  },
-                  hovertemplate: 'Hour: %{x}<br>Average AQI: %{y:.1f}<extra></extra>'
-                }
-              ]}
-              layout={{
-                xaxis: { title: 'Hour of Day' },
-                yaxis: { title: 'Average AQI' },
-                showlegend: false
-              }}
-              config={{ responsive: true }}
-              style={{ width: '100%', height: '500px' }}
-            />
-          </div>
-        )}
-
-        {selectedView === 'timeline' && (
-          <div>
-            <h2>Timeline - {getTimeRangeDescription()}</h2>
-            <p className="subtitle">Zoom and pan to explore specific time periods</p>
-            <Plot
-              data={getTimeSeriesData()}
-              layout={{
-                xaxis: { 
-                  title: 'Time',
-                  rangeslider: { visible: true }
-                },
-                yaxis: { title: 'AQI' },
-                showlegend: true,
-                legend: { x: 0.1, y: 0.9 }
-              }}
-              config={{ responsive: true }}
-              style={{ width: '100%', height: '500px' }}
-            />
-          </div>
-        )}
-
-        {selectedView === 'correlation' && (
-          <div>
-            <h2>Indoor vs Outdoor Correlation - {getTimeRangeDescription()}</h2>
-            <p className="subtitle">Colors represent indoor air quality levels - green (good) to red/purple (unhealthy)</p>
-            <Plot
-              data={[getCorrelationData()]}
-              layout={{
-                xaxis: { title: 'Outdoor AQI' },
-                yaxis: { title: 'Indoor AQI' },
-                showlegend: false
-              }}
-              config={{ responsive: true }}
-              style={{ width: '100%', height: '600px' }}
-            />
-          </div>
-        )}
-
-        {selectedView === 'annual-heatmap' && (
-          <div>
-            <h2>{annualHeatmapDataSource === 'indoor' ? 'Indoor' : 'Outdoor'} AQI Annual Calendar - {annualHeatmapAggregation === 'average' ? 'Daily Average' : 'Daily Maximum'}</h2>
-            <p className="subtitle">Each square represents one day - colors follow AQI air quality standards (last 3 years)</p>
+            <h2>Indoor & Outdoor AQI Levels by Hour - {getTimeRangeDescription()}</h2>
             
             {/* Manual color legend */}
             <div className="color-legend">
@@ -986,24 +1002,174 @@ function App() {
               </div>
               <div className="legend-item">
                 <div className="legend-color" style={{backgroundColor: '#8F3F97'}}></div>
-                <span>Very Unhealthy (201+)</span>
+                <span>Very Unhealthy (201-300)</span>
+              </div>
+              <div className="legend-item">
+                <div className="legend-color" style={{backgroundColor: '#7E0023'}}></div>
+                <span>Hazardous (301-500)</span>
               </div>
             </div>
             
             <Plot
-              data={[getAnnualHeatmapData(annualHeatmapDataSource, annualHeatmapAggregation)]}
+              data={getHeatmapData()}
+              layout={{
+                xaxis: { 
+                  title: 'Hour of Day', 
+                  tickmode: window.innerWidth <= 768 ? 'array' : 'linear',
+                  tickvals: window.innerWidth <= 768 ? [0, 6, 12, 18] : undefined,
+                  ticktext: window.innerWidth <= 768 ? ['0:00', '6:00', '12:00', '18:00'] : undefined,
+                  domain: [0, 1]
+                },
+                yaxis: { 
+                  title: 'Indoor AQI', 
+                  tickmode: 'auto', 
+                  nticks: 10,
+                  domain: [0.55, 1]
+                },
+                yaxis2: { 
+                  title: 'Outdoor AQI', 
+                  tickmode: 'auto', 
+                  nticks: 10,
+                  domain: [0, 0.45]
+                },
+                margin: { l: 100, r: 50, t: 50, b: 50 },
+                annotations: [
+                  {
+                    text: 'Indoor AQI',
+                    x: -0.1,
+                    y: 0.775,
+                    xref: 'paper',
+                    yref: 'paper',
+                    xanchor: 'center',
+                    yanchor: 'middle',
+                    textangle: -90,
+                    font: { size: 14 },
+                    showarrow: false
+                  },
+                  {
+                    text: 'Outdoor AQI',
+                    x: -0.1,
+                    y: 0.225,
+                    xref: 'paper',
+                    yref: 'paper',
+                    xanchor: 'center',
+                    yanchor: 'middle',
+                    textangle: -90,
+                    font: { size: 14 },
+                    showarrow: false
+                  }
+                ]
+              }}
+              config={{ responsive: true }}
+              style={{ width: '100%', height: '800px' }}
+            />
+          </div>
+        )}
+
+        {selectedView === 'hourly' && (
+          <div>
+            <h2>Indoor & Outdoor AQI Hourly Pattern Analysis - {getTimeRangeDescription()}</h2>
+            <Plot
+              data={getHourlyStats()}
+              layout={{
+                xaxis: { title: 'Hour of Day' },
+                yaxis: { title: 'Average AQI' },
+                showlegend: true,
+                barmode: 'group'
+              }}
+              config={{ responsive: true }}
+              style={{ width: '100%', height: '500px' }}
+            />
+          </div>
+        )}
+
+        {selectedView === 'timeline' && (
+          <div>
+            <h2>Timeline - {getTimeRangeDescription()}</h2>
+            <Plot
+              data={getTimeSeriesData()}
+              layout={{
+                xaxis: { 
+                  title: 'Time',
+                  rangeslider: { visible: true }
+                },
+                yaxis: { title: 'AQI' },
+                showlegend: true,
+                legend: { x: 0.1, y: 0.9 }
+              }}
+              config={{ responsive: true }}
+              style={{ width: '100%', height: '500px' }}
+            />
+          </div>
+        )}
+
+        {selectedView === 'correlation' && (
+          <div>
+            <h2>Indoor vs Outdoor Correlation - {getTimeRangeDescription()}</h2>
+            <Plot
+              data={[getCorrelationData()]}
+              layout={{
+                xaxis: { title: 'Outdoor AQI' },
+                yaxis: { title: 'Indoor AQI' },
+                showlegend: false
+              }}
+              config={{ responsive: true }}
+              style={{ width: '100%', height: '600px' }}
+            />
+          </div>
+        )}
+
+        {selectedView === 'annual-heatmap' && (
+          <div>
+            <h2>Indoor & Outdoor AQI Annual Calendar {selectedYear} - Daily {annualHeatmapAggregation === 'average' ? 'Average' : 'Maximum'}</h2>
+            
+            {/* Manual color legend */}
+            <div className="color-legend">
+              <div className="legend-item">
+                <div className="legend-color" style={{backgroundColor: '#f0f0f0'}}></div>
+                <span>No Data</span>
+              </div>
+              <div className="legend-item">
+                <div className="legend-color" style={{backgroundColor: '#00E400'}}></div>
+                <span>Good (0-50)</span>
+              </div>
+              <div className="legend-item">
+                <div className="legend-color" style={{backgroundColor: '#FFDC00'}}></div>
+                <span>Moderate (51-100)</span>
+              </div>
+              <div className="legend-item">
+                <div className="legend-color" style={{backgroundColor: '#FF7E00'}}></div>
+                <span>Sensitive (101-150)</span>
+              </div>
+              <div className="legend-item">
+                <div className="legend-color" style={{backgroundColor: '#FF0000'}}></div>
+                <span>Unhealthy (151-200)</span>
+              </div>
+              <div className="legend-item">
+                <div className="legend-color" style={{backgroundColor: '#8F3F97'}}></div>
+                <span>Very Unhealthy (201-300)</span>
+              </div>
+              <div className="legend-item">
+                <div className="legend-color" style={{backgroundColor: '#7E0023'}}></div>
+                <span>Hazardous (301-500)</span>
+              </div>
+            </div>
+            
+            <Plot
+              data={getAnnualHeatmapData(annualHeatmapAggregation)}
               layout={{
                 xaxis: { 
                   title: '',
                   showticklabels: true,
                   tickangle: 0,
                   tickmode: 'array',
-                  tickvals: [25, 79, 133], // Approximate centers of each year
-                  ticktext: [(new Date().getFullYear() - 2).toString(), (new Date().getFullYear() - 1).toString(), new Date().getFullYear().toString()],
+                  tickvals: [0, 4, 13, 22, 30, 39, 48], // Approximate month starts
+                  ticktext: ['Jan', 'Feb', 'Apr', 'Jun', 'Aug', 'Oct', 'Dec'],
                   showgrid: false,
                   zeroline: false,
-                  side: 'bottom',
-                  range: [0, 162] // 54 weeks * 3 years
+                  side: 'top',
+                  range: [-0.5, 51.5],
+                  domain: [0, 1]
                 },
                 yaxis: { 
                   title: '',
@@ -1012,15 +1178,54 @@ function App() {
                   ticktext: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
                   showgrid: false,
                   zeroline: false,
-                  autorange: 'reversed'
+                  autorange: 'reversed',
+                  side: 'left',
+                  domain: [0.55, 1]
+                },
+                yaxis2: { 
+                  title: '',
+                  tickmode: 'array',
+                  tickvals: [0, 1, 2, 3, 4, 5, 6],
+                  ticktext: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+                  showgrid: false,
+                  zeroline: false,
+                  autorange: 'reversed',
+                  side: 'left',
+                  domain: [0, 0.45]
                 },
                 plot_bgcolor: 'rgba(0,0,0,0)',
                 paper_bgcolor: 'rgba(0,0,0,0)',
-                margin: { l: 60, r: 20, t: 20, b: 60 },
-                height: 200
+                margin: { l: 50, r: 20, t: 50, b: 20 },
+                height: 400,
+                annotations: [
+                  {
+                    text: 'Indoor AQI',
+                    x: -0.1,
+                    y: 0.775,
+                    xref: 'paper',
+                    yref: 'paper',
+                    xanchor: 'center',
+                    yanchor: 'middle',
+                    textangle: -90,
+                    font: { size: 14 },
+                    showarrow: false
+                  },
+                  {
+                    text: 'Outdoor AQI',
+                    x: -0.1,
+                    y: 0.225,
+                    xref: 'paper',
+                    yref: 'paper',
+                    xanchor: 'center',
+                    yanchor: 'middle',
+                    textangle: -90,
+                    font: { size: 14 },
+                    showarrow: false
+                  }
+                ]
               }}
               config={{ responsive: true }}
-              style={{ width: '100%', height: '300px' }}
+              style={{ width: '100%', height: '500px' }}
             />
           </div>
         )}
