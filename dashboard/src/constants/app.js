@@ -57,8 +57,6 @@ export const CHART_MARGINS = {
   ANNUAL_HEATMAP: { t: 50, r: 20, b: 80, l: 50 }
 };
 
-
-
 // Data Processing
 export const MAX_DATA_POINTS = 1000; // Limit for performance
 

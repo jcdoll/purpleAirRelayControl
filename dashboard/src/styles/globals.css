@@ -54,11 +54,7 @@ body {
   --border-radius-sm: 3px;
   --border-radius-md: 5px;
   --border-radius-lg: 8px;
-
-
 }
-
-
 
 /* Global Print Styles */
 @media print {
