@@ -26,6 +26,58 @@ This React dashboard visualizes air quality data from the PurpleAir sensor conne
    npm start
    ```
 
+## Testing
+
+The project includes comprehensive tests for utility functions and chart data processors.
+
+### Running Tests
+
+```bash
+# Run all tests (interactive watch mode)
+# Cursor or other AI clients should never do this - they should use non-interactive mode below
+npm test
+
+# Run tests in non-interactive mode (useful for CI) - Windows
+$env:CI="true"; npm test
+
+# Run tests in non-interactive mode (useful for CI) - Linux/Mac
+CI=true npm test
+
+# Run tests with coverage report
+npm test -- --coverage --watchAll=false
+
+# Run specific test file
+npm test aqiUtils.test.js
+npm test chartDataProcessors.test.js
+
+# Run tests in verbose mode
+npm test -- --verbose --watchAll=false
+```
+
+### Test Structure
+
+- **`src/__tests__/utils/`** - Unit tests for utility functions
+  - `aqiUtils.test.js` - Tests for AQI color/category functions
+  - `chartDataProcessors.test.js` - Tests for chart data processing functions
+
+### Test Coverage
+
+The tests cover:
+- AQI color and category classification
+- Chart data processing for all visualization types (heatmap, timeline, hourly, correlation, annual)
+- Edge cases like empty data, null values, and invalid inputs
+- Data filtering and aggregation logic
+
+### Continuous Integration
+
+Tests should be run as part of CI/CD pipeline:
+
+```yaml
+# Example GitHub Actions workflow
+- name: Run tests
+  run: npm test -- --coverage --watchAll=false
+```
+
 ## Deployment to GitHub Pages
 
 ### Initial Setup
