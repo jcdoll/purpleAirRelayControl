@@ -18,12 +18,12 @@ function App() {
   const [timeRangeType, setTimeRangeType] = useState('recent'); // 'recent' or 'previous_year'
   
   // Function to get available years from data
-  const getAvailableYears = () => {
+  const getAvailableYears = useCallback(() => {
     if (data.length === 0) return [new Date().getFullYear()];
     
     const years = [...new Set(data.map(row => row.timestamp.getFullYear()))];
     return years.sort((a, b) => b - a); // Sort in descending order (newest first)
-  };
+  }, [data]);
   const [dateRangeMode, setDateRangeMode] = useState('predefined'); // 'predefined' or 'custom'
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
@@ -243,7 +243,7 @@ function App() {
         setSelectedYear(availableYears[0]);
       }
     }
-  }, [data, selectedYear]);
+  }, [data, selectedYear, getAvailableYears]);
 
   const getHeatmapData = () => {
     const recentData = getFilteredData();
