@@ -31,7 +31,10 @@ const AnnualHeatmapChart = ({ data, selectedYear, aggregation, isVisible }) => {
       chart: { 
         height: 250,
         animations: { enabled: false, speed: 0 },
-        toolbar: { show: false }
+        toolbar: { show: false },
+        zoom: { enabled: false },
+        pan: { enabled: false },
+        selection: { enabled: false }
       },
       plotOptions: {
         heatmap: {
