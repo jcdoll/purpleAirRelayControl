@@ -130,6 +130,7 @@ export const processHeatmapData = (filteredData, dateRange) => {
     text: outdoorHoverText,
     hoverinfo: 'text',
     name: 'Outdoor AQI',
+    xaxis: 'x2',
     yaxis: 'y2'
   };
 

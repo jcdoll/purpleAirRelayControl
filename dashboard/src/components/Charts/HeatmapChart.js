@@ -52,7 +52,18 @@ const HeatmapChart = ({ data, timeRangeDescription }) => {
             ticktext: window.innerWidth <= 768 ? ['0:00', '6:00', '12:00', '18:00'] : undefined,
             domain: [0, 1],
             showgrid: false,
-            zeroline: false
+            zeroline: false,
+            anchor: 'y'
+          },
+          xaxis2: { 
+            title: 'Hour of Day', 
+            tickmode: window.innerWidth <= 768 ? 'array' : 'linear',
+            tickvals: window.innerWidth <= 768 ? [0, 6, 12, 18] : undefined,
+            ticktext: window.innerWidth <= 768 ? ['0:00', '6:00', '12:00', '18:00'] : undefined,
+            domain: [0, 1],
+            showgrid: false,
+            zeroline: false,
+            anchor: 'y2'
           },
           yaxis: { 
             title: 'Indoor AQI', 
