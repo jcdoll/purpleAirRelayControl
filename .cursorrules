@@ -26,3 +26,11 @@
 - If you think that funcionality is worthwhile, propose it to the user and ask for their approval, do not simply add it.
 - Do not add functionality the user did not explicitly approve or request.
 - When in doubt about requirements, ask for clarification rather than making assumptions.
+
+# Planning vs Implementation
+- When user says "make a plan", "let's plan", "think about", "what are the options" - STOP AFTER PRESENTING THE PLAN.
+- If the user does not explicitly say to code it up, assume that they want you to propose a plan.
+- Do NOT implement anything until user explicitly approves with words like "do it", "implement", "go ahead", "yes", or similar.
+- If user asks "how should we do X?" - they want OPTIONS and DISCUSSION, not immediate code.
+- Key phrases that mean PLANNING ONLY: "make a plan", "think carefully", "what are our options", "how can we", "should we", "what do you think".
+- NEVER assume that presenting a good plan means you should implement it.
