@@ -1,7 +1,6 @@
 // Series creation utilities for ApexCharts - refactored to eliminate indoor/outdoor duplication
 import { CHART_COLORS } from './chartConfigUtils';
 import { CHART_CONSTANTS } from '../constants/app';
-import { filterValidData as filterValidDataCommon } from './common';
 
 // Generic utilities
 const isIndoorDataset = (datasetName) => {
@@ -167,7 +166,4 @@ export const transformToApexFormat = (data, xMapper, yMapper) => {
     x: xMapper(item),
     y: yMapper(item)
   }));
-};
-
-// Re-export common utilities for backward compatibility
-export const filterValidData = filterValidDataCommon; 
+}; 

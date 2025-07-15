@@ -92,6 +92,7 @@ export const VIEW_OPTIONS = [
 
 // Aggregation Options
 export const AGGREGATION_OPTIONS = [
+  { value: '95th', label: '95%' },
   { value: 'max', label: 'Maximum' },
   { value: 'average', label: 'Average' },
   { value: 'median', label: 'Median' }

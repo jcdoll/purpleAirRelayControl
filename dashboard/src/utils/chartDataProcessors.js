@@ -1,6 +1,6 @@
 // Chart data processing functions - refactored to eliminate indoor/outdoor duplication
 import { getAQIColor } from './aqiUtils';
-import { isValidValue, calculateAverage, calculateMedian, formatHour, groupDataBy, formatTooltipValue } from './common';
+import { isValidValue, calculateAverage, calculateMedian, calculate95thPercentile, formatHour, groupDataBy, formatTooltipValue } from './common';
 import { CHART_CONSTANTS } from '../constants/app';
 
 // Generic utilities for data processing
@@ -247,10 +247,10 @@ export const processCorrelationData = (filteredData) => {
  * Processes data for annual heatmap visualization (GitHub-style calendar)
  * @param {Object[]} data - Array of all data objects with timestamp, IndoorAirQuality, OutdoorAirQuality fields
  * @param {number} selectedYear - Year to display data for
- * @param {string} aggregation - Aggregation method ('average', 'max', or 'median')
+ * @param {string} aggregation - Aggregation method ('average', 'max', 'median', or '95th')
  * @returns {Array} Array of two objects with x (week numbers), y (day names), z (aggregated AQI values) arrays
  */
-export const processAnnualHeatmapData = (data, selectedYear, aggregation = 'max') => {
+export const processAnnualHeatmapData = (data, selectedYear, aggregation = '95th') => {
   const dataTypes = ['indoor', 'outdoor'];
   const dailyDatasets = {};
   
@@ -270,8 +270,11 @@ export const processAnnualHeatmapData = (data, selectedYear, aggregation = 'max'
             dailyValues[date] = calculateMedian(values);
             break;
           case 'max':
-          default:
             dailyValues[date] = Math.max(...values);
+            break;
+          case '95th':
+          default:
+            dailyValues[date] = calculate95thPercentile(values);
             break;
         }
       }

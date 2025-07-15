@@ -44,6 +44,22 @@ export const calculateMedian = (values) => {
 };
 
 /**
+ * Calculates the 95th percentile of an array of numbers
+ * @param {number[]} values - Array of numbers
+ * @returns {number|null} The 95th percentile value, or null if array is empty
+ */
+export const calculate95thPercentile = (values) => {
+  if (!values || values.length === 0) return null;
+  const validValues = values.filter(isValidValue);
+  if (validValues.length === 0) return null;
+  
+  const sortedValues = [...validValues].sort((a, b) => a - b);
+  const index = Math.ceil(sortedValues.length * 0.95) - 1;
+  
+  return sortedValues[Math.max(0, index)];
+};
+
+/**
  * Filters out invalid data points from an array
  * @param {Object[]} data - Array of data objects with x,y properties
  * @returns {Object[]} Filtered array with only valid data points

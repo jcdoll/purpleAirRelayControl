@@ -66,7 +66,7 @@ const AnnualHeatmapChart = ({ data, selectedYear, aggregation, isVisible }) => {
 
   return (
     <div className={`${chartStyles.chartContainer} ${!isVisible ? chartStyles.hidden : ''}`}>
-      <h2 className={chartStyles.chartTitle}>Indoor & Outdoor AQI Annual Calendar {selectedYear} - Daily {aggregation === 'average' ? 'Average' : aggregation === 'median' ? 'Median' : 'Maximum'}</h2>
+      <h2 className={chartStyles.chartTitle}>Indoor & Outdoor AQI Annual Calendar {selectedYear} - Daily {aggregation === 'average' ? 'Average' : aggregation === 'median' ? 'Median' : aggregation === 'max' ? 'Maximum' : '95%'}</h2>
       <ColorLegend />
       {renderChartSection('Indoor', indoor)}
       {renderChartSection('Outdoor', outdoor)}

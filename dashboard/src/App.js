@@ -37,7 +37,7 @@ function App() {
     selectedView: VIEW_TYPES.HEATMAP,
     dateRange: 7,
     selectedYear: new Date().getFullYear(),
-    aggregation: 'max',
+    aggregation: '95th',
     dateRangeMode: 'predefined',
     customStartDate: '',
     customEndDate: ''
