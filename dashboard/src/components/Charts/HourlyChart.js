@@ -1,6 +1,6 @@
 import React from 'react';
 import Chart from 'react-apexcharts';
-import { getLineChartOptions, getXAxisConfig, getYAxisConfig, TOOLTIP_FORMATTERS } from '../../utils/chartConfigUtils';
+import { getLineChartOptions, getXAxisConfig, getYAxisConfig, TOOLTIP_FORMATTERS, ANIMATION_DISABLED, TOOLBAR_DISABLED } from '../../utils/chartConfigUtils';
 import { createHourlyComparisonSeries } from '../../utils/seriesCreators';
 import styles from './Chart.module.css';
 
@@ -11,8 +11,8 @@ const HourlyChart = ({ data, timeRangeDescription, isVisible }) => {
     chart: { 
       height: 400, 
       zoom: { enabled: false },
-      animations: { enabled: false, speed: 0 },
-      toolbar: { show: false }
+      animations: ANIMATION_DISABLED,
+      toolbar: TOOLBAR_DISABLED
     },
     stroke: { width: 3 },
     xaxis: {

@@ -1,6 +1,6 @@
 import React from 'react';
 import Chart from 'react-apexcharts';
-import { getHeatmapOptions, createAnnualHeatmapTooltip } from '../../utils/chartConfigUtils';
+import { getAnnualHeatmapOptions, createAnnualHeatmapTooltip } from '../../utils/chartConfigUtils';
 import { createAnnualHeatmapSeries } from '../../utils/seriesCreators';
 import ColorLegend from '../UI/ColorLegend';
 import chartStyles from './Chart.module.css';
@@ -27,73 +27,26 @@ const AnnualHeatmapChart = ({ data, selectedYear, aggregation, isVisible }) => {
   
   // Generic chart options creator
   const createAnnualHeatmapOptions = (type) => {
-    return getHeatmapOptions({
-      chart: { 
-        height: 250,
-        animations: { enabled: false, speed: 0 },
-        toolbar: { show: false },
-        zoom: { enabled: false },
-        pan: { enabled: false },
-        selection: { enabled: false }
-      },
-      plotOptions: {
-        heatmap: {
-          radius: 1,
-          useFillColorAsStroke: false,
-          distributed: true,
-          enableShades: false,
-          shadeIntensity: 0,
-          colorScale: getHeatmapOptions({}).plotOptions.heatmap.colorScale
-        }
-      },
-      dataLabels: {
-        enabled: false
-      },
-      grid: {
-        show: false,
-        padding: {
-          top: 0,
-          right: 0,
-          bottom: 0,
-          left: 20
-        }
-      },
-      stroke: {
-        show: true,
-        width: 1,
-        color: '#ffffff'
-      },
+    const baseOptions = getAnnualHeatmapOptions({
+      tooltip: createAnnualHeatmapTooltip(type, selectedYear)
+    });
+    
+    return {
+      ...baseOptions,
       xaxis: {
-        type: 'numeric',
-        position: 'bottom',
-        min: 0,
-        max: 51,
-        tickAmount: 'dataPoints',
+        ...baseOptions.xaxis,
         labels: {
+          ...baseOptions.xaxis.labels,
           formatter: function(value) {
             const weekNum = Math.round(value);
             if (monthTickMap[weekNum]) {
               return monthTickMap[weekNum];
             }
             return '';
-          },
-          show: true,
-          rotate: 0,
-          offsetY: 0,
-          hideOverlappingLabels: false,
-          showDuplicates: false
+          }
         }
-      },
-      yaxis: {
-        reversed: true,
-        labels: { 
-          formatter: function(value) { 
-            return value; 
-          } 
-        }
-      },
-      tooltip: createAnnualHeatmapTooltip(type, selectedYear)
-    });
+      }
+    };
   };
   
   // Generic chart section renderer

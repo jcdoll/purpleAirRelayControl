@@ -144,8 +144,8 @@ export const getLineChartOptions = (overrides = {}) => {
   };
 };
 
-// Common heatmap options optimized for performance
-export const getHeatmapOptions = (overrides = {}) => {
+// Recent heatmap options optimized for hour-based daily heatmaps
+export const getRecentHeatmapOptions = (overrides = {}) => {
   const linearRanges = generateLinearColorRanges(0, 300, 60);
   const dateRange = overrides.dateRange || 7;
   
@@ -202,6 +202,82 @@ export const getHeatmapOptions = (overrides = {}) => {
           }
           return '';
         }
+      },
+      ...overrides.yaxis
+    },
+    ...overrides
+  };
+};
+
+// Annual heatmap options optimized for week-based yearly heatmaps  
+export const getAnnualHeatmapOptions = (overrides = {}) => {
+  const linearRanges = generateLinearColorRanges(0, 300, 60);
+  
+  return {
+    ...getCommonChartOptions(overrides),
+    chart: {
+      type: 'heatmap',
+      height: 250,
+      toolbar: TOOLBAR_DISABLED,
+      animations: ANIMATION_DISABLED,
+      zoom: { enabled: false },
+      pan: { enabled: false },
+      selection: { enabled: false },
+      dropShadow: { enabled: false },
+      ...overrides.chart
+    },
+    plotOptions: {
+      heatmap: {
+        radius: 1,
+        useFillColorAsStroke: false,
+        distributed: true,
+        enableShades: false,
+        shadeIntensity: 0,
+        hover: { sizeOffset: 0 },
+        ...overrides.plotOptions?.heatmap,
+        colorScale: { ranges: linearRanges }
+      }
+    },
+    states: PERFORMANCE_OPTIMIZED_STATES,
+    legend: { show: false },
+    dataLabels: { enabled: false },
+    grid: {
+      show: false,
+      padding: {
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 20
+      },
+      ...overrides.grid
+    },
+    stroke: {
+      show: true,
+      width: 1,
+      color: '#ffffff',
+      ...overrides.stroke
+    },
+    xaxis: {
+      type: 'numeric',
+      position: 'bottom',
+      min: 0,
+      max: 51,
+      tickAmount: 'dataPoints',
+      labels: {
+        show: true,
+        rotate: 0,
+        offsetY: 0,
+        hideOverlappingLabels: false,
+        showDuplicates: false
+      },
+      ...overrides.xaxis
+    },
+    yaxis: {
+      reversed: true,
+      labels: { 
+        formatter: function(value) { 
+          return value; 
+        } 
       },
       ...overrides.yaxis
     },

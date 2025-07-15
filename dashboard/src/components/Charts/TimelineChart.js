@@ -1,6 +1,6 @@
 import React from 'react';
 import Chart from 'react-apexcharts';
-import { getLineChartOptions, getXAxisConfig, getYAxisConfig, TOOLTIP_FORMATTERS } from '../../utils/chartConfigUtils';
+import { getLineChartOptions, getXAxisConfig, getYAxisConfig, TOOLTIP_FORMATTERS, ANIMATION_DISABLED, TOOLBAR_DISABLED } from '../../utils/chartConfigUtils';
 import { createIndoorOutdoorSeries } from '../../utils/seriesCreators';
 import styles from './Chart.module.css';
 
@@ -10,8 +10,8 @@ const TimelineChart = ({ data, timeRangeDescription, isVisible }) => {
   const options = getLineChartOptions({
     chart: { 
       height: 500,
-      animations: { enabled: false, speed: 0 },
-      toolbar: { show: false }
+      animations: ANIMATION_DISABLED,
+      toolbar: TOOLBAR_DISABLED
     },
     xaxis: {
       ...getXAxisConfig('Time', 'datetime'),

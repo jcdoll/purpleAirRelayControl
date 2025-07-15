@@ -1,6 +1,6 @@
 import React from 'react';
 import Chart from 'react-apexcharts';
-import { getHeatmapOptions, createHeatmapTooltip } from '../../utils/chartConfigUtils';
+import { getRecentHeatmapOptions, createHeatmapTooltip } from '../../utils/chartConfigUtils';
 import { createHeatmapSeries } from '../../utils/seriesCreators';
 import ColorLegend from '../UI/ColorLegend';
 import styles from './Chart.module.css';
@@ -10,7 +10,7 @@ const RecentHeatmapChart = ({ data, timeRangeDescription, isVisible, dateRange }
   
   // Generic chart section renderer
   const renderChartSection = (dataType, series) => {
-    const options = getHeatmapOptions({
+    const options = getRecentHeatmapOptions({
       tooltip: createHeatmapTooltip(dataType),
       dateRange: dateRange
     });
