@@ -51,19 +51,6 @@ FILES = [
     "ventilation.py",
     "display_ui.py",
     "google_logger.py",
-    "hardware_test.py",  # Hardware diagnostic tool
-    "test_neopixel.py",  # NeoPixel diagnostic
-    "check_board.py",  # Board configuration check
-    "simple_led_test.py",  # Simple LED test
-    "minimal_test.py",  # Minimal stability test
-    "main_safe.py",  # Safe main for testing imports
-    "main_nodisplay.py",  # Main without display support
-    "test_corrected_pins.py",  # Test corrected pin assignments
-    "test_hardware_fixed.py",  # Quick hardware test with fixed pins
-    "backlight_power_test.py",  # Comprehensive backlight testing
-    "simple_backlight_test.py",  # Simple backlight pin testing
-    "display_debug_test.py",  # Display debug configurations
-    "simple_neopixel_test.py",  # Simple NeoPixel test
 ]
 
 def find_port():
