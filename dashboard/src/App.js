@@ -37,6 +37,7 @@ function App() {
     selectedView: VIEW_TYPES.HEATMAP,
     dateRange: 7,
     selectedYear: new Date().getFullYear(),
+    aggregation: 'max',
     dateRangeMode: 'predefined',
     customStartDate: '',
     customEndDate: ''
@@ -191,8 +192,8 @@ function App() {
   );
   
   const annualHeatmapData = useMemo(() => 
-    processAnnualHeatmapData(data, state.selectedYear, 'average'),
-    [data, state.selectedYear]
+    processAnnualHeatmapData(data, state.selectedYear, state.aggregation),
+    [data, state.selectedYear, state.aggregation]
   );
 
   // Calculate pattern summary
@@ -227,6 +228,8 @@ function App() {
           getAvailableYears={availableYears}
           selectedYear={state.selectedYear}
           setSelectedYear={(year) => updateState({ selectedYear: year })}
+          aggregation={state.aggregation}
+          setAggregation={(agg) => updateState({ aggregation: agg })}
         />
       </div>
 
@@ -256,7 +259,7 @@ function App() {
         <AnnualHeatmapChart 
           data={annualHeatmapData} 
           selectedYear={state.selectedYear} 
-          aggregation="average"
+          aggregation={state.aggregation}
           isVisible={state.selectedView === VIEW_TYPES.ANNUAL_HEATMAP}
         />
       </div>

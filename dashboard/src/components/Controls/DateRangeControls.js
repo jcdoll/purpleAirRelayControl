@@ -1,6 +1,6 @@
 import React from 'react';
 import styles from './DateRangeControls.module.css';
-import { VIEW_TYPES } from '../../constants/app';
+import { VIEW_TYPES, AGGREGATION_OPTIONS } from '../../constants/app';
 
 const DateRangeControls = ({
   selectedView,
@@ -14,7 +14,9 @@ const DateRangeControls = ({
   setCustomEndDate,
   getAvailableYears,
   selectedYear,
-  setSelectedYear
+  setSelectedYear,
+  aggregation,
+  setAggregation
 }) => {
   const handleDateRangeChange = (e) => {
     const value = e.target.value;
@@ -108,6 +110,14 @@ const DateRangeControls = ({
           <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))}>
             {getAvailableYears.map(year => (
               <option key={year} value={year}>{year}</option>
+            ))}
+          </select>
+        </div>
+        <div className={styles.aggregationType}>
+          <label>Aggregation: </label>
+          <select value={aggregation} onChange={(e) => setAggregation(e.target.value)}>
+            {AGGREGATION_OPTIONS.map(option => (
+              <option key={option.value} value={option.value}>{option.label}</option>
             ))}
           </select>
         </div>

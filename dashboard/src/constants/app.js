@@ -92,8 +92,9 @@ export const VIEW_OPTIONS = [
 
 // Aggregation Options
 export const AGGREGATION_OPTIONS = [
+  { value: 'max', label: 'Maximum' },
   { value: 'average', label: 'Average' },
-  { value: 'maximum', label: 'Maximum' }
+  { value: 'median', label: 'Median' }
 ];
 
 // Summary Card Configuration

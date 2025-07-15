@@ -1,6 +1,6 @@
 // Chart data processing functions - refactored to eliminate indoor/outdoor duplication
 import { getAQIColor } from './aqiUtils';
-import { isValidValue, calculateAverage, formatHour, groupDataBy, formatTooltipValue } from './common';
+import { isValidValue, calculateAverage, calculateMedian, formatHour, groupDataBy, formatTooltipValue } from './common';
 import { CHART_CONSTANTS } from '../constants/app';
 
 // Generic utilities for data processing
@@ -247,10 +247,10 @@ export const processCorrelationData = (filteredData) => {
  * Processes data for annual heatmap visualization (GitHub-style calendar)
  * @param {Object[]} data - Array of all data objects with timestamp, IndoorAirQuality, OutdoorAirQuality fields
  * @param {number} selectedYear - Year to display data for
- * @param {string} aggregation - Aggregation method ('average' or 'maximum')
+ * @param {string} aggregation - Aggregation method ('average', 'max', or 'median')
  * @returns {Array} Array of two objects with x (week numbers), y (day names), z (aggregated AQI values) arrays
  */
-export const processAnnualHeatmapData = (data, selectedYear, aggregation = 'average') => {
+export const processAnnualHeatmapData = (data, selectedYear, aggregation = 'max') => {
   const dataTypes = ['indoor', 'outdoor'];
   const dailyDatasets = {};
   
@@ -262,9 +262,18 @@ export const processAnnualHeatmapData = (data, selectedYear, aggregation = 'aver
     Object.keys(dailyData).forEach(date => {
       const values = dailyData[date];
       if (values.length > 0) {
-        dailyValues[date] = aggregation === 'average' 
-          ? calculateAverage(values)
-          : Math.max(...values);
+        switch (aggregation) {
+          case 'average':
+            dailyValues[date] = calculateAverage(values);
+            break;
+          case 'median':
+            dailyValues[date] = calculateMedian(values);
+            break;
+          case 'max':
+          default:
+            dailyValues[date] = Math.max(...values);
+            break;
+        }
       }
     });
     
