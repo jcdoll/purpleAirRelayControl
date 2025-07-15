@@ -135,8 +135,9 @@ display.text("Hello World!", 10, 10, st7789.WHITE)
 ├── config.py            # Configuration settings
 ├── purple_air.py        # PurpleAir API client
 ├── ventilation.py       # Relay control logic
-├── display_ui.py        # Touch display interface
 ├── wifi_manager.py      # WiFi connection management
+├── ui_manager.py        # Text-based display interface
+├── google_logger.py     # Google Sheets data logging
 └── lib/
     ├── st7789.py        # Display driver
     ├── ft6x06.py        # Touch driver
@@ -170,14 +171,14 @@ import time
 import machine
 from purple_air import PurpleAirClient
 from ventilation import VentilationController
-from display_ui import DisplayInterface
+from ui_manager import UIManager
 from wifi_manager import WiFiManager
 
 # Initialize components
 wifi = WiFiManager()
 purple_air = PurpleAirClient(api_key="your_key")
 ventilation = VentilationController(relay_pins=[5, 6])
-display = DisplayInterface()
+ui = UIManager()
 
 # Initialize buttons
 from machine import Pin
@@ -192,7 +193,7 @@ while True:
     indoor_aqi = purple_air.get_indoor_aqi()
     
     # Update display
-    display.update_readings(outdoor_aqi, indoor_aqi)
+    ui.update_display(outdoor_aqi, indoor_aqi, ventilation, wifi)
     
     # Handle button input
     if not button_d0.value():  # Button pressed (active low)
