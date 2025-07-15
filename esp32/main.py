@@ -1,12 +1,12 @@
 import time
 import machine
 import gc
-from machine import Pin, WDT
+from machine import WDT
 import config
 from wifi_manager import WiFiManager
 from purple_air import PurpleAirClient
 from ventilation import VentilationController
-from display_ui import DisplayInterface
+from ui_manager import UIManager
 from google_logger import GoogleFormsLogger
 
 # Initialize watchdog timer if enabled
@@ -15,125 +15,25 @@ if config.WATCHDOG_TIMEOUT > 0:
 else:
     wdt = None
 
-# Initialize NeoPixel for status LED with proper power management
-neopixel_power = None
-tft_power = None
-backlight = None
-LED_AVAILABLE = False
-
-try:
-    # NeoPixel setup for Adafruit ESP32-S3 Reverse TFT Feather (requires power pin)
-    print("Setting up NeoPixel...")
-    
-    # Enable NeoPixel power (required for Adafruit ESP32-S3 Reverse TFT Feather)
-    neopixel_power = Pin(config.NEOPIXEL_POWER_PIN, Pin.OUT)
-    neopixel_power.value(1)  # Enable power
-    time.sleep(0.1)  # Allow power to stabilize
-    
-    import neopixel
-    np = neopixel.NeoPixel(Pin(config.NEOPIXEL_PIN), 1)
-    
-    # Test the LED
-    np[0] = (10, 0, 0)  # Dim red test
-    np.write()
-    time.sleep(0.2)
-    np[0] = (0, 0, 0)
-    np.write()
-    
-    LED_AVAILABLE = True
-    print("  NeoPixel initialized successfully (Adafruit ESP32-S3 Reverse TFT Feather)")
-        
-except Exception as e:
-    LED_AVAILABLE = False
-    print(f"NeoPixel initialization error: {e}")
-
-# Initialize Display with proper power management
-try:
-    print("Setting up Display...")
-    
-    # Set up display power pins
-    for tft_power_pin in [7, 21]:  # Try different power pin options
-        try:
-            print(f"  Trying TFT power pin GPIO {tft_power_pin}...")
-            tft_power = Pin(tft_power_pin, Pin.OUT)
-            tft_power.value(1)  # Enable TFT power
-            time.sleep(0.2)
-            
-            # Set up backlight
-            try:
-                backlight = Pin(config.TFT_BACKLIGHT, Pin.OUT)
-                backlight.value(1)  # Enable backlight
-                print(f"  Backlight enabled on GPIO {config.TFT_BACKLIGHT}")
-            except:
-                print("  Backlight setup failed, continuing without it...")
-            
-            # Initialize display with power management
-            from display_ui import DisplayInterface
-            display = DisplayInterface()
-            
-            if display.display is not None:
-                print(f"  Display working with power pin GPIO {tft_power_pin}")
-                break
-            else:
-                print(f"  Display failed with power pin GPIO {tft_power_pin}")
-                continue
-                
-        except Exception as e:
-            print(f"  Failed with TFT power pin GPIO {tft_power_pin}: {e}")
-            continue
-    else:
-        # If all power pins failed, create dummy display
-        print("  Creating dummy display (no hardware display available)")
-        class DummyDisplay:
-            def show_message(self, msg):
-                print(f"[Display] {msg}")
-            def show_error(self, msg):
-                print(f"[Display Error] {msg}")
-            def update(self, *args):
-                pass
-            def clear(self):
-                pass
-        display = DummyDisplay()
-        
-except Exception as e:
-    print(f"Display initialization error: {e}")
-    # Create dummy display as fallback
-    class DummyDisplay:
-        def show_message(self, msg):
-            print(f"[Display] {msg}")
-        def show_error(self, msg):
-            print(f"[Display Error] {msg}")
-        def update(self, *args):
-            pass
-        def clear(self):
-            pass
-    display = DummyDisplay()
-
-def set_status_led(r, g, b):
-    """Set status LED color"""
-    if LED_AVAILABLE:
-        print(f"Setting LED to RGB({r}, {g}, {b})")
-        np[0] = (r, g, b)
-        np.write()
-    else:
-        print(f"LED not available - would set RGB({r}, {g}, {b})")
-
 def initialize_components():
     """Initialize all system components"""
     print("PurpleAir Relay Control - ESP32 MicroPython")
-    print("Initializing other components...")
-    display.show_message("Starting up...")
+    print("Initializing UI...")
+    
+    # Initialize UI Manager (handles both display and LED)
+    ui = UIManager()
+    ui.show_message("Starting up...")
     
     # Initialize WiFi
-    set_status_led(0, 0, 64)  # Blue for WiFi connecting
+    ui.set_status_led("wifi_connecting")
     wifi = WiFiManager()
     if not wifi.connect():
-        display.show_error("WiFi Failed!")
-        set_status_led(64, 0, 0)  # Red for error
+        ui.show_error("WiFi Failed!")
+        ui.set_status_led("error")
         print(f"Failed to connect to WiFi SSID: {config.WIFI_SSID}")
         time.sleep(5)
         machine.reset()
-    set_status_led(64, 64, 0)  # Yellow for connected
+    ui.set_status_led("wifi_connected")
     print(f"WiFi connected successfully!")
     print(f"  SSID: {config.WIFI_SSID}")
     print(f"  IP: {wifi.get_ip()}")
@@ -175,13 +75,13 @@ def initialize_components():
         outdoor_aqi = -1
         indoor_aqi = -1
     
-    return display, wifi, purple_air, ventilation, logger
+    return ui, wifi, purple_air, ventilation, logger
 
 
 def main():
     """Main application loop"""
     # Initialize all components
-    display, wifi, purple_air, ventilation, logger = initialize_components()
+    ui, wifi, purple_air, ventilation, logger = initialize_components()
     
     # State tracking
     error_count = 0
@@ -195,7 +95,7 @@ def main():
         print(f"IP Address: {wifi.get_ip()}")
     
     print("System initialized. Starting main loop...")
-    display.show_message("Ready!")
+    ui.show_message("Ready!")
     time.sleep(1)
     
     while True:
@@ -206,12 +106,12 @@ def main():
             
             # Check WiFi connection
             if not wifi.is_connected():
-                set_status_led(0, 0, 64)  # Blue for reconnecting
+                ui.set_status_led("wifi_connecting")
                 wifi.reconnect()
                 if wifi.is_connected():
-                    set_status_led(64, 64, 0)  # Yellow for connected
+                    ui.set_status_led("wifi_connected")
                 else:
-                    set_status_led(64, 0, 0)  # Red for disconnected
+                    ui.set_status_led("error")
             
             # Get AQI data
             outdoor_aqi = purple_air.get_outdoor_aqi()
@@ -229,17 +129,13 @@ def main():
             ventilation.update(outdoor_aqi, indoor_aqi)
             
             # Update display
-            display.update(outdoor_aqi, indoor_aqi, ventilation, wifi)
+            ui.update_display(outdoor_aqi, indoor_aqi, ventilation, wifi)
             
             # Set status LED based on ventilation state
             if ventilation.ventilation_enabled:
-                if not hasattr(ventilation, '_last_led_state') or ventilation._last_led_state != 'green':
-                    set_status_led(0, 64, 0)  # Green for ventilating
-                    ventilation._last_led_state = 'green'
+                ui.set_status_led("vent_on")
             else:
-                if not hasattr(ventilation, '_last_led_state') or ventilation._last_led_state != 'red':
-                    set_status_led(64, 0, 0)  # Red for not ventilating
-                    ventilation._last_led_state = 'red'
+                ui.set_status_led("vent_off")
             
             # Log data if needed
             if ventilation.should_log() or logger.should_log():
@@ -272,8 +168,8 @@ def main():
             
         except KeyboardInterrupt:
             print("\nShutdown requested")
-            display.show_message("Shutting down...")
-            set_status_led(0, 0, 0)  # Turn off LED
+            ui.show_message("Shutting down...")
+            ui.set_status_led("off")
             break
             
         except Exception as e:
@@ -284,7 +180,7 @@ def main():
             import sys
             sys.print_exception(e)
             
-            display.show_error("System Error")
+            ui.show_error("System Error")
             
             if error_count > 10:
                 print("Too many errors, resetting...")
@@ -299,11 +195,4 @@ if __name__ == "__main__":
         main()
     except Exception as e:
         print(f"Fatal error: {e}")
-        if LED_AVAILABLE:
-            # Flash red LED
-            for _ in range(5):
-                set_status_led(64, 0, 0)
-                time.sleep(0.5)
-                set_status_led(0, 0, 0)
-                time.sleep(0.5)
         machine.reset()

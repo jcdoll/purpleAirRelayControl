@@ -49,7 +49,7 @@ FILES = [
     "wifi_manager.py",
     "purple_air.py",
     "ventilation.py",
-    "display_ui.py",
+    "ui_manager.py",  # New unified UI manager
     "google_logger.py",
 ]
 

@@ -1,5 +1,7 @@
 # Cursor AI Assistant Rules
 
+MANDATORY: Before ANY response, read the .cursorrules files completely. NO EXCEPTIONS.
+
 # Documentation and Development Guidelines
 - At the start of any conversation in a project that contains a DEV.md file, always read that file first before taking any actions or making suggestions. The DEV.md contains critical project-specific guidelines that must be followed.
 
