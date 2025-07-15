@@ -1,6 +1,6 @@
 // Chart data processing functions - refactored to eliminate indoor/outdoor duplication
 import { getAQIColor } from './aqiUtils';
-import { isValidValue, calculateAverage, formatHour, groupDataBy, calculateGroupAverages, formatTooltipValue } from './common';
+import { isValidValue, calculateAverage, formatHour, groupDataBy, formatTooltipValue } from './common';
 import { CHART_CONSTANTS } from '../constants/app';
 
 // Generic utilities for data processing
@@ -10,26 +10,6 @@ const getFieldName = (dataType) => {
 };
 
 // Generic single-dataset processors
-const processSingleHeatmapDataset = (filteredData, dataType) => {
-  const fieldName = getFieldName(dataType);
-  const pivotData = {};
-  
-  filteredData.forEach(row => {
-    if (!pivotData[row.date]) {
-      pivotData[row.date] = {};
-    }
-    if (!pivotData[row.date][row.hour]) {
-      pivotData[row.date][row.hour] = [];
-    }
-    const value = row[fieldName];
-    if (isValidValue(value)) {
-      pivotData[row.date][row.hour].push(value);
-    }
-  });
-  
-  return pivotData;
-};
-
 const processSingleHourlyDataset = (filteredData, dataType) => {
   const fieldName = getFieldName(dataType);
   
