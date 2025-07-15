@@ -65,6 +65,6 @@ GOOGLE_FORMS_ENABLED = False
 LOG_INTERVAL = 900  # 15 minutes in seconds
 
 # System Configuration
-WATCHDOG_TIMEOUT = 16000  # milliseconds - RE-ENABLED after testing
+WATCHDOG_TIMEOUT = 0  # milliseconds - DISABLED for testing (was 16000) so that REPL is not killed
 DEBUG_MODE = True
 MEMORY_DEBUG = False
