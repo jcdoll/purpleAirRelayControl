@@ -2,6 +2,7 @@ import React from 'react';
 import Chart from 'react-apexcharts';
 import { getAnnualHeatmapOptions, createAnnualHeatmapTooltip } from '../../utils/chartConfigUtils';
 import { createAnnualHeatmapSeries } from '../../utils/seriesCreators';
+import { CHART_CONSTANTS } from '../../constants/app';
 import ColorLegend from '../UI/ColorLegend';
 import chartStyles from './Chart.module.css';
 import styles from './AnnualHeatmapChart.module.css';
@@ -57,7 +58,7 @@ const AnnualHeatmapChart = ({ data, selectedYear, aggregation, isVisible }) => {
       <div className={chartStyles.chartSection}>
         <h3 className={chartStyles.chartSectionTitle}>{dataType} AQI</h3>
         <div className={styles.annualHeatmap}>
-          <Chart options={options} series={series} type="heatmap" height={250} />
+          <Chart options={options} series={series} type="heatmap" height={CHART_CONSTANTS.ANNUAL_HEATMAP_HEIGHT} />
         </div>
       </div>
     );

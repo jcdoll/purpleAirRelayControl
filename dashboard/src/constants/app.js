@@ -72,13 +72,22 @@ export const DATE_RANGE_OPTIONS = [
   { value: 365, label: 'Last 365 days' }
 ];
 
+// View Types
+export const VIEW_TYPES = {
+  HEATMAP: 'heatmap',
+  HOURLY: 'hourly',
+  TIMELINE: 'timeline',
+  CORRELATION: 'correlation',
+  ANNUAL_HEATMAP: 'annual-heatmap'
+};
+
 // View Options
 export const VIEW_OPTIONS = [
-  { value: 'heatmap', label: 'Recent' },
-  { value: 'hourly', label: 'Hourly Analysis' },
-  { value: 'timeline', label: 'Timeline' },
-  { value: 'correlation', label: 'Correlation' },
-  { value: 'annual-heatmap', label: 'Annual' }
+  { value: VIEW_TYPES.HEATMAP, label: 'Recent' },
+  { value: VIEW_TYPES.HOURLY, label: 'Hourly Analysis' },
+  { value: VIEW_TYPES.TIMELINE, label: 'Timeline' },
+  { value: VIEW_TYPES.CORRELATION, label: 'Correlation' },
+  { value: VIEW_TYPES.ANNUAL_HEATMAP, label: 'Annual' }
 ];
 
 // Aggregation Options
@@ -131,4 +140,26 @@ export const AQI_LEGEND_ITEMS = [
   { color: '#FF0000', label: 'Unhealthy (<200)' },
   { color: '#8F3F97', label: 'Very Unhealthy (<300)' },
   { color: '#7E0023', label: 'Hazardous (>300)' }
-]; 
+];
+
+// Chart Constants
+export const CHART_CONSTANTS = {
+  MAX_AQI: 300,
+  MIN_AQI: 0,
+  COLOR_STEPS: 60,
+  WEEKS_PER_YEAR: 52,
+  HOURS_PER_DAY: 24,
+  DAYS_PER_WEEK: 7,
+  HEATMAP_HEIGHT: 350,
+  ANNUAL_HEATMAP_HEIGHT: 250,
+  DEFAULT_CHART_HEIGHT: 400,
+  TIMELINE_CHART_HEIGHT: 500
+};
+
+// Time Constants
+export const TIME_CONSTANTS = {
+  MS_PER_SECOND: 1000,
+  MS_PER_MINUTE: 60 * 1000,
+  MS_PER_HOUR: 60 * 60 * 1000,
+  MS_PER_DAY: 24 * 60 * 60 * 1000
+}; 

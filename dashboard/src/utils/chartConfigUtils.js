@@ -1,5 +1,7 @@
 // Common ApexCharts configuration utilities - refactored to eliminate duplication
 import { getAQIColor } from './aqiUtils';
+import { formatTooltipValue } from './common';
+import { CHART_CONSTANTS } from '../constants/app';
 
 export const CHART_COLORS = {
   indoor: '#007bff',
@@ -50,7 +52,7 @@ export const PERFORMANCE_OPTIMIZED_CHART = {
 };
 
 // Generate linearly interpolated color ranges for ApexCharts heatmaps
-export const generateLinearColorRanges = (min = 0, max = 300, steps = 60) => {
+export const generateLinearColorRanges = (min = CHART_CONSTANTS.MIN_AQI, max = CHART_CONSTANTS.MAX_AQI, steps = CHART_CONSTANTS.COLOR_STEPS) => {
   const ranges = [];
   
   for (let i = 0; i < steps; i++) {
@@ -71,7 +73,11 @@ export const generateLinearColorRanges = (min = 0, max = 300, steps = 60) => {
   return ranges;
 };
 
-// Common chart options optimized for performance
+/**
+ * Returns common chart options optimized for performance
+ * @param {Object} overrides - Optional overrides for specific chart options
+ * @returns {Object} ApexCharts options object with performance optimizations
+ */
 export const getCommonChartOptions = (overrides = {}) => ({
   chart: {
     toolbar: TOOLBAR_DISABLED,
@@ -96,7 +102,11 @@ export const getCommonChartOptions = (overrides = {}) => ({
   ...overrides
 });
 
-// Common line chart options optimized for performance
+/**
+ * Returns line chart options with performance optimizations and zoom capabilities
+ * @param {Object} overrides - Optional overrides for specific chart options
+ * @returns {Object} ApexCharts line chart options object
+ */
 export const getLineChartOptions = (overrides = {}) => {
   const defaultToolbar = {
     show: true,
@@ -144,16 +154,20 @@ export const getLineChartOptions = (overrides = {}) => {
   };
 };
 
-// Recent heatmap options optimized for hour-based daily heatmaps
+/**
+ * Returns heatmap options for recent data (hour-by-day grid)
+ * @param {Object} overrides - Optional overrides including tooltip and dateRange
+ * @returns {Object} ApexCharts heatmap options object
+ */
 export const getRecentHeatmapOptions = (overrides = {}) => {
-  const linearRanges = generateLinearColorRanges(0, 300, 60);
+  const linearRanges = generateLinearColorRanges();
   const dateRange = overrides.dateRange || 7;
   
   return {
     ...getCommonChartOptions(overrides),
     chart: {
       type: 'heatmap',
-      height: 350,
+      height: CHART_CONSTANTS.HEATMAP_HEIGHT,
       toolbar: TOOLBAR_DISABLED,
       animations: ANIMATION_DISABLED,
       selection: { enabled: false },
@@ -209,15 +223,19 @@ export const getRecentHeatmapOptions = (overrides = {}) => {
   };
 };
 
-// Annual heatmap options optimized for week-based yearly heatmaps  
+/**
+ * Returns heatmap options for annual data (GitHub-style calendar)
+ * @param {Object} overrides - Optional overrides including tooltip configuration
+ * @returns {Object} ApexCharts heatmap options object
+ */
 export const getAnnualHeatmapOptions = (overrides = {}) => {
-  const linearRanges = generateLinearColorRanges(0, 300, 60);
+  const linearRanges = generateLinearColorRanges();
   
   return {
     ...getCommonChartOptions(overrides),
     chart: {
       type: 'heatmap',
-      height: 250,
+      height: CHART_CONSTANTS.ANNUAL_HEATMAP_HEIGHT,
       toolbar: TOOLBAR_DISABLED,
       animations: ANIMATION_DISABLED,
       zoom: { enabled: false },
@@ -261,7 +279,7 @@ export const getAnnualHeatmapOptions = (overrides = {}) => {
       type: 'numeric',
       position: 'bottom',
       min: 0,
-      max: 51,
+      max: CHART_CONSTANTS.WEEKS_PER_YEAR - 1,
       tickAmount: 'dataPoints',
       labels: {
         show: true,
@@ -285,7 +303,11 @@ export const getAnnualHeatmapOptions = (overrides = {}) => {
   };
 };
 
-// Common scatter plot options
+/**
+ * Returns scatter plot options with zoom capabilities
+ * @param {Object} overrides - Optional overrides for specific chart options
+ * @returns {Object} ApexCharts scatter plot options object
+ */
 export const getScatterOptions = (overrides = {}) => ({
   ...getCommonChartOptions(overrides),
   chart: {
@@ -312,6 +334,11 @@ export const TOOLTIP_FORMATTERS = {
   datetime: 'dd MMM yyyy HH:mm'
 };
 
+// Generic custom tooltip builder
+const buildTooltipHTML = (lines) => {
+  return `<div class="custom-tooltip">${lines.join('<br>')}</div>`;
+};
+
 // Custom tooltip generator for heatmap
 export const createHeatmapTooltip = (type = 'Indoor') => ({
   custom: function({ series, seriesIndex, dataPointIndex, w }) {
@@ -319,11 +346,11 @@ export const createHeatmapTooltip = (type = 'Indoor') => ({
     const hour = w.globals.labels[dataPointIndex] || 'Unknown Hour';
     const value = series[seriesIndex][dataPointIndex];
     
-    return `<div class="custom-tooltip">
-      <strong>${formattedDate}</strong><br>
-      Hour: ${hour}<br>
-      ${type} AQI: ${value === -1 || value === null || value === undefined ? 'No data' : value.toFixed(1)}
-    </div>`;
+    return buildTooltipHTML([
+      `<strong>${formattedDate}</strong>`,
+      `Hour: ${hour}`,
+      `${type} AQI: ${formatTooltipValue(value)}`
+    ]);
   }
 });
 
@@ -351,16 +378,21 @@ export const createAnnualHeatmapTooltip = (type = 'Indoor', selectedYear) => {
         day: 'numeric' 
       });
       
-      return `<div class="custom-tooltip">
-        <strong>${formattedDate}</strong><br>
-        Week: ${weekNumber}<br>
-        ${type} AQI: ${value === -1 || value === null || value === undefined ? 'No data' : value.toFixed(1)}
-      </div>`;
+      return buildTooltipHTML([
+        `<strong>${formattedDate}</strong>`,
+        `Week: ${weekNumber}`,
+        `${type} AQI: ${formatTooltipValue(value)}`
+      ]);
     }
   };
 };
 
-// Common Y-axis configurations
+/**
+ * Creates Y-axis configuration with title and formatting
+ * @param {string} title - Y-axis title text
+ * @param {Object} overrides - Optional overrides for Y-axis configuration
+ * @returns {Object} ApexCharts Y-axis configuration object
+ */
 export const getYAxisConfig = (title, overrides = {}) => ({
   title: { text: title },
   min: 0,
@@ -372,7 +404,13 @@ export const getYAxisConfig = (title, overrides = {}) => ({
   ...overrides
 });
 
-// Common X-axis configurations
+/**
+ * Creates X-axis configuration with title and type
+ * @param {string} title - X-axis title text
+ * @param {string} type - Axis type ('category', 'datetime', 'numeric')
+ * @param {Object} overrides - Optional overrides for X-axis configuration
+ * @returns {Object} ApexCharts X-axis configuration object
+ */
 export const getXAxisConfig = (title, type = 'category', overrides = {}) => ({
   type,
   title: { text: title },

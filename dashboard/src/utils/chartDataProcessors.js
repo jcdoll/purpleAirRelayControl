@@ -1,13 +1,9 @@
 // Chart data processing functions - refactored to eliminate indoor/outdoor duplication
 import { getAQIColor } from './aqiUtils';
+import { isValidValue, calculateAverage, formatHour, groupDataBy, calculateGroupAverages, formatTooltipValue } from './common';
+import { CHART_CONSTANTS } from '../constants/app';
 
 // Generic utilities for data processing
-const isValidValue = (value) => value !== null && value !== undefined;
-
-const calculateAverage = (values) => {
-  if (values.length === 0) return null;
-  return values.reduce((a, b) => a + b) / values.length;
-};
 
 const getFieldName = (dataType) => {
   return dataType === 'indoor' ? 'IndoorAirQuality' : 'OutdoorAirQuality';
@@ -36,16 +32,14 @@ const processSingleHeatmapDataset = (filteredData, dataType) => {
 
 const processSingleHourlyDataset = (filteredData, dataType) => {
   const fieldName = getFieldName(dataType);
-  const hourlyData = {};
   
-  filteredData.forEach(row => {
-    if (!hourlyData[row.hour]) {
-      hourlyData[row.hour] = [];
-    }
-    const value = row[fieldName];
-    if (isValidValue(value)) {
-      hourlyData[row.hour].push(value);
-    }
+  const validData = filteredData.filter(row => isValidValue(row[fieldName]));
+  const grouped = groupDataBy(validData, row => row.hour);
+  
+  // Transform grouped data to extract just the values
+  const hourlyData = {};
+  Object.entries(grouped).forEach(([hour, rows]) => {
+    hourlyData[hour] = rows.map(row => row[fieldName]);
   });
   
   return hourlyData;
@@ -76,40 +70,63 @@ const createHoverText = (values, labels, dataType, hours) => {
       const date = labels[dateIndex];
       const hour = hours[hourIndex];
       const displayType = dataType === 'indoor' ? 'Indoor' : 'Outdoor';
-      if (val === null) {
-        return `${displayType}<br>Date: ${date}<br>Hour: ${hour}:00<br>AQI: No data`;
-      }
-      return `${displayType}<br>Date: ${date}<br>Hour: ${hour}:00<br>AQI: ${val.toFixed(1)}`;
+      return `${displayType}<br>Date: ${date}<br>Hour: ${formatHour(parseInt(hour))}<br>AQI: ${formatTooltipValue(val)}`;
     })
   );
 };
 
 // Main processing functions using the generic utilities
+/**
+ * Processes raw data into heatmap format for indoor/outdoor AQI visualization
+ * @param {Object[]} filteredData - Array of data objects with timestamp, IndoorAirQuality, OutdoorAirQuality, hour, date fields
+ * @param {number} dateRange - Number of days to display (used for label formatting)
+ * @returns {Array} Array of two objects with x (hours), y (dates), z (AQI values) and text (tooltips) arrays
+ */
 export const processHeatmapData = (filteredData, dateRange) => {
-  const dataTypes = ['indoor', 'outdoor'];
-  const pivotDatasets = {};
+  // Process both datasets in a single pass
+  const pivotDatasets = {
+    indoor: {},
+    outdoor: {}
+  };
   
-  // Process both datasets using the generic processor
-  dataTypes.forEach(dataType => {
-    pivotDatasets[dataType] = processSingleHeatmapDataset(filteredData, dataType);
+  const dateSet = new Set();
+  
+  // Single pass through data to build both indoor and outdoor pivot structures
+  filteredData.forEach(row => {
+    // Process indoor data
+    const indoorValue = row.IndoorAirQuality;
+    if (isValidValue(indoorValue)) {
+      if (!pivotDatasets.indoor[row.date]) {
+        pivotDatasets.indoor[row.date] = {};
+      }
+      if (!pivotDatasets.indoor[row.date][row.hour]) {
+        pivotDatasets.indoor[row.date][row.hour] = [];
+      }
+      pivotDatasets.indoor[row.date][row.hour].push(indoorValue);
+      dateSet.add(row.date);
+    }
+    
+    // Process outdoor data
+    const outdoorValue = row.OutdoorAirQuality;
+    if (isValidValue(outdoorValue)) {
+      if (!pivotDatasets.outdoor[row.date]) {
+        pivotDatasets.outdoor[row.date] = {};
+      }
+      if (!pivotDatasets.outdoor[row.date][row.hour]) {
+        pivotDatasets.outdoor[row.date][row.hour] = [];
+      }
+      pivotDatasets.outdoor[row.date][row.hour].push(outdoorValue);
+      dateSet.add(row.date);
+    }
   });
   
-  // Find valid dates that have data for either dataset
-  const allDates = new Set([
-    ...Object.keys(pivotDatasets.indoor), 
-    ...Object.keys(pivotDatasets.outdoor)
-  ]);
+  const validDates = Array.from(dateSet).sort();
   
-  const validDates = Array.from(allDates).filter(date => {
-    const hasIndoorData = Object.values(pivotDatasets.indoor[date] || {}).some(values => values.length > 0);
-    const hasOutdoorData = Object.values(pivotDatasets.outdoor[date] || {}).some(values => values.length > 0);
-    return hasIndoorData || hasOutdoorData;
-  }).sort();
-  
-  const hours = Array.from({length: 24}, (_, i) => i);
+  const hours = Array.from({length: CHART_CONSTANTS.HOURS_PER_DAY}, (_, i) => i);
   const datasets = {};
   
   // Process each dataset to create Z values
+  const dataTypes = ['indoor', 'outdoor'];
   dataTypes.forEach(dataType => {
     datasets[dataType] = [];
     validDates.forEach(date => {
@@ -153,6 +170,11 @@ export const processHeatmapData = (filteredData, dateRange) => {
   return configs;
 };
 
+/**
+ * Processes data to calculate hourly statistics for comparison charts
+ * @param {Object[]} filteredData - Array of data objects with timestamp, IndoorAirQuality, OutdoorAirQuality, hour fields
+ * @returns {Array} Array of two objects with name, x (hours), y (average AQI values) arrays
+ */
 export const processHourlyStats = (filteredData) => {
   const dataTypes = ['indoor', 'outdoor'];
   const results = [];
@@ -189,6 +211,11 @@ export const processHourlyStats = (filteredData) => {
   return results;
 };
 
+/**
+ * Processes data for time series line charts
+ * @param {Object[]} filteredData - Array of data objects with Timestamp, IndoorAirQuality, OutdoorAirQuality fields
+ * @returns {Array} Array of two objects with name, x (timestamps), y (AQI values) arrays
+ */
 export const processTimeSeriesData = (filteredData) => {
   const dataTypes = ['indoor', 'outdoor'];
   const results = [];
@@ -212,6 +239,11 @@ export const processTimeSeriesData = (filteredData) => {
   return results;
 };
 
+/**
+ * Processes data for correlation scatter plot between indoor and outdoor AQI
+ * @param {Object[]} filteredData - Array of data objects with IndoorAirQuality, OutdoorAirQuality fields
+ * @returns {Object} Object with x (outdoor values) and y (indoor values) arrays
+ */
 export const processCorrelationData = (filteredData) => {
   return {
     x: filteredData.map(d => d.OutdoorAirQuality),
@@ -231,6 +263,13 @@ export const processCorrelationData = (filteredData) => {
   };
 };
 
+/**
+ * Processes data for annual heatmap visualization (GitHub-style calendar)
+ * @param {Object[]} data - Array of all data objects with timestamp, IndoorAirQuality, OutdoorAirQuality fields
+ * @param {number} selectedYear - Year to display data for
+ * @param {string} aggregation - Aggregation method ('average' or 'maximum')
+ * @returns {Array} Array of two objects with x (week numbers), y (day names), z (aggregated AQI values) arrays
+ */
 export const processAnnualHeatmapData = (data, selectedYear, aggregation = 'average') => {
   const dataTypes = ['indoor', 'outdoor'];
   const dailyDatasets = {};
@@ -317,6 +356,12 @@ export const processAnnualHeatmapData = (data, selectedYear, aggregation = 'aver
   }));
 };
 
+/**
+ * Calculates summary statistics and patterns from the data
+ * @param {Object[]} data - Full dataset
+ * @param {Object[]} filteredData - Filtered dataset for current view
+ * @returns {Object} Summary object with peakHour, indoorAvg, outdoorAvg, and trend information
+ */
 export const calculatePatternSummary = (data, filteredData) => {
   if (data.length === 0 || filteredData.length === 0) {
     return {
@@ -327,31 +372,28 @@ export const calculatePatternSummary = (data, filteredData) => {
   }
 
   // Calculate peak hour based on filtered data
-  const hourlyData = {};
-  filteredData.forEach(row => {
-    if (!hourlyData[row.hour]) {
-      hourlyData[row.hour] = [];
-    }
-    // Use both indoor and outdoor values for peak calculation
-    if (isValidValue(row.IndoorAirQuality)) {
-      hourlyData[row.hour].push(row.IndoorAirQuality);
-    }
-    if (isValidValue(row.OutdoorAirQuality)) {
-      hourlyData[row.hour].push(row.OutdoorAirQuality);
+  const hourlyData = groupDataBy(filteredData, row => row.hour);
+  
+  // Collect all AQI values (both indoor and outdoor) for each hour
+  const hourlyAverages = {};
+  Object.entries(hourlyData).forEach(([hour, rows]) => {
+    const allValues = [];
+    rows.forEach(row => {
+      if (isValidValue(row.IndoorAirQuality)) allValues.push(row.IndoorAirQuality);
+      if (isValidValue(row.OutdoorAirQuality)) allValues.push(row.OutdoorAirQuality);
+    });
+    if (allValues.length > 0) {
+      hourlyAverages[hour] = calculateAverage(allValues);
     }
   });
 
   let peakHour = { hour: 'N/A', aqi: 'N/A' };
   let maxAqi = -1;
   
-  Object.keys(hourlyData).forEach(hour => {
-    const values = hourlyData[hour];
-    if (values.length > 0) {
-      const avgAqi = calculateAverage(values);
-      if (avgAqi > maxAqi) {
-        maxAqi = avgAqi;
-        peakHour = { hour: `${hour}:00`, aqi: avgAqi.toFixed(1) };
-      }
+  Object.entries(hourlyAverages).forEach(([hour, avgAqi]) => {
+    if (avgAqi > maxAqi) {
+      maxAqi = avgAqi;
+      peakHour = { hour: formatHour(parseInt(hour)), aqi: avgAqi.toFixed(1) };
     }
   });
 

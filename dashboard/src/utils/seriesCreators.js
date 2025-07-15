@@ -1,5 +1,7 @@
 // Series creation utilities for ApexCharts - refactored to eliminate indoor/outdoor duplication
 import { CHART_COLORS } from './chartConfigUtils';
+import { CHART_CONSTANTS } from '../constants/app';
+import { filterValidData as filterValidDataCommon, groupDataBy, calculateGroupAverages } from './common';
 
 // Generic utilities
 const isIndoorDataset = (datasetName) => {
@@ -26,9 +28,9 @@ const createSingleAnnualHeatmapSeries = (sourceData) => {
   const series = [];
   const allValues = [];
   
-  for (let day = 0; day < 7; day++) {
+  for (let day = 0; day < CHART_CONSTANTS.DAYS_PER_WEEK; day++) {
     const dayData = [];
-    for (let week = 0; week < 52; week++) {
+    for (let week = 0; week < CHART_CONSTANTS.WEEKS_PER_YEAR; week++) {
       const index = week * 7 + day;
       if (index < sourceData.z.length) {
         const value = sourceData.z[index];
@@ -42,12 +44,6 @@ const createSingleAnnualHeatmapSeries = (sourceData) => {
     series.push({ name: weekLabels[day], data: dayData });
   }
   
-  console.log('Annual heatmap series values range:', {
-    min: Math.min(...allValues),
-    max: Math.max(...allValues),
-    count: allValues.length,
-    sample: allValues.slice(0, 10)
-  });
   
   return series;
 };
@@ -63,6 +59,13 @@ const createSingleComparisonSeries = (trace, transformDataFn) => {
 };
 
 // Main series creation functions using generic transformers
+/**
+ * Creates a line series for ApexCharts
+ * @param {Object} data - Data object with x (timestamps) and y (values) arrays
+ * @param {string} name - Series name for legend
+ * @param {string} color - Optional color for the series
+ * @returns {Object} ApexCharts series object
+ */
 export const createLineSeries = (data, name, color) => ({
   name,
   data: data.x.map((timestamp, index) => ({
@@ -72,6 +75,13 @@ export const createLineSeries = (data, name, color) => ({
   color: color || CHART_COLORS.primary
 });
 
+/**
+ * Creates an hourly line series for ApexCharts
+ * @param {Object} data - Data object with x (hours) and y (values) arrays
+ * @param {string} name - Series name for legend
+ * @param {string} color - Optional color for the series
+ * @returns {Object} ApexCharts series object
+ */
 export const createHourlyLineSeries = (data, name, color) => ({
   name,
   data: data.x.map((hour, index) => ({ 
@@ -81,6 +91,12 @@ export const createHourlyLineSeries = (data, name, color) => ({
   color: color || CHART_COLORS.primary
 });
 
+/**
+ * Creates a scatter series for ApexCharts
+ * @param {Object} data - Data object with x and y value arrays
+ * @param {string} name - Series name for legend
+ * @returns {Object} ApexCharts series object
+ */
 export const createScatterSeries = (data, name) => ({
   name,
   data: data.x.map((outdoor, index) => ({ 
@@ -89,6 +105,11 @@ export const createScatterSeries = (data, name) => ({
   }))
 });
 
+/**
+ * Creates heatmap series for both indoor and outdoor data
+ * @param {Array} data - Array of two data objects (indoor, outdoor) with x, y, z arrays
+ * @returns {Object} Object with indoor and outdoor heatmap series
+ */
 export const createHeatmapSeries = (data) => {
   const [indoorData, outdoorData] = data;
   
@@ -98,10 +119,13 @@ export const createHeatmapSeries = (data) => {
   };
 };
 
+/**
+ * Creates annual heatmap series for both indoor and outdoor data
+ * @param {Array} data - Array of two data objects (indoor, outdoor) with z arrays
+ * @returns {Object} Object with indoor and outdoor annual heatmap series
+ */
 export const createAnnualHeatmapSeries = (data) => {
   const [indoorData, outdoorData] = data;
-  
-  console.log('createAnnualHeatmapSeries called with:', { indoorData, outdoorData });
   
   return {
     indoor: createSingleAnnualHeatmapSeries(indoorData),
@@ -109,6 +133,11 @@ export const createAnnualHeatmapSeries = (data) => {
   };
 };
 
+/**
+ * Creates indoor/outdoor comparison series for time series charts
+ * @param {Array} data - Array of data objects with name, x (timestamps), y (values) arrays
+ * @returns {Array} Array of ApexCharts series objects with appropriate colors
+ */
 export const createIndoorOutdoorSeries = (data) => {
   return data.map(trace => createSingleComparisonSeries(trace, (trace) => 
     trace.x.map((timestamp, dataIndex) => ({
@@ -118,6 +147,11 @@ export const createIndoorOutdoorSeries = (data) => {
   ));
 };
 
+/**
+ * Creates hourly comparison series for indoor/outdoor data
+ * @param {Array} data - Array of data objects with name, x (hours), y (values) arrays
+ * @returns {Array} Array of ApexCharts series objects with appropriate colors
+ */
 export const createHourlyComparisonSeries = (data) => {
   return data.map(trace => createSingleComparisonSeries(trace, (trace) => 
     trace.x.map((hour, dataIndex) => ({ 
@@ -135,33 +169,6 @@ export const transformToApexFormat = (data, xMapper, yMapper) => {
   }));
 };
 
-export const filterValidData = (data) => {
-  return data.filter(item => 
-    item.y !== null && 
-    item.y !== undefined && 
-    !isNaN(item.y)
-  );
-};
-
-export const groupDataBy = (data, keyFunc) => {
-  return data.reduce((groups, item) => {
-    const key = keyFunc(item);
-    if (!groups[key]) {
-      groups[key] = [];
-    }
-    groups[key].push(item);
-    return groups;
-  }, {});
-};
-
-export const calculateAverages = (groupedData) => {
-  const result = {};
-  Object.keys(groupedData).forEach(key => {
-    const values = groupedData[key];
-    if (values.length > 0) {
-      const sum = values.reduce((acc, val) => acc + val, 0);
-      result[key] = sum / values.length;
-    }
-  });
-  return result;
-}; 
+// Re-export common utilities for backward compatibility
+export const filterValidData = filterValidDataCommon;
+export { groupDataBy, calculateGroupAverages as calculateAverages } from './common'; 

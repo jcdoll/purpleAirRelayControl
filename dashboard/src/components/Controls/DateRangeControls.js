@@ -1,13 +1,12 @@
 import React from 'react';
 import styles from './DateRangeControls.module.css';
+import { VIEW_TYPES } from '../../constants/app';
 
 const DateRangeControls = ({
   selectedView,
   dateRangeMode,
   setDateRangeMode,
-  timeRangeType,
   dateRange,
-  setTimeRangeType,
   setDateRange,
   customStartDate,
   setCustomStartDate,
@@ -15,19 +14,11 @@ const DateRangeControls = ({
   setCustomEndDate,
   getAvailableYears,
   selectedYear,
-  setSelectedYear,
-  annualHeatmapAggregation,
-  setAnnualHeatmapAggregation
+  setSelectedYear
 }) => {
   const handleDateRangeChange = (e) => {
     const value = e.target.value;
-    if (value === 'previous_year') {
-      setTimeRangeType('previous_year');
-      setDateRange(365);
-    } else {
-      setTimeRangeType('recent');
-      setDateRange(Number(value));
-    }
+    setDateRange(Number(value));
   };
 
   // Common date range controls for heatmap, hourly, timeline, and correlation views
@@ -58,7 +49,7 @@ const DateRangeControls = ({
       </div>
       {dateRangeMode === 'predefined' ? (
         <select 
-          value={timeRangeType === 'previous_year' ? 'previous_year' : dateRange} 
+          value={dateRange} 
           onChange={handleDateRangeChange}
         >
           <option value={7}>Last 7 days</option>
@@ -68,7 +59,6 @@ const DateRangeControls = ({
           <option value={90}>Last 90 days</option>
           <option value={180}>Last 6 months</option>
           <option value={365}>Last 12 months</option>
-          <option value="previous_year">Previous year</option>
         </select>
       ) : (
         <div className={styles.customDateRange}>
@@ -90,7 +80,7 @@ const DateRangeControls = ({
     </div>
   );
 
-  if (selectedView === 'heatmap') {
+  if (selectedView === VIEW_TYPES.HEATMAP) {
     return (
       <div className={styles.heatmapControls}>
         {renderCommonDateControls()}
@@ -98,7 +88,7 @@ const DateRangeControls = ({
     );
   }
 
-  if (selectedView === 'hourly') {
+  if (selectedView === VIEW_TYPES.HOURLY) {
     return (
       <div className={styles.hourlyControls}>
         {renderCommonDateControls()}
@@ -106,11 +96,11 @@ const DateRangeControls = ({
     );
   }
 
-  if (selectedView === 'correlation' || selectedView === 'timeline') {
+  if (selectedView === VIEW_TYPES.CORRELATION || selectedView === VIEW_TYPES.TIMELINE) {
     return renderCommonDateControls();
   }
 
-  if (selectedView === 'annual-heatmap') {
+  if (selectedView === VIEW_TYPES.ANNUAL_HEATMAP) {
     return (
       <div className={styles.annualHeatmapControls}>
         <div className={styles.yearSelector}>
@@ -119,13 +109,6 @@ const DateRangeControls = ({
             {getAvailableYears.map(year => (
               <option key={year} value={year}>{year}</option>
             ))}
-          </select>
-        </div>
-        <div className={styles.aggregationType}>
-          <label>Aggregation: </label>
-          <select value={annualHeatmapAggregation} onChange={(e) => setAnnualHeatmapAggregation(e.target.value)}>
-            <option value="average">Daily Average</option>
-            <option value="max">Daily Maximum</option>
           </select>
         </div>
       </div>

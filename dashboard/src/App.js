@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import './styles/globals.css';
 import styles from './App.module.css';
 import controlsStyles from './components/UI/Controls.module.css';
-import loadingStyles from './components/UI/LoadingError.module.css';
 import Papa from 'papaparse';
 
 import {
@@ -13,6 +12,7 @@ import {
   processAnnualHeatmapData,
   calculatePatternSummary
 } from './utils/chartDataProcessors';
+import { formatDateToYMD } from './utils/common';
 
 // Import chart components
 import {
@@ -26,14 +26,15 @@ import {
 // Import UI components
 import Header from './components/UI/Header';
 import SummaryCards from './components/UI/SummaryCards';
+import LoadingError from './components/UI/LoadingError';
 import ViewSelector from './components/Controls/ViewSelector';
 import DateRangeControls from './components/Controls/DateRangeControls';
-import { CSV_URL, REFRESH_INTERVAL } from './constants/app';
+import { CSV_URL, REFRESH_INTERVAL, VIEW_TYPES, TIME_CONSTANTS } from './constants/app';
 
 function App() {
   // Consolidated state management
   const [state, setState] = useState({
-    selectedView: 'heatmap',
+    selectedView: VIEW_TYPES.HEATMAP,
     dateRange: 7,
     selectedYear: new Date().getFullYear(),
     dateRangeMode: 'predefined',
@@ -80,7 +81,7 @@ function App() {
                   IndoorAirQuality: parseFloat(row.IndoorAirQuality),
                   OutdoorAirQuality: parseFloat(row.OutdoorAirQuality),
                   hour: timestamp.getHours(),
-                  date: timestamp.getFullYear() + '-' + String(timestamp.getMonth() + 1).padStart(2, '0') + '-' + String(timestamp.getDate()).padStart(2, '0'), // no timezone, use sensor date directly
+                  date: formatDateToYMD(timestamp), // no timezone, use sensor date directly
                   dayOfWeek: timestamp.toLocaleDateString('en-US', { weekday: 'long' }),
                   switch_state: row.SwitchState,
                   sensor_type: row.VentilationState,
@@ -141,10 +142,10 @@ function App() {
     let startDate;
     
     if (state.dateRangeMode === 'custom') {
-      startDate = state.customStartDate ? new Date(state.customStartDate) : new Date(now.getTime() - (state.dateRange * 24 * 60 * 60 * 1000));
+      startDate = state.customStartDate ? new Date(state.customStartDate) : new Date(now.getTime() - (state.dateRange * TIME_CONSTANTS.MS_PER_DAY));
     } else {
       // Calculate start date and set to beginning of day (midnight)
-      startDate = new Date(now.getTime() - (state.dateRange * 24 * 60 * 60 * 1000));
+      startDate = new Date(now.getTime() - (state.dateRange * TIME_CONSTANTS.MS_PER_DAY));
       startDate.setHours(0, 0, 0, 0);
     }
     
@@ -197,25 +198,9 @@ function App() {
   // Calculate pattern summary
   const summary = useMemo(() => calculatePatternSummary(data, filteredData), [data, filteredData]);
 
-  if (loading) {
-    return (
-      <div className={loadingStyles.loading}>
-        <h2>Loading air quality data...</h2>
-        <div className={loadingStyles.spinner}></div>
-        <p>Fetching data from Google Sheets...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className={loadingStyles.error}>
-        <h2>Error loading data</h2>
-        <p>{error}</p>
-        <p>Make sure your Google Sheet is published to web as CSV</p>
-        <button onClick={fetchData}>Retry</button>
-      </div>
-    );
+  // Handle loading and error states
+  if (loading || error) {
+    return <LoadingError loading={loading} error={error} onRetry={fetchData} />;
   }
 
   return (
@@ -233,9 +218,7 @@ function App() {
           selectedView={state.selectedView}
           dateRangeMode={state.dateRangeMode}
           setDateRangeMode={(mode) => updateState({ dateRangeMode: mode })}
-          timeRangeType="recent"
           dateRange={state.dateRange}
-          setTimeRangeType={() => {}}
           setDateRange={(range) => updateState({ dateRange: range })}
           customStartDate={state.customStartDate}
           setCustomStartDate={(date) => updateState({ customStartDate: date })}
@@ -244,8 +227,6 @@ function App() {
           getAvailableYears={availableYears}
           selectedYear={state.selectedYear}
           setSelectedYear={(year) => updateState({ selectedYear: year })}
-          annualHeatmapAggregation="average"
-          setAnnualHeatmapAggregation={() => {}}
         />
       </div>
 
@@ -254,29 +235,29 @@ function App() {
         <RecentHeatmapChart 
           data={heatmapData} 
           timeRangeDescription={timeRangeDescription} 
-          isVisible={state.selectedView === 'heatmap'}
+          isVisible={state.selectedView === VIEW_TYPES.HEATMAP}
           dateRange={state.dateRange}
         />
         <HourlyChart 
           data={hourlyData} 
           timeRangeDescription={timeRangeDescription} 
-          isVisible={state.selectedView === 'hourly'}
+          isVisible={state.selectedView === VIEW_TYPES.HOURLY}
         />
         <TimelineChart 
           data={timeSeriesData} 
           timeRangeDescription={timeRangeDescription} 
-          isVisible={state.selectedView === 'timeline'}
+          isVisible={state.selectedView === VIEW_TYPES.TIMELINE}
         />
         <CorrelationChart 
           data={correlationData} 
           timeRangeDescription={timeRangeDescription} 
-          isVisible={state.selectedView === 'correlation'}
+          isVisible={state.selectedView === VIEW_TYPES.CORRELATION}
         />
         <AnnualHeatmapChart 
           data={annualHeatmapData} 
           selectedYear={state.selectedYear} 
           aggregation="average"
-          isVisible={state.selectedView === 'annual-heatmap'}
+          isVisible={state.selectedView === VIEW_TYPES.ANNUAL_HEATMAP}
         />
       </div>
 

@@ -2,6 +2,7 @@ import React from 'react';
 import Chart from 'react-apexcharts';
 import { getLineChartOptions, getXAxisConfig, getYAxisConfig, TOOLTIP_FORMATTERS, ANIMATION_DISABLED, TOOLBAR_DISABLED } from '../../utils/chartConfigUtils';
 import { createHourlyComparisonSeries } from '../../utils/seriesCreators';
+import { CHART_CONSTANTS } from '../../constants/app';
 import styles from './Chart.module.css';
 
 const HourlyChart = ({ data, timeRangeDescription, isVisible }) => {
@@ -9,7 +10,7 @@ const HourlyChart = ({ data, timeRangeDescription, isVisible }) => {
   
   const options = getLineChartOptions({
     chart: { 
-      height: 400, 
+      height: CHART_CONSTANTS.DEFAULT_CHART_HEIGHT, 
       zoom: { enabled: false },
       animations: ANIMATION_DISABLED,
       toolbar: TOOLBAR_DISABLED
@@ -33,7 +34,7 @@ const HourlyChart = ({ data, timeRangeDescription, isVisible }) => {
   return (
     <div className={`${styles.chartContainer} ${!isVisible ? styles.hidden : ''}`}>
       <h2 className={styles.chartTitle}>Hourly Analysis - {timeRangeDescription}</h2>
-      <Chart options={options} series={series} type="line" height={400} />
+      <Chart options={options} series={series} type="line" height={CHART_CONSTANTS.DEFAULT_CHART_HEIGHT} />
     </div>
   );
 };
