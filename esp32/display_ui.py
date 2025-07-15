@@ -2,7 +2,7 @@ from machine import Pin, SPI
 import time
 import config
 
-# Import display driver
+# Import display driver and font
 try:
     import st7789py as st7789
     DISPLAY_AVAILABLE = True
@@ -10,36 +10,63 @@ except ImportError:
     print("Warning: st7789py display driver not found")
     DISPLAY_AVAILABLE = False
 
+# Import font (character mirroring fix applied directly to vga1_8x8)
+try:
+    import lib.vga1_8x8 as font8x8
+    FONT_AVAILABLE = True
+    print("Using corrected font for proper character display")
+except ImportError:
+    print("Warning: vga1_8x8 font not found")
+    FONT_AVAILABLE = False
+
 class DisplayInterface:
     def __init__(self):
         self.display = None
         self.last_update = 0
         self.update_interval = 1  # seconds
         
-        if DISPLAY_AVAILABLE:
+        if DISPLAY_AVAILABLE and FONT_AVAILABLE:
             try:
-                # Initialize SPI for display
-                spi = SPI(1, baudrate=40000000, polarity=0, phase=0,
+                print("Initializing DisplayInterface...")
+                
+                # Initialize SPI for display with lower baudrate for stability
+                print(f"Initializing SPI: SCK={config.TFT_SCLK}, MOSI={config.TFT_MOSI}")
+                spi = SPI(1, baudrate=20000000, polarity=0, phase=0,
                          sck=Pin(config.TFT_SCLK), mosi=Pin(config.TFT_MOSI))
                 
-                # Initialize display
-                # Use 135x240 mode with rotation for 240x135 display
+                # Initialize display with correct dimensions and rotation
+                # Rotation 1 is landscape with buttons on left side (CONFIRMED WORKING)
+                print(f"Initializing display: 135x240, rotation=1 (buttons on left)")
+                print(f"  RST={config.TFT_RST}, DC={config.TFT_DC}, CS={config.TFT_CS}")
                 self.display = st7789.ST7789(
                     spi,
-                    config.DISPLAY_WIDTH,
-                    config.DISPLAY_HEIGHT,
+                    135,  # width (correct for ESP32-S3 Reverse TFT Feather)
+                    240,  # height (correct for ESP32-S3 Reverse TFT Feather)
                     reset=Pin(config.TFT_RST, Pin.OUT),
                     dc=Pin(config.TFT_DC, Pin.OUT),
                     cs=Pin(config.TFT_CS, Pin.OUT),
-                    rotation=3  # Rotate 270 degrees for landscape
+                    rotation=1  # Landscape with buttons on left side (TESTED AND WORKING)
                 )
                 
-                # Note: st7789py doesn't have a separate init() method
+                print("Clearing display...")
                 self.clear()
+                
+                # Test the display with a simple pattern
+                print("Testing display with color pattern...")
+                self.display.fill_rect(0, 0, 60, 30, st7789.RED)
+                self.display.fill_rect(60, 0, 60, 30, st7789.GREEN)
+                self.display.fill_rect(120, 0, 60, 30, st7789.BLUE)
+                self.display.fill_rect(180, 0, 60, 30, st7789.WHITE)
+                time.sleep(1)
+                self.clear()
+                
                 print("Display initialized successfully")
             except Exception as e:
                 print(f"Display initialization error: {e}")
                 self.display = None
+        else:
+            print("Display not available (missing hardware or font support)")
+            self.display = None
     
     def clear(self):
         """Clear the display"""
@@ -68,22 +95,23 @@ class DisplayInterface:
         if not self.display:
             return
             
-        # Draw label - text() requires a font, so skip for now
-        # TODO: Add font support
-        # self.display.text(font, label, 10, y, st7789.WHITE)
+        # Draw label
+        if FONT_AVAILABLE:
+            self.display.text(font8x8, label, 10, y, st7789.WHITE)
         
         # Draw AQI value  
-        # aqi_text = "N/A" if aqi < 0 else str(int(aqi))
-        # self.display.text(font, aqi_text, 10, y + 15, st7789.WHITE)
+        aqi_text = "N/A" if aqi < 0 else str(int(aqi))
+        if FONT_AVAILABLE:
+            self.display.text(font8x8, aqi_text, 10, y + 12, st7789.WHITE)
         
         # Draw bar
         if aqi >= 0:
             bar_width = min(int(aqi * max_width / 500), max_width)
             bar_color = self.get_aqi_color(aqi)
-            self.display.fill_rect(10, y + 30, bar_width, 10, bar_color)
+            self.display.fill_rect(10, y + 25, bar_width, 10, bar_color)
             
             # Draw bar outline
-            self.display.rect(10, y + 30, max_width, 10, st7789.WHITE)
+            self.display.rect(10, y + 25, max_width, 10, st7789.WHITE)
     
     def draw_status(self, y, vent_controller):
         """Draw ventilation status"""
@@ -92,20 +120,27 @@ class DisplayInterface:
             
         status = vent_controller.get_status()
         
-        # Draw mode - text() requires a font, so using colored rectangles instead
+        # Draw mode
         mode_color = st7789.GREEN if status['mode'] == 'PURPLEAIR' else st7789.YELLOW
-        # Mode indicator rectangle
-        self.display.fill_rect(10, y, 50, 10, mode_color)
+        if FONT_AVAILABLE:
+            self.display.text(font8x8, f"Mode: {status['mode']}", 10, y, mode_color)
+        else:
+            # Fallback: Mode indicator rectangle
+            self.display.fill_rect(10, y, 50, 10, mode_color)
         
         # Draw ventilation state
         vent_color = st7789.GREEN if status['enabled'] else st7789.RED
-        # Ventilation status rectangle  
-        self.display.fill_rect(70, y, 50, 10, vent_color)
+        vent_text = "Vent: ON" if status['enabled'] else "Vent: OFF"
+        if FONT_AVAILABLE:
+            self.display.text(font8x8, vent_text, 10, y + 12, vent_color)
+        else:
+            # Fallback: Ventilation status rectangle  
+            self.display.fill_rect(70, y, 50, 10, vent_color)
         
-        # TODO: Add font support for text display
-        # self.display.text(font, f"Mode: {status['mode']}", 10, y, mode_color)
-        # self.display.text(font, vent_text, 10, y + 15, vent_color)
-        # self.display.text(font, reason_text, 10, y + 30, st7789.WHITE)
+        # Draw reason (truncate if too long)
+        reason_text = status['reason'][:28]  # Max ~28 chars at 8 pixels wide
+        if FONT_AVAILABLE:
+            self.display.text(font8x8, reason_text, 10, y + 24, st7789.WHITE)
     
     def draw_network_status(self, wifi_manager):
         """Draw network status in corner"""
@@ -135,8 +170,8 @@ class DisplayInterface:
         
         # Draw title bar (swap dimensions for rotated display)
         self.display.fill_rect(0, 0, 240, 20, st7789.BLUE)
-        # TODO: Add font support for title text
-        # self.display.text(font, "Air Quality Monitor", 10, 5, st7789.WHITE)
+        if FONT_AVAILABLE:
+            self.display.text(font8x8, "Air Quality Monitor", 10, 6, st7789.WHITE)
         
         # Draw network status
         self.draw_network_status(wifi_manager)
@@ -163,11 +198,15 @@ class DisplayInterface:
         if color is None:
             color = st7789.WHITE
             
-        # Draw colored rectangle to indicate message type
-        # Since we can't draw text without fonts, use color coding
-        self.display.fill_rect(20, 60, 200, 20, color)
-        # TODO: Add font support for message text
-        # self.display.text(font, message, x, y, color)
+        if FONT_AVAILABLE:
+            # Center the message
+            msg_width = len(message) * 8
+            x = (240 - msg_width) // 2
+            y = 60
+            self.display.text(font8x8, message, x, y, color)
+        else:
+            # Fallback: Draw colored rectangle to indicate message type
+            self.display.fill_rect(20, 60, 200, 20, color)
     
     def show_error(self, error_msg):
         """Show error message"""

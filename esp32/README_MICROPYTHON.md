@@ -380,6 +380,104 @@ The built-in NeoPixel LED indicates:
    - Ventilation always OFF
    - Ignores AQI readings
 
+## Recovery Procedures
+
+### Complete Board Recovery (If Bootloader/Firmware Corrupted)
+
+If your ESP32-S3 board stops responding to MicroPython commands or shows filesystem corruption, you may need to completely restore the bootloader and firmware. This can happen if:
+
+- The filesystem becomes corrupted
+- Wrong firmware was flashed
+- The TinyUF2 bootloader was accidentally overwritten
+- You see errors like "The filesystem appears to be corrupted"
+
+**Recovery Steps:**
+
+1. **Put board in bootloader mode:**
+   - Hold down **BOOT button (D0)** 
+   - Press and release **RESET button**
+   - Release **BOOT button**
+   - Board should now be in bootloader mode
+
+2. **Flash TinyUF2 bootloader:**
+   ```bash
+   esptool --chip esp32s3 --port COM3 write_flash 0x0 tinyuf2-adafruit_feather_esp32s3_tft-0.33.0-combined.bin
+   ```
+
+3. **Flash MicroPython firmware (choose Option A or B):**
+
+   **Option A: UF2 drag-and-drop method (PREFERRED)**
+   ```bash
+   # 1. TinyUF2 drive should already be mounted as FTHRS3BOOT
+   # 2. Check what drive letter it mounted as:
+   Get-Volume | Where-Object {$_.FileSystemLabel -like "*TinyUF2*" -or $_.FileSystemLabel -like "*FEATHERS3*"}
+   
+   # 3. Copy/drag the UF2 file to the mounted drive:
+   Copy-Item ESP32_GENERIC_S3-20250415-v1.25.0.uf2 F:\
+   # (Replace F:\ with your actual drive letter)
+   
+   # 4. Board will automatically flash and reboot into MicroPython
+   # 5. The FTHRS3BOOT drive should disappear when successful
+   ```
+
+   **Option B: Command line with .bin file (NOT RECOMMENDED)**
+   ```bash
+   # NOTE: This method does not work properly with TinyUF2 bootloader
+   # The board may remain in bootloader mode instead of booting MicroPython
+   # Use Option A instead for TinyUF2 boards
+   
+   # Put board back into bootloader mode for esptool:
+   # - Hold down BOOT button (D0)
+   # - Press and release RESET button  
+   # - Release BOOT button
+   
+   # Flash MicroPython at offset 0x10000 (after TinyUF2 bootloader)
+   esptool --chip esp32s3 --port COM3 write_flash 0x10000 ESP32_GENERIC_S3-20250415-v1.25.0.bin
+   ```
+
+4. **Verify recovery:**
+   ```bash
+   # The FTHRS3BOOT drive should disappear after successful UF2 flash
+   # Board will reboot into MicroPython (COM port may change)
+   
+   # Connect with auto-detection:
+   mpremote connect auto
+   
+   # Or specify port (check Device Manager for current port):
+   mpremote connect COM5
+   
+   # You should see MicroPython prompt:
+   # MicroPython v1.25.0 on 2025-04-15; Generic ESP32S3 module with ESP32S3
+   # Type "help()" for more information.
+   # >>>
+   ```
+
+5. **Useful mpremote commands:**
+   ```bash
+   # Connect to REPL
+   mpremote connect auto          # Auto-detect port
+   mpremote connect COM5          # Specific port
+   
+   # REPL control commands (while connected):
+   # Ctrl-C: Interrupt running program
+   # Ctrl-D: Soft reboot (restarts MicroPython)
+   # Ctrl-X: Exit shell and disconnect
+   ```
+
+6. **Redeploy your application:**
+   ```bash
+   # Copy secrets file and deploy application
+   python deploy.py              # Auto-detect port
+   python deploy.py COM5         # Specific port
+   ```
+
+**Notes:**
+- Option A (UF2 method) is the proper way to work with TinyUF2 bootloader
+- Option B (esptool) does not work correctly with TinyUF2 and is not recommended
+- After recovery, you'll need to redeploy all your application files
+- The COM port number may change during the recovery process (COM3 → COM5 in this example)
+- Use `mpremote connect auto` for automatic port detection
+
 ## Troubleshooting
 
 ### "failed to access COM3 (it may be in use by another program)"

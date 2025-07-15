@@ -3,6 +3,7 @@
 
 import esp
 import gc
+import time
 
 # Disable debug output to save power and reduce noise
 esp.osdebug(None)
@@ -10,8 +11,11 @@ esp.osdebug(None)
 # Run garbage collection to free up memory
 gc.collect()
 
-# Optional: Set CPU frequency (default is 160MHz, can go up to 240MHz)
-# import machine
-# machine.freq(240000000)  # 240MHz for better performance
+# Give system time to stabilize
+time.sleep(0.5)
 
 print("Boot sequence complete")
+
+# DO NOT auto-import main to prevent boot loops
+# Comment this out to stop auto-running main.py
+# import main

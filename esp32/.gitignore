@@ -28,3 +28,7 @@ dist/
 # Logs
 *.log
 *.bin
+
+# Deployment artifacts
+.failed_files.txt
+*.uf2

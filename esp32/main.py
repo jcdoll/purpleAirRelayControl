@@ -15,28 +15,113 @@ if config.WATCHDOG_TIMEOUT > 0:
 else:
     wdt = None
 
-# Initialize NeoPixel for status LED
+# Initialize NeoPixel for status LED with proper power management
+neopixel_power = None
+tft_power = None
+backlight = None
+LED_AVAILABLE = False
+
 try:
+    # NeoPixel setup for Adafruit ESP32-S3 Reverse TFT Feather (requires power pin)
+    print("Setting up NeoPixel...")
+    
+    # Enable NeoPixel power (required for Adafruit ESP32-S3 Reverse TFT Feather)
+    neopixel_power = Pin(config.NEOPIXEL_POWER_PIN, Pin.OUT)
+    neopixel_power.value(1)  # Enable power
+    time.sleep(0.1)  # Allow power to stabilize
+    
     import neopixel
     np = neopixel.NeoPixel(Pin(config.NEOPIXEL_PIN), 1)
+    
+    # Test the LED
+    np[0] = (10, 0, 0)  # Dim red test
+    np.write()
+    time.sleep(0.2)
+    np[0] = (0, 0, 0)
+    np.write()
+    
     LED_AVAILABLE = True
-except:
+    print("  NeoPixel initialized successfully (Adafruit ESP32-S3 Reverse TFT Feather)")
+        
+except Exception as e:
     LED_AVAILABLE = False
-    print("NeoPixel not available")
+    print(f"NeoPixel initialization error: {e}")
+
+# Initialize Display with proper power management
+try:
+    print("Setting up Display...")
+    
+    # Set up display power pins
+    for tft_power_pin in [7, 21]:  # Try different power pin options
+        try:
+            print(f"  Trying TFT power pin GPIO {tft_power_pin}...")
+            tft_power = Pin(tft_power_pin, Pin.OUT)
+            tft_power.value(1)  # Enable TFT power
+            time.sleep(0.2)
+            
+            # Set up backlight
+            try:
+                backlight = Pin(config.TFT_BACKLIGHT, Pin.OUT)
+                backlight.value(1)  # Enable backlight
+                print(f"  Backlight enabled on GPIO {config.TFT_BACKLIGHT}")
+            except:
+                print("  Backlight setup failed, continuing without it...")
+            
+            # Initialize display with power management
+            from display_ui import DisplayInterface
+            display = DisplayInterface()
+            
+            if display.display is not None:
+                print(f"  Display working with power pin GPIO {tft_power_pin}")
+                break
+            else:
+                print(f"  Display failed with power pin GPIO {tft_power_pin}")
+                continue
+                
+        except Exception as e:
+            print(f"  Failed with TFT power pin GPIO {tft_power_pin}: {e}")
+            continue
+    else:
+        # If all power pins failed, create dummy display
+        print("  Creating dummy display (no hardware display available)")
+        class DummyDisplay:
+            def show_message(self, msg):
+                print(f"[Display] {msg}")
+            def show_error(self, msg):
+                print(f"[Display Error] {msg}")
+            def update(self, *args):
+                pass
+            def clear(self):
+                pass
+        display = DummyDisplay()
+        
+except Exception as e:
+    print(f"Display initialization error: {e}")
+    # Create dummy display as fallback
+    class DummyDisplay:
+        def show_message(self, msg):
+            print(f"[Display] {msg}")
+        def show_error(self, msg):
+            print(f"[Display Error] {msg}")
+        def update(self, *args):
+            pass
+        def clear(self):
+            pass
+    display = DummyDisplay()
 
 def set_status_led(r, g, b):
     """Set status LED color"""
     if LED_AVAILABLE:
+        print(f"Setting LED to RGB({r}, {g}, {b})")
         np[0] = (r, g, b)
         np.write()
+    else:
+        print(f"LED not available - would set RGB({r}, {g}, {b})")
 
 def initialize_components():
     """Initialize all system components"""
     print("PurpleAir Relay Control - ESP32 MicroPython")
-    print("Initializing components...")
-    
-    # Initialize display first for user feedback
-    display = DisplayInterface()
+    print("Initializing other components...")
     display.show_message("Starting up...")
     
     # Initialize WiFi
@@ -67,13 +152,28 @@ def initialize_components():
     print(f"  Indoor sensors:")
     print(f"    Local IPs: {purple_air.local_indoor_ips}")
     print(f"    API IDs: {config.INDOOR_SENSOR_IDS}")
-    print(f"  API Key configured: {'Yes' if config.PURPLE_AIR_API_KEY else 'No'}")
+    # Check if API key is properly configured (not just present)
+    api_key_valid = (config.PURPLE_AIR_API_KEY and 
+                     config.PURPLE_AIR_API_KEY.strip() != "" and
+                     len(config.PURPLE_AIR_API_KEY) > 10)
+    print(f"  API Key configured: {'Yes' if api_key_valid else 'No'}")
     
     # Force initial sensor reads
     print("\nPerforming initial sensor checks...")
-    outdoor_aqi = purple_air.get_outdoor_aqi(force_update=True)
-    indoor_aqi = purple_air.get_indoor_aqi(force_update=True)
-    print(f"\nInitial readings: Outdoor AQI={outdoor_aqi}, Indoor AQI={indoor_aqi}")
+    try:
+        outdoor_aqi = purple_air.get_outdoor_aqi(force_update=True)
+        indoor_aqi = purple_air.get_indoor_aqi(force_update=True)
+        print(f"\nInitial readings: Outdoor AQI={outdoor_aqi}, Indoor AQI={indoor_aqi}")
+        
+        # Debug check for tuple issues
+        print(f"Debug - outdoor_aqi type: {type(outdoor_aqi)}, value: {outdoor_aqi}")
+        print(f"Debug - indoor_aqi type: {type(indoor_aqi)}, value: {indoor_aqi}")
+    except Exception as e:
+        print(f"\nError during initial sensor checks: {type(e).__name__}: {e}")
+        import sys
+        sys.print_exception(e)
+        outdoor_aqi = -1
+        indoor_aqi = -1
     
     return display, wifi, purple_air, ventilation, logger
 
@@ -117,6 +217,14 @@ def main():
             outdoor_aqi = purple_air.get_outdoor_aqi()
             indoor_aqi = purple_air.get_indoor_aqi()
             
+            # Ensure AQI values are numbers, not tuples
+            if isinstance(outdoor_aqi, tuple):
+                print(f"WARNING: outdoor_aqi is tuple: {outdoor_aqi}")
+                outdoor_aqi = outdoor_aqi[0] if outdoor_aqi else -1
+            if isinstance(indoor_aqi, tuple):
+                print(f"WARNING: indoor_aqi is tuple: {indoor_aqi}")
+                indoor_aqi = indoor_aqi[0] if indoor_aqi else -1
+            
             # Update ventilation control
             ventilation.update(outdoor_aqi, indoor_aqi)
             
@@ -125,9 +233,13 @@ def main():
             
             # Set status LED based on ventilation state
             if ventilation.ventilation_enabled:
-                set_status_led(0, 64, 0)  # Green for ventilating
+                if not hasattr(ventilation, '_last_led_state') or ventilation._last_led_state != 'green':
+                    set_status_led(0, 64, 0)  # Green for ventilating
+                    ventilation._last_led_state = 'green'
             else:
-                set_status_led(64, 0, 0)  # Red for not ventilating
+                if not hasattr(ventilation, '_last_led_state') or ventilation._last_led_state != 'red':
+                    set_status_led(64, 0, 0)  # Red for not ventilating
+                    ventilation._last_led_state = 'red'
             
             # Log data if needed
             if ventilation.should_log() or logger.should_log():
@@ -155,8 +267,8 @@ def main():
             # Reset error count on successful iteration
             error_count = 0
             
-            # Small delay to prevent tight loop
-            time.sleep(0.1)
+            # Arduino uses 1 second loop delay (LOOP_DELAY = 1000ms)
+            time.sleep(1.0)
             
         except KeyboardInterrupt:
             print("\nShutdown requested")
@@ -166,7 +278,12 @@ def main():
             
         except Exception as e:
             error_count += 1
-            print(f"Error in main loop: {e}")
+            print(f"\nError in main loop: {type(e).__name__}: {e}")
+            
+            # Print full stack trace
+            import sys
+            sys.print_exception(e)
+            
             display.show_error("System Error")
             
             if error_count > 10:

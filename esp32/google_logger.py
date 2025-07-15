@@ -9,7 +9,7 @@ class GoogleFormsLogger:
         self.last_log_time = 0
         
     def log(self, outdoor_aqi, indoor_aqi, switch_state, vent_state, reason):
-        """Log data to Google Forms"""
+        # Log data to Google Forms
         if not self.enabled or not self.url:
             return False
             
@@ -44,7 +44,7 @@ class GoogleFormsLogger:
             return False
     
     def should_log(self, force=False):
-        """Check if enough time has passed for next log"""
+        # Check if enough time has passed for next log
         if force:
             return True
             

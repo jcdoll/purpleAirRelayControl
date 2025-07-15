@@ -117,7 +117,7 @@ import st7789
 # Configure SPI for display
 spi = SPI(1, baudrate=40000000, polarity=0, phase=0, 
           sck=Pin(36), mosi=Pin(35))
-display = st7789.ST7789(spi, 240, 135, 
+display = st7789.ST7789(spi, 135, 240, 
                        reset=Pin(40), dc=Pin(39), cs=Pin(7))
 
 display.init()
