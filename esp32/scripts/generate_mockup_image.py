@@ -1,10 +1,9 @@
 # Generate PNG image mockup of the display layout
 # Creates actual image file for review without needing ESP32 hardware
 
-import os
 import sys
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 
 # Add the esp32 directory to path so we can import the font
 sys.path.append('../')

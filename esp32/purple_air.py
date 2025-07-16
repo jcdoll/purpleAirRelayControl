@@ -10,7 +10,6 @@ except ImportError:
 import time
 
 import config
-import ujson as json
 
 
 class PurpleAirClient:
@@ -98,7 +97,7 @@ class PurpleAirClient:
                         pm25_for_calc = float(data['pm2_5_atm'])
                         if pm25_for_calc >= 0:
                             print(
-                                f"    Using 'pm2_5_atm' from local sensor for AQI calculation."
+                                "    Using 'pm2_5_atm' from local sensor for AQI calculation."
                             )
                             aqi = int(round(self.pm25_to_aqi(pm25_for_calc)))
                             print(

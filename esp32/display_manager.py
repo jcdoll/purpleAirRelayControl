@@ -127,7 +127,7 @@ class DisplayManager:
                     )
                 else:
                     print(
-                        f"Display Manager: Insufficient memory for frame buffer, using direct mode"
+                        "Display Manager: Insufficient memory for frame buffer, using direct mode"
                     )
                     self.frame_buffer = None
 

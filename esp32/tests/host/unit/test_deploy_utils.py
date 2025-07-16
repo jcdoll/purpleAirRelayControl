@@ -1,7 +1,6 @@
 import importlib.util
 from pathlib import Path
 
-import pytest
 
 # Dynamically load the deploy module so we do not rely on it being a package
 DEPLOY_PATH = Path(__file__).resolve().parents[3] / "esp32" / "deploy.py"

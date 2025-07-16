@@ -44,7 +44,7 @@ def initialize_components():
         time.sleep(5)
         machine.reset()
     led.set_status_led("wifi_connected")
-    print(f"WiFi connected successfully!")
+    print("WiFi connected successfully!")
     print(f"  SSID: {config.WIFI_SSID}")
     print(f"  IP: {wifi.get_ip()}")
     print(f"  Signal: {wifi.get_rssi()} dBm")

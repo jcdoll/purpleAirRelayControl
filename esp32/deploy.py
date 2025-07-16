@@ -39,7 +39,6 @@ Usage:
 
 import argparse
 import logging
-import os
 import subprocess
 import sys
 import time
@@ -184,7 +183,7 @@ def run_mpremote_cmd(cmd_parts, timeout=10, retries=2):
 
         except subprocess.TimeoutExpired as e:
             if attempt < retries:
-                print(f"  Timeout, retrying...")
+                print("  Timeout, retrying...")
                 continue
             return False, e
         except Exception as e:
@@ -351,7 +350,7 @@ def main():
     list_files = args.list_files
     manifest_path = Path(args.manifest)
 
-    print(f"ESP32 MicroPython Deployment Tool")
+    print("ESP32 MicroPython Deployment Tool")
     print(f"Port: {port}")
 
     # Handle retry mode
@@ -447,11 +446,11 @@ def main():
         soft_reset_board(port)
 
     if success:
-        print(f"\n✓ Deployment successful!")
+        print("\n✓ Deployment successful!")
         print(f"To monitor output: mpremote connect {port} repl")
         return 0
     else:
-        print(f"\n✗ Deployment failed")
+        print("\n✗ Deployment failed")
         return 1
 
 

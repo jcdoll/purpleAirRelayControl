@@ -1,7 +1,6 @@
 import time
 
 import config
-import machine
 import network
 
 

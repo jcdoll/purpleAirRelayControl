@@ -1,4 +1,3 @@
-import math
 
 from utils import aqi_colors
 

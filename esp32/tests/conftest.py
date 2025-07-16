@@ -236,7 +236,6 @@ sys.modules["network"] = network_stub
 # ---------------------------------------------------------------------------
 # st7789py display driver stub and font stub
 # ---------------------------------------------------------------------------
-import builtins as _builtin
 
 
 def _rgb565(r, g, b):

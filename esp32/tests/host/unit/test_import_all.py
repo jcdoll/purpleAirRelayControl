@@ -1,6 +1,5 @@
 import importlib
 import pathlib
-import sys
 
 ESP32_PATH = pathlib.Path(__file__).resolve().parents[2]  # esp32 directory
 

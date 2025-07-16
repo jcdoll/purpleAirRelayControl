@@ -81,11 +81,11 @@ def print_system_info(wifi_manager=None, memory_info=True):
     print("--- System Status ---")
 
     if wifi_manager and wifi_manager.is_connected():
-        print(f"  WiFi: Connected")
+        print("  WiFi: Connected")
         print(f"    IP: {wifi_manager.get_ip()}")
         print(f"    Signal: {wifi_manager.get_rssi()} dBm")
     else:
-        print(f"  WiFi: Disconnected")
+        print("  WiFi: Disconnected")
 
     if memory_info:
         try:
@@ -96,7 +96,7 @@ def print_system_info(wifi_manager=None, memory_info=True):
             used_mem = gc.mem_alloc()
             print(f"  Memory: Free={free_mem/1024:.1f}KB, Used={used_mem/1024:.1f}KB")
         except Exception:
-            print(f"  Memory: Information unavailable")
+            print("  Memory: Information unavailable")
 
 
 def print_sensor_config(purple_air_client):
@@ -108,10 +108,10 @@ def print_sensor_config(purple_air_client):
     import config
 
     print("--- Sensor Configuration ---")
-    print(f"  Outdoor sensors:")
+    print("  Outdoor sensors:")
     print(f"    Local IPs: {purple_air_client.local_outdoor_ips}")
     print(f"    API IDs: {config.OUTDOOR_SENSOR_IDS}")
-    print(f"  Indoor sensors:")
+    print("  Indoor sensors:")
     print(f"    Local IPs: {purple_air_client.local_indoor_ips}")
     print(f"    API IDs: {config.INDOOR_SENSOR_IDS}")
 
