@@ -19,14 +19,14 @@ def _color565(r, g, b):
 
 
 # Attach function and a few colour constants used in DisplayManager
-st7789_stub.color565 = _color565
-st7789_stub.GREEN = _color565(0, 255, 0)
-st7789_stub.YELLOW = _color565(255, 255, 0)
-st7789_stub.RED = _color565(255, 0, 0)
-st7789_stub.PURPLE = _color565(128, 0, 128)
-st7789_stub.MAROON = _color565(128, 0, 0)
-st7789_stub.GRAY = _color565(128, 128, 128)
-st7789_stub.WHITE = _color565(255, 255, 255)
+setattr(st7789_stub, "color565", _color565)
+setattr(st7789_stub, "GREEN", _color565(0, 255, 0))
+setattr(st7789_stub, "YELLOW", _color565(255, 255, 0))
+setattr(st7789_stub, "RED", _color565(255, 0, 0))
+setattr(st7789_stub, "PURPLE", _color565(128, 0, 128))
+setattr(st7789_stub, "MAROON", _color565(128, 0, 0))
+setattr(st7789_stub, "GRAY", _color565(128, 128, 128))
+setattr(st7789_stub, "WHITE", _color565(255, 255, 255))
 
 # Inject stub before importing display_manager
 sys.modules["st7789py"] = st7789_stub
