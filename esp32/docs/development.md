@@ -326,10 +326,15 @@ mpremote exec "import gc; print(gc.mem_free())"
 
 ## Local Pre-commit Hooks
 
-This repository uses the **pre-commit** framework to run Black, isort, and flake8 automatically whenever you commit.
+This repository can use the **pre-commit** framework to run a battery of quality tools on staged files.
 
-One-time setup:
+Tools executed (in order):
+1. **Black** – opinionated code formatter; rewrites files for consistent style.
+2. **isort** – sorts imports into logical groups; auto-fixes in place.
+3. **Ruff** – fast linter that auto-fixes many common issues (unused imports, bare `except`, etc.).
+4. **flake8** – final linter pass that reports anything Ruff couldn’t auto-fix.
 
+One-time setup (optional):
 ```bash
 # Inside the project root (venv active)
 pip install pre-commit  # already in requirements.txt
@@ -338,10 +343,9 @@ pre-commit install       # installs the .git/hooks/pre-commit script
 
 After that, `git commit` will run the hooks **only if you installed them**.
 
-If you skip this step the commit proceeds normally; you can still run checks manually anytime:
-
+If you skip this step the commit proceeds normally; you can still run all checks and auto-fixes manually at any time:
 ```bash
 pre-commit run --all-files
 ```
 
-Current POR is to NOT install pre-commit but to run manually.
+Current POR is to NOT install pre-commit by default; developers may run it manually when desired.
