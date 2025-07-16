@@ -50,21 +50,21 @@ class DisplayManager:
     def _init_display(self):
         """Initialize ST7789 TFT display with frame buffer"""
         try:
-            # TFT Power control (if available)
-            if hasattr(config, 'TFT_POWER_PIN'):
-                self.tft_power = Pin(config.TFT_POWER_PIN, Pin.OUT)
+            # TFT I2C Power control (required for display)
+            if hasattr(config, 'TFT_I2C_POWER'):
+                self.tft_power = Pin(config.TFT_I2C_POWER, Pin.OUT)
                 self.tft_power.on()
             
-            # Backlight control (if available)
-            if hasattr(config, 'TFT_BACKLIGHT_PIN'):
-                self.backlight = Pin(config.TFT_BACKLIGHT_PIN, Pin.OUT)
+            # Backlight control (required for display visibility)
+            if hasattr(config, 'TFT_BACKLIGHT'):
+                self.backlight = Pin(config.TFT_BACKLIGHT, Pin.OUT)
                 self.backlight.on()
             
             # SPI and Display initialization
             spi = SPI(1, baudrate=40000000, sck=Pin(config.TFT_SCLK), mosi=Pin(config.TFT_MOSI))
             
             self.display = st7789.ST7789(
-                spi, config.TFT_HEIGHT, config.TFT_WIDTH,
+                spi, config.TFT_WIDTH, config.TFT_HEIGHT,
                 reset=Pin(config.TFT_RST, Pin.OUT),
                 dc=Pin(config.TFT_DC, Pin.OUT),
                 cs=Pin(config.TFT_CS, Pin.OUT),
@@ -72,12 +72,11 @@ class DisplayManager:
                 rotation=config.TFT_ROTATION
             )
             
-            self.display.init()
-            
             # Try to create frame buffer
             try:
-                self.buffer_width = self.display.width()
-                self.buffer_height = self.display.height()
+                # Use config values for display dimensions after rotation
+                self.buffer_width = config.TFT_HEIGHT if config.TFT_ROTATION == 1 else config.TFT_WIDTH
+                self.buffer_height = config.TFT_WIDTH if config.TFT_ROTATION == 1 else config.TFT_HEIGHT
                 buffer_size = self.buffer_width * self.buffer_height * 2  # 2 bytes per pixel
                 
                 # Only create buffer if we have enough memory
@@ -137,8 +136,8 @@ class DisplayManager:
             
             # Simple centered text
             x = 10
-            y = self.display.height() // 2 - 8
-            self.display.text(message, x, y, color)
+            y = self.buffer_height // 2 - 8
+            self.display.text(font8x8, message, x, y, color)
             
         except Exception as e:
             handle_hardware_error(e, "display message")
@@ -208,14 +207,39 @@ class DisplayManager:
             indoor_x = 180 - (indoor_width // 2)
             self._draw_text_to_buffer(indoor_text, indoor_x, aqi_y, 4, indoor_color)
             
-            # Status line at bottom (1x scale, 8px high)
-            status_y = 115
-            mode_text = f"Mode: {status['mode']}"
-            vent_text = "ON" if status['enabled'] else "OFF"
+            # Status indicators (2x scale) - bottom corners
+            status_y = 110
+            
+            # SW state (bottom left)
+            self._draw_text_to_buffer("SW:", 10, status_y, 2, st7789.WHITE)
+            
+            # Map mode to display text
+            if status['mode'] == 'PURPLEAIR':
+                mode_text = "AUTO"
+                mode_color = st7789.WHITE
+            elif status['mode'] == 'ON':
+                mode_text = "ON" 
+                mode_color = st7789.GREEN
+            elif status['mode'] == 'OFF':
+                mode_text = "OFF"
+                mode_color = st7789.RED
+            else:
+                mode_text = status['mode']
+                mode_color = st7789.WHITE
+                
+            self._draw_text_to_buffer(mode_text, 58, status_y, 2, mode_color)
+            
+            # V state (bottom right)
+            vent_state = "ON" if status['enabled'] else "OFF"
             vent_color = st7789.GREEN if status['enabled'] else st7789.RED
             
-            self._draw_text_to_buffer(mode_text, 5, status_y, 1, st7789.WHITE)
-            self._draw_text_to_buffer(vent_text, 180, status_y, 1, vent_color)
+            # Right align
+            total_text = f"V:{vent_state}"
+            total_width = len(total_text) * 16  # 2x scale = 16px per char
+            v_x = 230 - total_width
+            
+            self._draw_text_to_buffer("V:", v_x, status_y, 2, st7789.WHITE)
+            self._draw_text_to_buffer(vent_state, v_x + 32, status_y, 2, vent_color)
             
             # Update display from buffer - SINGLE OPERATION, NO FLASHING
             self._flush_buffer()
@@ -293,8 +317,8 @@ class DisplayManager:
             self.display.fill(st7789.BLACK)
             
             # Simple layout for fallback mode
-            self.display.text("OUT", 20, 10, st7789.WHITE)
-            self.display.text("IN", 120, 10, st7789.WHITE)
+            self.display.text(font8x8, "OUT", 20, 10, st7789.WHITE)
+            self.display.text(font8x8, "IN", 120, 10, st7789.WHITE)
             
             # AQI values
             outdoor_text = str(int(outdoor_aqi)) if outdoor_aqi >= 0 else "---"
@@ -303,16 +327,16 @@ class DisplayManager:
             outdoor_color = get_aqi_color_st7789(outdoor_aqi) if outdoor_aqi >= 0 else st7789.GRAY
             indoor_color = get_aqi_color_st7789(indoor_aqi) if indoor_aqi >= 0 else st7789.GRAY
             
-            self.display.text(outdoor_text, 20, 40, outdoor_color)
-            self.display.text(indoor_text, 120, 40, indoor_color)
+            self.display.text(font8x8, outdoor_text, 20, 40, outdoor_color)
+            self.display.text(font8x8, indoor_text, 120, 40, indoor_color)
             
             # Status
             mode_text = f"Mode: {status['mode']}"
             vent_text = "ON" if status['enabled'] else "OFF"
             vent_color = st7789.GREEN if status['enabled'] else st7789.RED
             
-            self.display.text(mode_text, 5, 100, st7789.WHITE)
-            self.display.text(vent_text, 120, 100, vent_color)
+            self.display.text(font8x8, mode_text, 5, 100, st7789.WHITE)
+            self.display.text(font8x8, vent_text, 120, 100, vent_color)
             
         except Exception as e:
             handle_hardware_error(e, "direct display update")
