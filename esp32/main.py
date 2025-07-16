@@ -64,10 +64,6 @@ def initialize_components():
         outdoor_aqi = purple_air.get_outdoor_aqi(force_update=True)
         indoor_aqi = purple_air.get_indoor_aqi(force_update=True)
         print(f"\nInitial readings: Outdoor AQI={outdoor_aqi}, Indoor AQI={indoor_aqi}")
-        
-        # Debug check for tuple issues
-        print(f"Debug - outdoor_aqi type: {type(outdoor_aqi)}, value: {outdoor_aqi}")
-        print(f"Debug - indoor_aqi type: {type(indoor_aqi)}, value: {indoor_aqi}")
     except Exception as e:
         print(f"\nError during initial sensor checks: {type(e).__name__}: {e}")
         import sys
@@ -77,17 +73,53 @@ def initialize_components():
     
     return ui, wifi, purple_air, ventilation, logger
 
+def print_sensor_countdown_timers(purple_air):
+    """Print countdown timers for next sensor checks (like Arduino)"""
+    current_time = time.time()
+    
+    print("--- Sensor Check Timers ---")
+    
+    # Outdoor sensor timers
+    time_until_outdoor_local = max(0, config.LOCAL_POLL_INTERVAL - (current_time - purple_air.last_outdoor_local_poll))
+    time_until_outdoor_api = max(0, config.API_POLL_INTERVAL - (current_time - purple_air.last_outdoor_api_poll))
+    
+    print(f"  Outdoor - Time until next local check: {int(time_until_outdoor_local)}s")
+    print(f"  Outdoor - Time until next API check: {int(time_until_outdoor_api)}s")
+    
+    # Indoor sensor timers (if configured)
+    if config.INDOOR_SENSOR_IDS or purple_air.local_indoor_ips:
+        time_until_indoor_local = max(0, config.LOCAL_POLL_INTERVAL - (current_time - purple_air.last_indoor_local_poll))
+        time_until_indoor_api = max(0, config.API_POLL_INTERVAL - (current_time - purple_air.last_indoor_api_poll))
+        
+        print(f"  Indoor - Time until next local check: {int(time_until_indoor_local)}s")
+        print(f"  Indoor - Time until next API check: {int(time_until_indoor_api)}s")
+
+def print_status_on_change(outdoor_aqi, indoor_aqi, ventilation, reason):
+    """Print status when sensor data changes or button pressed (event-based)"""
+    current_time = time.time()
+    status = ventilation.get_status()
+    
+    print(f"[{int(current_time)}] {reason}")
+    print(f"  AQI: Outdoor={outdoor_aqi:.1f}, Indoor={indoor_aqi:.1f}")
+    print(f"  Mode: {status['mode']} | Ventilation: {'ON' if status['enabled'] else 'OFF'}")
+    print(f"  Reason: {status['reason']}")
 
 def main():
     """Main application loop"""
     # Initialize all components
     ui, wifi, purple_air, ventilation, logger = initialize_components()
     
-    # State tracking
+    # State tracking for event-based logging
     error_count = 0
     last_memory_check = 0
-    last_status_print = 0
-    status_print_interval = 5  # Print status every 5 seconds
+    last_countdown_display = 0
+    countdown_display_interval = 30  # Show countdown every 30 seconds
+    
+    # Track previous values for change detection
+    prev_outdoor_aqi = None
+    prev_indoor_aqi = None
+    prev_vent_state = None
+    prev_mode = None
     
     # Print initial WiFi info
     if wifi.is_connected():
@@ -127,6 +159,22 @@ def main():
             
             # Update ventilation control
             ventilation.update(outdoor_aqi, indoor_aqi)
+            current_status = ventilation.get_status()
+            
+            # EVENT-BASED LOGGING: Check for changes
+            sensor_data_changed = (outdoor_aqi != prev_outdoor_aqi or indoor_aqi != prev_indoor_aqi)
+            vent_state_changed = (current_status['enabled'] != prev_vent_state)
+            mode_changed = (current_status['mode'] != prev_mode)
+            
+            # Print status on any change (like Arduino event-based logging)
+            if sensor_data_changed:
+                print_status_on_change(outdoor_aqi, indoor_aqi, ventilation, "Sensor data updated")
+                
+            if vent_state_changed:
+                print_status_on_change(outdoor_aqi, indoor_aqi, ventilation, "Ventilation state changed")
+                
+            if mode_changed:
+                print_status_on_change(outdoor_aqi, indoor_aqi, ventilation, "Mode changed")
             
             # Update display
             ui.update_display(outdoor_aqi, indoor_aqi, ventilation, wifi)
@@ -137,7 +185,7 @@ def main():
             else:
                 ui.set_status_led("vent_off")
             
-            # Log data if needed
+            # Log data if needed (event-based)
             if ventilation.should_log() or logger.should_log():
                 status = ventilation.get_status()
                 logger.log(outdoor_aqi, indoor_aqi, status['mode'], 
@@ -151,14 +199,17 @@ def main():
                 used_mem = gc.mem_alloc()
                 print(f"Memory - Free: {free_mem/1024:.1f}KB, Used: {used_mem/1024:.1f}KB")
             
-            # Print status periodically
+            # Show countdown timers periodically (like Arduino does)
             current_time = time.time()
-            if current_time - last_status_print >= status_print_interval:
-                last_status_print = current_time
-                status = ventilation.get_status()
-                print(f"[{current_time}] AQI: Outdoor={outdoor_aqi:.1f}, Indoor={indoor_aqi:.1f} | " +
-                      f"Mode: {status['mode']} | Ventilation: {'ON' if status['enabled'] else 'OFF'} | " +
-                      f"Reason: {status['reason']}")
+            if current_time - last_countdown_display >= countdown_display_interval:
+                last_countdown_display = current_time
+                print_sensor_countdown_timers(purple_air)
+            
+            # Update previous values for next iteration
+            prev_outdoor_aqi = outdoor_aqi
+            prev_indoor_aqi = indoor_aqi
+            prev_vent_state = current_status['enabled']
+            prev_mode = current_status['mode']
             
             # Reset error count on successful iteration
             error_count = 0
