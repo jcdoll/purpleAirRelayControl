@@ -3,11 +3,7 @@ import pathlib
 
 ESP32_PATH = pathlib.Path(__file__).resolve().parents[2]  # esp32 directory
 
-python_files = [
-    p
-    for p in ESP32_PATH.glob('*.py')
-    if p.name not in {'secrets.py', 'secrets_template.py', 'venv'}
-]
+python_files = [p for p in ESP32_PATH.glob('*.py') if p.name not in {'secrets.py', 'secrets_template.py', 'venv'}]
 
 # Include subdirectory utils/*.py, scripts/*.py
 python_files += list((ESP32_PATH / 'utils').glob('*.py'))

@@ -16,9 +16,7 @@ class _Flaky:
 
 def test_retry_operation_eventual_success():
     flaky = _Flaky(fail_times=2, return_value=99)
-    result = connection_retry.retry_operation(
-        flaky, max_attempts=5, delay_ms=0, context="flaky"
-    )
+    result = connection_retry.retry_operation(flaky, max_attempts=5, delay_ms=0, context="flaky")
     assert result == 99
     # Should have been called 3 times (2 failures + success)
     assert flaky.calls == 2  # fail_times only counts failures
@@ -26,9 +24,7 @@ def test_retry_operation_eventual_success():
 
 def test_retry_operation_failure_returns_none():
     flaky = _Flaky(fail_times=5)
-    result = connection_retry.retry_operation(
-        flaky, max_attempts=3, delay_ms=0, context="flaky"
-    )
+    result = connection_retry.retry_operation(flaky, max_attempts=3, delay_ms=0, context="flaky")
     assert result is None
 
 

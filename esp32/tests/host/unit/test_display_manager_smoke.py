@@ -28,9 +28,7 @@ def test_display_manager_init_and_update():
     wifi = _DummyWiFi()
 
     # Call update_display once; should not raise
-    dm.update_display(
-        outdoor_aqi=50, indoor_aqi=25, vent_controller=vent, wifi_manager=wifi
-    )
+    dm.update_display(outdoor_aqi=50, indoor_aqi=25, vent_controller=vent, wifi_manager=wifi)
 
     # Smoke: show_message should run
     dm.show_message("Test")

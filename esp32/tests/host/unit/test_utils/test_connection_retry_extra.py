@@ -13,9 +13,7 @@ def test_retry_operation_failure_then_success(monkeypatch):
         return "ok"
 
     start = time.time()
-    result = connection_retry.retry_operation(
-        flaky, max_attempts=5, delay_ms=0, context="flaky"
-    )
+    result = connection_retry.retry_operation(flaky, max_attempts=5, delay_ms=0, context="flaky")
     duration = time.time() - start
     assert result == "ok"
     assert len(calls) == 3
@@ -32,9 +30,7 @@ def test_retry_with_timeout(monkeypatch):
         return "done"
 
     # Should succeed on first call within timeout
-    result = connection_retry.retry_with_timeout(
-        slow, timeout_sec=1, max_attempts=2, context="slow"
-    )
+    result = connection_retry.retry_with_timeout(slow, timeout_sec=1, max_attempts=2, context="slow")
     assert result == "done"
 
     # Simulate exceeding timeout by monkeypatching time.time()
@@ -46,9 +42,7 @@ def test_retry_with_timeout(monkeypatch):
     monkeypatch.setattr(connection_retry.time, "time", fake_time)
 
     # Force timeout by using very small timeout_sec
-    result = connection_retry.retry_with_timeout(
-        lambda: "x", timeout_sec=0, max_attempts=1, context="too_slow"
-    )
+    result = connection_retry.retry_with_timeout(lambda: "x", timeout_sec=0, max_attempts=1, context="too_slow")
     assert result is None
 
 
@@ -66,9 +60,7 @@ def test_wait_for_condition_success():
     connection_retry.time.sleep(0.01)
     flip()
 
-    assert connection_retry.wait_for_condition(
-        condition, timeout_sec=1, check_interval=0.01
-    )
+    assert connection_retry.wait_for_condition(condition, timeout_sec=1, check_interval=0.01)
     assert time.time() - t0 < 1
 
 

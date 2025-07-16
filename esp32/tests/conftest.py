@@ -1,5 +1,8 @@
+import json as _std_json
 import pathlib
 import sys
+import time as _real_time
+import traceback as _traceback
 import types
 
 import pytest
@@ -56,7 +59,6 @@ sys.modules["machine"] = machine_mock
 # ---------------------------------------------------------------------------
 # Time module extensions (ticks_ms, ticks_diff, sleep_ms) for CPython
 # ---------------------------------------------------------------------------
-import time as _real_time
 
 
 def _ticks_ms():
@@ -93,14 +95,11 @@ def _patch_machine_module(monkeypatch):
 # ---------------------------------------------------------------------------
 # Provide stub for sys.print_exception in CPython
 # ---------------------------------------------------------------------------
-import traceback as _traceback
 
 if not hasattr(sys, "print_exception"):
 
     def _print_exception(exc, file=None):  # type: ignore
-        _traceback.print_exception(
-            type(exc), exc, exc.__traceback__, file=file or sys.stderr
-        )
+        _traceback.print_exception(type(exc), exc, exc.__traceback__, file=file or sys.stderr)
 
     sys.print_exception = _print_exception  # type: ignore
 
@@ -180,8 +179,6 @@ if "mip" not in sys.modules:
     sys.modules["mip"] = mip_stub
 
 if "ujson" not in sys.modules:
-    import json as _std_json
-
     ujson_stub = types.ModuleType("ujson")
     setattr(ujson_stub, 'loads', _std_json.loads)
     setattr(ujson_stub, 'dumps', _std_json.dumps)

@@ -10,9 +10,7 @@ sys.path.append('../')
 try:
     import lib.vga1_8x8 as font8x8
 except ImportError:
-    print(
-        "Error: Cannot import font. Run this from the project root or ensure esp32/lib/vga1_8x8.py exists."
-    )
+    print("Error: Cannot import font. Run this from the project root or ensure esp32/lib/vga1_8x8.py exists.")
     sys.exit(1)
 
 
@@ -83,9 +81,7 @@ class ImageMockup:
             current_x = self._draw_scaled_char(char, current_x, y, scale, color_name)
         return current_x
 
-    def generate_layout(
-        self, outdoor_aqi=140, indoor_aqi=36, sw_mode="AUTO", vent_state="ON"
-    ):
+    def generate_layout(self, outdoor_aqi=140, indoor_aqi=36, sw_mode="AUTO", vent_state="ON"):
         """Generate the mockup layout"""
         # Clear background
         self.img = Image.new('RGB', (self.width, self.height), color='black')
@@ -104,9 +100,7 @@ class ImageMockup:
 
         # Outdoor AQI (left side)
         outdoor_text = str(int(outdoor_aqi)) if outdoor_aqi >= 0 else "---"
-        outdoor_color = (
-            self._get_aqi_color(outdoor_aqi) if outdoor_aqi >= 0 else 'white'
-        )
+        outdoor_color = self._get_aqi_color(outdoor_aqi) if outdoor_aqi >= 0 else 'white'
 
         # Calculate centering for 3-digit numbers (each char is 32px wide at 4x scale)
         outdoor_width = len(outdoor_text) * 32

@@ -32,11 +32,11 @@ st7789_stub.WHITE = _color565(255, 255, 255)
 sys.modules["st7789py"] = st7789_stub
 
 # Now import / reload display_manager to pick up stub
-import display_manager as dm
+import display_manager as dm  # noqa: E402
 
 importlib.reload(dm)
 
-from utils import aqi_colors
+from utils import aqi_colors  # noqa: E402
 
 
 def test_get_aqi_color_st7789_matches_util():

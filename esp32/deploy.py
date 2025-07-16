@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-from __future__ import annotations
-
 """
 Deploy files to ESP32 running MicroPython
 Modern deployment script following 2024/2025 best practices
@@ -37,6 +35,10 @@ Usage:
   python deploy.py --manifest custom_manifest.txt  # Use alternate manifest
 """
 
+# __future__ import comes immediately after the module docstring per PEP 236.
+from __future__ import annotations
+
+# Standard-library imports
 import argparse
 import logging
 import subprocess
@@ -113,9 +115,7 @@ def parse_arguments(argv: list[str]):
         action="store_true",
         help="Remove all Python files from board before deployment",
     )
-    parser.add_argument(
-        "--retry", action="store_true", help="Retry only files that failed in last run"
-    )
+    parser.add_argument("--retry", action="store_true", help="Retry only files that failed in last run")
     parser.add_argument(
         "--list",
         dest="list_files",
@@ -160,23 +160,14 @@ def run_mpremote_cmd(cmd_parts, timeout=10, retries=2):
                 print(f"  Retry {attempt}/{retries}...")
                 time.sleep(0.5)  # Brief pause between retries
 
-            result = subprocess.run(
-                cmd_parts, capture_output=True, text=True, timeout=timeout
-            )
+            result = subprocess.run(cmd_parts, capture_output=True, text=True, timeout=timeout)
 
             if result.returncode == 0:
                 return True, result
             else:
                 # Check for common recoverable errors
-                stderr_text = (
-                    str(result.stderr)
-                    if hasattr(result, 'stderr') and result.stderr
-                    else ""
-                )
-                if (
-                    "could not enter raw repl" in stderr_text
-                    or "timeout" in stderr_text.lower()
-                ):
+                stderr_text = str(result.stderr) if hasattr(result, 'stderr') and result.stderr else ""
+                if "could not enter raw repl" in stderr_text or "timeout" in stderr_text.lower():
                     if attempt < retries:
                         continue
                 return False, result
@@ -223,14 +214,10 @@ def clean_board(port):
         print(f"  Removing {file_path}...")
         if file_path == 'lib':
             # Remove lib directory
-            success, _ = run_mpremote_cmd(
-                ["mpremote", "connect", port, "rmdir", "lib"], timeout=5, retries=1
-            )
+            success, _ = run_mpremote_cmd(["mpremote", "connect", port, "rmdir", "lib"], timeout=5, retries=1)
         else:
             # Remove file
-            success, _ = run_mpremote_cmd(
-                ["mpremote", "connect", port, "rm", file_path], timeout=5, retries=1
-            )
+            success, _ = run_mpremote_cmd(["mpremote", "connect", port, "rm", file_path], timeout=5, retries=1)
 
         if success:
             removed_count += 1
@@ -254,9 +241,7 @@ def deploy_files(port, files_to_deploy=None):
     # Ensure required directories exist once per deployment
     for directory in sorted(get_required_directories(files_to_deploy)):
         print(f"  Ensuring directory '{directory}' exists on board…")
-        run_mpremote_cmd(
-            ["mpremote", "connect", port, "mkdir", directory], timeout=5, retries=1
-        )
+        run_mpremote_cmd(["mpremote", "connect", port, "mkdir", directory], timeout=5, retries=1)
 
     failed_files = []
     deployed_count = 0
@@ -285,7 +270,7 @@ def deploy_files(port, files_to_deploy=None):
                 timeout = min(timeout, 120)  # Cap at 2 minutes
             else:
                 timeout = 15
-        except:
+        except Exception:
             timeout = 15  # Fallback if file size check fails
 
         cmd = ["mpremote", "connect", port, "cp", file_path, target]
@@ -304,9 +289,7 @@ def deploy_files(port, files_to_deploy=None):
             except Exception:
                 pass
 
-    print(
-        f"\nDeployment complete: {deployed_count}/{len(files_to_deploy)} files deployed"
-    )
+    print(f"\nDeployment complete: {deployed_count}/{len(files_to_deploy)} files deployed")
 
     if failed_files:
         print(f"Failed files: {', '.join(failed_files)}")
@@ -318,9 +301,7 @@ def deploy_files(port, files_to_deploy=None):
 def soft_reset_board(port):
     """Perform a soft reset of the board"""
     print("\nPerforming soft reset...")
-    success, _ = run_mpremote_cmd(
-        ["mpremote", "connect", port, "soft-reset"], timeout=5, retries=1
-    )
+    success, _ = run_mpremote_cmd(["mpremote", "connect", port, "soft-reset"], timeout=5, retries=1)
     if success:
         print("  Board reset successfully")
     else:
@@ -339,11 +320,7 @@ def main():
     logging.basicConfig(level=log_level, format="[%(levelname)s] %(message)s")
 
     # Determine selected port (flag overrides positional for clarity)
-    port = (
-        args.port
-        if args.port != "auto" or not args.positional_port
-        else args.positional_port
-    )
+    port = args.port if args.port != "auto" or not args.positional_port else args.positional_port
 
     clean_first = args.clean
     retry_mode = args.retry
@@ -359,9 +336,7 @@ def main():
         if failed_files_path.exists():
             print("Retrying failed files from previous deployment...")
             with open(failed_files_path, "r") as f:
-                files_to_deploy = [
-                    line.strip() for line in f.readlines() if line.strip()
-                ]
+                files_to_deploy = [line.strip() for line in f.readlines() if line.strip()]
         else:
             print("No failed files found to retry.")
             return 0
@@ -380,9 +355,7 @@ def main():
     # List files mode
     if list_files:
         print("\nFiles on board:")
-        success, result = run_mpremote_cmd(
-            ["mpremote", "connect", port, "ls"], timeout=10
-        )
+        success, result = run_mpremote_cmd(["mpremote", "connect", port, "ls"], timeout=10)
         try:
             if success and result and hasattr(result, 'stdout') and result.stdout:
                 stdout_content = str(result.stdout)
@@ -396,11 +369,7 @@ def main():
 
     # Check if we have required files
     if not retry_mode:
-        missing = [
-            f
-            for f in files_to_deploy
-            if not Path(f).exists() and Path(f).name not in OPTIONAL_LOCAL_FILES
-        ]
+        missing = [f for f in files_to_deploy if not Path(f).exists() and Path(f).name not in OPTIONAL_LOCAL_FILES]
         if missing:
             print(f"\nMissing files: {', '.join(missing)}")
             print("Make sure all project files are in the current directory.")
@@ -408,9 +377,7 @@ def main():
 
     # Test connection
     print(f"\nTesting connection to {port}...")
-    success, result = run_mpremote_cmd(
-        ["mpremote", "connect", port, "exec", "print('Connection OK')"], timeout=5
-    )
+    success, result = run_mpremote_cmd(["mpremote", "connect", port, "exec", "print('Connection OK')"], timeout=5)
     if not success:
         print("  Failed to connect to board!")
         print("  Make sure the board is connected and the port is correct.")

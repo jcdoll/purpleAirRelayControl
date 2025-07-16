@@ -136,9 +136,7 @@ def main():
             current_status = ventilation.get_status()
 
             # EVENT-BASED LOGGING: Check for changes
-            sensor_data_changed = (
-                outdoor_aqi != prev_outdoor_aqi or indoor_aqi != prev_indoor_aqi
-            )
+            sensor_data_changed = outdoor_aqi != prev_outdoor_aqi or indoor_aqi != prev_indoor_aqi
             vent_state_changed = current_status['enabled'] != prev_vent_state
             mode_changed = current_status['mode'] != prev_mode
 
@@ -160,9 +158,7 @@ def main():
                 )
 
             if mode_changed:
-                print_sensor_status(
-                    outdoor_aqi, indoor_aqi, ventilation.get_status(), "Mode changed"
-                )
+                print_sensor_status(outdoor_aqi, indoor_aqi, ventilation.get_status(), "Mode changed")
 
             # Update display
             display.update_display(outdoor_aqi, indoor_aqi, ventilation, wifi)
@@ -190,9 +186,7 @@ def main():
                 gc.collect()
                 free_mem = gc.mem_free()
                 used_mem = gc.mem_alloc()
-                print(
-                    f"Memory - Free: {free_mem/1024:.1f}KB, Used: {used_mem/1024:.1f}KB"
-                )
+                print(f"Memory - Free: {free_mem/1024:.1f}KB, Used: {used_mem/1024:.1f}KB")
 
             # Show countdown timers periodically (like Arduino does)
             current_time = time.time()

@@ -3,8 +3,24 @@
 
 # Import secrets from separate file (not in git)
 try:
-    from secrets import *
+    import secrets as _secrets
 except ImportError:
+    _secrets = None
+
+# Expose expected names whether or not secrets.py exists so that the rest of
+# the code can `import config` unconditionally.
+if _secrets is not None:
+    WIFI_SSID = getattr(_secrets, "WIFI_SSID", "")
+    WIFI_PASSWORD = getattr(_secrets, "WIFI_PASSWORD", "")
+    PURPLE_AIR_API_KEY = getattr(_secrets, "PURPLE_AIR_API_KEY", "")
+    OUTDOOR_SENSOR_IDS = getattr(_secrets, "OUTDOOR_SENSOR_IDS", [])
+    INDOOR_SENSOR_IDS = getattr(_secrets, "INDOOR_SENSOR_IDS", [])
+    LOCAL_SENSOR_IPS = getattr(_secrets, "LOCAL_SENSOR_IPS", [])
+    GOOGLE_FORMS_URL = getattr(_secrets, "GOOGLE_FORMS_URL", "")
+    GOOGLE_FORMS_ENABLED = getattr(_secrets, "GOOGLE_FORMS_ENABLED", False)
+    LOCAL_OUTDOOR_SENSOR_IPS = getattr(_secrets, "LOCAL_OUTDOOR_SENSOR_IPS", [])
+    LOCAL_INDOOR_SENSOR_IPS = getattr(_secrets, "LOCAL_INDOOR_SENSOR_IPS", [])
+else:
     print("ERROR: secrets.py not found!")
     print("Copy secrets_template.py to secrets.py and add your credentials")
     WIFI_SSID = ""

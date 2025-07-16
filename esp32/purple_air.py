@@ -78,9 +78,7 @@ class PurpleAirClient:
         """Get sensor data from local network sensor - matches Arduino retry logic"""
         # Arduino tries MAX_LOCAL_CONNECTION_ATTEMPTS times with retry delay
         for attempt in range(1, config.MAX_LOCAL_CONNECTION_ATTEMPTS + 1):
-            print(
-                f"  Local sensor attempt {attempt} of {config.MAX_LOCAL_CONNECTION_ATTEMPTS}"
-            )
+            print(f"  Local sensor attempt {attempt} of {config.MAX_LOCAL_CONNECTION_ATTEMPTS}")
 
             try:
                 url = f"http://{ip_address}/json"
@@ -96,13 +94,9 @@ class PurpleAirClient:
                     if 'pm2_5_atm' in data:
                         pm25_for_calc = float(data['pm2_5_atm'])
                         if pm25_for_calc >= 0:
-                            print(
-                                "    Using 'pm2_5_atm' from local sensor for AQI calculation."
-                            )
+                            print("    Using 'pm2_5_atm' from local sensor for AQI calculation.")
                             aqi = int(round(self.pm25_to_aqi(pm25_for_calc)))
-                            print(
-                                f"    Local data processed. Raw PM2.5: {pm25_for_calc}, Calculated AQI: {aqi}"
-                            )
+                            print(f"    Local data processed. Raw PM2.5: {pm25_for_calc}, Calculated AQI: {aqi}")
                             # Return just the AQI value
                             return aqi
                         else:
@@ -112,9 +106,7 @@ class PurpleAirClient:
                     elif 'pm2.5_aqi' in data:
                         aqi = int(data['pm2.5_aqi'])
                         if aqi >= 0:
-                            print(
-                                f"    Using pre-calculated 'pm2.5_aqi' from local sensor: {aqi}"
-                            )
+                            print(f"    Using pre-calculated 'pm2.5_aqi' from local sensor: {aqi}")
                             return aqi
                         else:
                             print(f"    Invalid 'pm2.5_aqi' value: {aqi}")
@@ -134,9 +126,7 @@ class PurpleAirClient:
                 print(f"    Waiting {config.LOCAL_RETRY_DELAY_MS}ms before retry...")
                 time.sleep(config.LOCAL_RETRY_DELAY_MS / 1000.0)
 
-        print(
-            f"  All {config.MAX_LOCAL_CONNECTION_ATTEMPTS} attempts failed for {ip_address}"
-        )
+        print(f"  All {config.MAX_LOCAL_CONNECTION_ATTEMPTS} attempts failed for {ip_address}")
         return -1
 
     def get_sensor_data_api(self, sensor_id):
@@ -179,10 +169,13 @@ class PurpleAirClient:
         try:
             headers = {'X-API-Key': self.api_key}
             # Build comma-separated list of sensor IDs (Arduino uses %2C URL encoding)
-            sensor_list = '%2C'.join(
-                str(id) for id in sensor_ids
-            )  # URL-encoded comma like Arduino
-            url = f"https://api.purpleair.com/v1/sensors?fields=pm2.5_10minute&show_only={sensor_list}&max_age={config.API_MAX_AGE}"
+            sensor_list = "%2C".join(str(id) for id in sensor_ids)  # URL-encoded comma
+
+            # Compose URL in parts to respect the project-wide 120-char limit.
+            url = (
+                "https://api.purpleair.com/v1/sensors?fields=pm2.5_10minute"
+                f"&show_only={sensor_list}&max_age={config.API_MAX_AGE}"
+            )
             print(f"    URL: {url}")
 
             response = requests.get(url, headers=headers, timeout=10)
@@ -217,11 +210,7 @@ class PurpleAirClient:
 
         # Try local sensors first if configured
         if config.USE_LOCAL_SENSORS and self.local_outdoor_ips:
-            if (
-                force_update
-                or (current_time - self.last_outdoor_local_poll)
-                >= config.LOCAL_POLL_INTERVAL
-            ):
+            if force_update or (current_time - self.last_outdoor_local_poll) >= config.LOCAL_POLL_INTERVAL:
                 print("Outdoor: Polling local sensor(s)...")
                 self.last_outdoor_local_poll = current_time
                 aqi_values = []
@@ -237,18 +226,13 @@ class PurpleAirClient:
 
                 if aqi_values:
                     self.cached_outdoor_aqi = sum(aqi_values) / len(aqi_values)
-                    print(
-                        f"Outdoor: Local sensor(s) success. Average AQI: {self.cached_outdoor_aqi}"
-                    )
+                    print(f"Outdoor: Local sensor(s) success. Average AQI: {self.cached_outdoor_aqi}")
                     return self.cached_outdoor_aqi
                 else:
                     print("Outdoor: All local sensors failed or no valid data.")
 
         # Fall back to API or use API if no local sensors
-        if (
-            force_update
-            or (current_time - self.last_outdoor_api_poll) >= config.API_POLL_INTERVAL
-        ):
+        if force_update or (current_time - self.last_outdoor_api_poll) >= config.API_POLL_INTERVAL:
             self.last_outdoor_api_poll = current_time
 
             # Check if API key is configured before attempting API calls
@@ -278,11 +262,7 @@ class PurpleAirClient:
 
         # Try local sensors first if configured
         if config.USE_LOCAL_SENSORS and self.local_indoor_ips:
-            if (
-                force_update
-                or (current_time - self.last_indoor_local_poll)
-                >= config.LOCAL_POLL_INTERVAL
-            ):
+            if force_update or (current_time - self.last_indoor_local_poll) >= config.LOCAL_POLL_INTERVAL:
                 print("Indoor: Polling local sensor(s)...")
                 self.last_indoor_local_poll = current_time
                 aqi_values = []
@@ -298,18 +278,13 @@ class PurpleAirClient:
 
                 if aqi_values:
                     self.cached_indoor_aqi = sum(aqi_values) / len(aqi_values)
-                    print(
-                        f"Indoor: Local sensor(s) success. Average AQI: {self.cached_indoor_aqi}"
-                    )
+                    print(f"Indoor: Local sensor(s) success. Average AQI: {self.cached_indoor_aqi}")
                     return self.cached_indoor_aqi
                 else:
                     print("Indoor: All local sensors failed or no valid data.")
 
         # Fall back to API
-        if (
-            force_update
-            or (current_time - self.last_indoor_api_poll) >= config.API_POLL_INTERVAL
-        ):
+        if force_update or (current_time - self.last_indoor_api_poll) >= config.API_POLL_INTERVAL:
             self.last_indoor_api_poll = current_time
 
             # Check if API key is configured before attempting API calls
@@ -330,9 +305,7 @@ class PurpleAirClient:
 
         return self.cached_indoor_aqi
 
-    def log_to_google_forms(
-        self, outdoor_aqi, indoor_aqi, switch_state, vent_state, reason
-    ):
+    def log_to_google_forms(self, outdoor_aqi, indoor_aqi, switch_state, vent_state, reason):
         """Log data to Google Forms"""
         if not config.GOOGLE_FORMS_ENABLED or not config.GOOGLE_FORMS_URL:
             return False

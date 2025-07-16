@@ -108,27 +108,17 @@ class DisplayManager:
             # Try to create frame buffer
             try:
                 # Use config values for display dimensions after rotation
-                self.buffer_width = (
-                    config.TFT_HEIGHT if config.TFT_ROTATION == 1 else config.TFT_WIDTH
-                )
-                self.buffer_height = (
-                    config.TFT_WIDTH if config.TFT_ROTATION == 1 else config.TFT_HEIGHT
-                )
-                buffer_size = (
-                    self.buffer_width * self.buffer_height * 2
-                )  # 2 bytes per pixel
+                self.buffer_width = config.TFT_HEIGHT if config.TFT_ROTATION == 1 else config.TFT_WIDTH
+                self.buffer_height = config.TFT_WIDTH if config.TFT_ROTATION == 1 else config.TFT_HEIGHT
+                buffer_size = self.buffer_width * self.buffer_height * 2  # 2 bytes per pixel
 
                 # Only create buffer if we have enough memory
                 gc.collect()
                 if gc.mem_free() > buffer_size + 50000:  # Leave 50KB safety margin
                     self.frame_buffer = bytearray(buffer_size)
-                    print(
-                        f"Display Manager: Frame buffer created ({buffer_size} bytes)"
-                    )
+                    print(f"Display Manager: Frame buffer created ({buffer_size} bytes)")
                 else:
-                    print(
-                        "Display Manager: Insufficient memory for frame buffer, using direct mode"
-                    )
+                    print("Display Manager: Insufficient memory for frame buffer, using direct mode")
                     self.frame_buffer = None
 
             except Exception as e:
@@ -348,9 +338,7 @@ class DisplayManager:
                                 and pixel_y < self.buffer_height
                             ):
                                 # Calculate buffer index (2 bytes per pixel)
-                                buffer_index = (
-                                    (pixel_y * self.buffer_width) + pixel_x
-                                ) * 2
+                                buffer_index = ((pixel_y * self.buffer_width) + pixel_x) * 2
                                 if buffer_index + 1 < len(self.frame_buffer):
                                     self.frame_buffer[buffer_index] = color_high
                                     self.frame_buffer[buffer_index + 1] = color_low
@@ -362,9 +350,7 @@ class DisplayManager:
 
         try:
             # This is the magic - single blit operation eliminates flashing
-            self.display.blit_buffer(
-                self.frame_buffer, 0, 0, self.buffer_width, self.buffer_height
-            )
+            self.display.blit_buffer(self.frame_buffer, 0, 0, self.buffer_width, self.buffer_height)
         except Exception as e:
             print_exception(e, "Buffer flush")
 
@@ -381,12 +367,8 @@ class DisplayManager:
             outdoor_text = str(int(outdoor_aqi)) if outdoor_aqi >= 0 else "---"
             indoor_text = str(int(indoor_aqi)) if indoor_aqi >= 0 else "---"
 
-            outdoor_color = (
-                get_aqi_color_st7789(outdoor_aqi) if outdoor_aqi >= 0 else st7789.GRAY
-            )
-            indoor_color = (
-                get_aqi_color_st7789(indoor_aqi) if indoor_aqi >= 0 else st7789.GRAY
-            )
+            outdoor_color = get_aqi_color_st7789(outdoor_aqi) if outdoor_aqi >= 0 else st7789.GRAY
+            indoor_color = get_aqi_color_st7789(indoor_aqi) if indoor_aqi >= 0 else st7789.GRAY
 
             self.display.text(font8x8, outdoor_text, 20, 40, outdoor_color)
             self.display.text(font8x8, indoor_text, 120, 40, indoor_color)

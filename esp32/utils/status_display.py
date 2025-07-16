@@ -4,9 +4,7 @@
 import time
 
 
-def print_sensor_status(
-    outdoor_aqi, indoor_aqi, ventilation_status, reason="Status update"
-):
+def print_sensor_status(outdoor_aqi, indoor_aqi, ventilation_status, reason="Status update"):
     """
     Print formatted sensor status (extracted from main.py)
     Args:
@@ -19,9 +17,7 @@ def print_sensor_status(
 
     print(f"[{int(current_time)}] {reason}")
     print(f"  AQI: Outdoor={outdoor_aqi:.1f}, Indoor={indoor_aqi:.1f}")
-    print(
-        f"  Mode: {ventilation_status['mode']} | Ventilation: {'ON' if ventilation_status['enabled'] else 'OFF'}"
-    )
+    print(f"  Mode: {ventilation_status['mode']} | Ventilation: {'ON' if ventilation_status['enabled'] else 'OFF'}")
     print(f"  Reason: {ventilation_status['reason']}")
 
 
@@ -40,13 +36,11 @@ def print_sensor_countdown_timers(purple_air_client):
     # Outdoor sensor timers
     time_until_outdoor_local = max(
         0,
-        config.LOCAL_POLL_INTERVAL
-        - (current_time - purple_air_client.last_outdoor_local_poll),
+        config.LOCAL_POLL_INTERVAL - (current_time - purple_air_client.last_outdoor_local_poll),
     )
     time_until_outdoor_api = max(
         0,
-        config.API_POLL_INTERVAL
-        - (current_time - purple_air_client.last_outdoor_api_poll),
+        config.API_POLL_INTERVAL - (current_time - purple_air_client.last_outdoor_api_poll),
     )
 
     print(f"  Outdoor - Time until next local check: {int(time_until_outdoor_local)}s")
@@ -56,18 +50,14 @@ def print_sensor_countdown_timers(purple_air_client):
     if config.INDOOR_SENSOR_IDS or purple_air_client.local_indoor_ips:
         time_until_indoor_local = max(
             0,
-            config.LOCAL_POLL_INTERVAL
-            - (current_time - purple_air_client.last_indoor_local_poll),
+            config.LOCAL_POLL_INTERVAL - (current_time - purple_air_client.last_indoor_local_poll),
         )
         time_until_indoor_api = max(
             0,
-            config.API_POLL_INTERVAL
-            - (current_time - purple_air_client.last_indoor_api_poll),
+            config.API_POLL_INTERVAL - (current_time - purple_air_client.last_indoor_api_poll),
         )
 
-        print(
-            f"  Indoor - Time until next local check: {int(time_until_indoor_local)}s"
-        )
+        print(f"  Indoor - Time until next local check: {int(time_until_indoor_local)}s")
         print(f"  Indoor - Time until next API check: {int(time_until_indoor_api)}s")
 
 
@@ -117,9 +107,7 @@ def print_sensor_config(purple_air_client):
 
     # Check if API key is properly configured
     api_key_valid = (
-        config.PURPLE_AIR_API_KEY
-        and config.PURPLE_AIR_API_KEY.strip() != ""
-        and len(config.PURPLE_AIR_API_KEY) > 10
+        config.PURPLE_AIR_API_KEY and config.PURPLE_AIR_API_KEY.strip() != "" and len(config.PURPLE_AIR_API_KEY) > 10
     )
     print(f"  API Key: {'Configured' if api_key_valid else 'Not configured'}")
 

@@ -277,12 +277,8 @@ class ST7789:
         """
         self.rotations = custom_rotations or self._find_rotations(width, height)
         if not self.rotations:
-            supported_displays = ", ".join(
-                [f"{display[0]}x{display[1]}" for display in _SUPPORTED_DISPLAYS]
-            )
-            raise ValueError(
-                f"Unsupported {width}x{height} display. Supported displays: {supported_displays}"
-            )
+            supported_displays = ", ".join([f"{display[0]}x{display[1]}" for display in _SUPPORTED_DISPLAYS])
+            raise ValueError(f"Unsupported {width}x{height} display. Supported displays: {supported_displays}")
 
         if dc is None:
             raise ValueError("dc pin is required.")
@@ -477,9 +473,7 @@ class ST7789:
         self._set_window(x, y, x, y)
         self._write(
             None,
-            struct.pack(
-                _ENCODE_PIXEL_SWAPPED if self.needs_swap else _ENCODE_PIXEL, color
-            ),
+            struct.pack(_ENCODE_PIXEL_SWAPPED if self.needs_swap else _ENCODE_PIXEL, color),
         )
 
     def blit_buffer(self, buffer, x, y, width, height):
@@ -525,9 +519,7 @@ class ST7789:
         """
         self._set_window(x, y, x + width - 1, y + height - 1)
         chunks, rest = divmod(width * height, _BUFFER_SIZE)
-        pixel = struct.pack(
-            _ENCODE_PIXEL_SWAPPED if self.needs_swap else _ENCODE_PIXEL, color
-        )
+        pixel = struct.pack(_ENCODE_PIXEL_SWAPPED if self.needs_swap else _ENCODE_PIXEL, color)
         self.dc.on()
         if chunks:
             data = pixel * _BUFFER_SIZE
@@ -694,11 +686,7 @@ class ST7789:
 
         for char in text:
             ch = ord(char)
-            if (
-                font.FIRST <= ch < font.LAST
-                and x0 + font.WIDTH <= self.width
-                and y0 + font.HEIGHT <= self.height
-            ):
+            if font.FIRST <= ch < font.LAST and x0 + font.WIDTH <= self.width and y0 + font.HEIGHT <= self.height:
                 if font.HEIGHT == 8:
                     passes = 1
                     size = 8
@@ -731,11 +719,7 @@ class ST7789:
 
         for char in text:
             ch = ord(char)
-            if (
-                font.FIRST <= ch < font.LAST
-                and x0 + font.WIDTH <= self.width
-                and y0 + font.HEIGHT <= self.height
-            ):
+            if font.FIRST <= ch < font.LAST and x0 + font.WIDTH <= self.width and y0 + font.HEIGHT <= self.height:
                 each = 16
                 if font.HEIGHT == 16:
                     passes = 2
@@ -764,11 +748,7 @@ class ST7789:
             background (int): 565 encoded color to use for background
         """
         fg_color = color if self.needs_swap else ((color << 8) & 0xFF00) | (color >> 8)
-        bg_color = (
-            background
-            if self.needs_swap
-            else ((background << 8) & 0xFF00) | (background >> 8)
-        )
+        bg_color = background if self.needs_swap else ((background << 8) & 0xFF00) | (background >> 8)
 
         if font.WIDTH == 8:
             self._text8(font, text, x0, y0, fg_color, bg_color)
@@ -804,9 +784,7 @@ class ST7789:
         for i in range(0, buffer_len, 2):
             color_index = 0
             for _ in range(bpp):
-                color_index = (color_index << 1) | (
-                    (bitmap.BITMAP[bs_bit >> 3] >> (7 - (bs_bit & 7))) & 1
-                )
+                color_index = (color_index << 1) | ((bitmap.BITMAP[bs_bit >> 3] >> (7 - (bs_bit & 7))) & 1)
                 bs_bit += 1
 
             color = palette[color_index]
@@ -846,9 +824,7 @@ class ST7789:
                 color_index = 0
                 for _ in range(bpp):
                     color_index <<= 1
-                    color_index |= (
-                        bitmap.BITMAP[bs_bit // 8] & 1 << (7 - (bs_bit % 8))
-                    ) > 0
+                    color_index |= (bitmap.BITMAP[bs_bit // 8] & 1 << (7 - (bs_bit % 8))) > 0
                     bs_bit += 1
                 color = palette[color_index]
                 if needs_swap:
@@ -968,16 +944,8 @@ class ST7789:
             sin_a = sin(angle)
             rotated = [
                 (
-                    x
-                    + center_x
-                    + int(
-                        (point[0] - center_x) * cos_a - (point[1] - center_y) * sin_a
-                    ),
-                    y
-                    + center_y
-                    + int(
-                        (point[0] - center_x) * sin_a + (point[1] - center_y) * cos_a
-                    ),
+                    x + center_x + int((point[0] - center_x) * cos_a - (point[1] - center_y) * sin_a),
+                    y + center_y + int((point[0] - center_x) * sin_a + (point[1] - center_y) * cos_a),
                 )
                 for point in points
             ]

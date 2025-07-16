@@ -4,9 +4,7 @@
 import time
 
 
-def retry_operation(
-    func, max_attempts=3, delay_ms=500, context="operation", *args, **kwargs
-):
+def retry_operation(func, max_attempts=3, delay_ms=500, context="operation", *args, **kwargs):
     """
     Retry an operation with exponential backoff
     Args:
@@ -39,9 +37,7 @@ def retry_operation(
     return None
 
 
-def retry_with_timeout(
-    func, timeout_sec=10, max_attempts=3, context="operation", *args, **kwargs
-):
+def retry_with_timeout(func, timeout_sec=10, max_attempts=3, context="operation", *args, **kwargs):
     """
     Retry an operation with both timeout and retry logic
     Args:
@@ -79,9 +75,7 @@ def retry_with_timeout(
     return None
 
 
-def wait_for_condition(
-    check_func, timeout_sec=30, check_interval=0.5, context="condition"
-):
+def wait_for_condition(check_func, timeout_sec=30, check_interval=0.5, context="condition"):
     """
     Wait for a condition to become true with timeout
     Args:

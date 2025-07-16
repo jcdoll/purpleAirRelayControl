@@ -24,26 +24,14 @@ class VentilationController:
         self.debounce_ms = 200  # 200ms debounce period
 
         # Initialize button inputs with interrupts
-        self.button_d0 = Pin(
-            config.BUTTON_D0, Pin.IN, Pin.PULL_UP
-        )  # D0: Pull-up, LOW when pressed
-        self.button_d1 = Pin(
-            config.BUTTON_D1, Pin.IN, Pin.PULL_DOWN
-        )  # D1: Pull-down, HIGH when pressed
-        self.button_d2 = Pin(
-            config.BUTTON_D2, Pin.IN, Pin.PULL_DOWN
-        )  # D2: Pull-down, HIGH when pressed
+        self.button_d0 = Pin(config.BUTTON_D0, Pin.IN, Pin.PULL_UP)  # D0: Pull-up, LOW when pressed
+        self.button_d1 = Pin(config.BUTTON_D1, Pin.IN, Pin.PULL_DOWN)  # D1: Pull-down, HIGH when pressed
+        self.button_d2 = Pin(config.BUTTON_D2, Pin.IN, Pin.PULL_DOWN)  # D2: Pull-down, HIGH when pressed
 
         # Set up hardware interrupts for immediate response
-        self.button_d0.irq(
-            trigger=Pin.IRQ_FALLING, handler=self._button0_interrupt
-        )  # Falling edge (press)
-        self.button_d1.irq(
-            trigger=Pin.IRQ_RISING, handler=self._button1_interrupt
-        )  # Rising edge (press)
-        self.button_d2.irq(
-            trigger=Pin.IRQ_RISING, handler=self._button2_interrupt
-        )  # Rising edge (press)
+        self.button_d0.irq(trigger=Pin.IRQ_FALLING, handler=self._button0_interrupt)  # Falling edge (press)
+        self.button_d1.irq(trigger=Pin.IRQ_RISING, handler=self._button1_interrupt)  # Rising edge (press)
+        self.button_d2.irq(trigger=Pin.IRQ_RISING, handler=self._button2_interrupt)  # Rising edge (press)
 
         # Set initial relay state
         self._set_relays(self.ventilation_enabled)
@@ -52,30 +40,21 @@ class VentilationController:
     def _button0_interrupt(self, pin):
         """Hardware interrupt handler for D0 button (falling edge = press)"""
         current_time = time.ticks_ms()
-        if (
-            time.ticks_diff(current_time, self.last_interrupt_time[0])
-            > self.debounce_ms
-        ):
+        if time.ticks_diff(current_time, self.last_interrupt_time[0]) > self.debounce_ms:
             self.button_flags[0] = True
             self.last_interrupt_time[0] = current_time
 
     def _button1_interrupt(self, pin):
         """Hardware interrupt handler for D1 button (rising edge = press)"""
         current_time = time.ticks_ms()
-        if (
-            time.ticks_diff(current_time, self.last_interrupt_time[1])
-            > self.debounce_ms
-        ):
+        if time.ticks_diff(current_time, self.last_interrupt_time[1]) > self.debounce_ms:
             self.button_flags[1] = True
             self.last_interrupt_time[1] = current_time
 
     def _button2_interrupt(self, pin):
         """Hardware interrupt handler for D2 button (rising edge = press)"""
         current_time = time.ticks_ms()
-        if (
-            time.ticks_diff(current_time, self.last_interrupt_time[2])
-            > self.debounce_ms
-        ):
+        if time.ticks_diff(current_time, self.last_interrupt_time[2]) > self.debounce_ms:
             self.button_flags[2] = True
             self.last_interrupt_time[2] = current_time
 
@@ -157,10 +136,7 @@ class VentilationController:
 
     def should_log(self):
         """Return True if state has changed and should be logged"""
-        if (
-            self.state_changed
-            and time.time() - self.last_log_time > config.LOG_INTERVAL
-        ):
+        if self.state_changed and time.time() - self.last_log_time > config.LOG_INTERVAL:
             self.last_log_time = time.time()
             self.state_changed = False
             return True
