@@ -27,4 +27,29 @@ jobs:
 
       - name: Run unit tests
         run: |
-          pytest esp32/tests/host/ --cov=esp32 --cov-branch --cov-report=term-missing 
+          pytest esp32/tests/host/ --cov=esp32 --cov-branch --cov-report=term-missing
+
+  style-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install lint dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install black isort flake8
+
+      - name: Run black & isort check
+        run: |
+          black --check esp32
+          isort --check esp32
+
+      - name: Run flake8
+        run: |
+          flake8 esp32 

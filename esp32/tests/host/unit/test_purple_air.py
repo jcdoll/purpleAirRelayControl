@@ -47,8 +47,8 @@ def test_get_sensor_data_local_success(requests_stub):
     ip = "1.2.3.4"
     local_url = f"http://{ip}/json"  # exact path used in client
 
-    sample_file = Path(__file__).resolve().parents[3] / "tests" / "test.json"
-    data = json.loads(sample_file.read_text())
+    # Minimal JSON containing the pm2_5_atm value we need
+    data = {"pm2_5_atm": 25.0}
 
     requests_stub.set_response(local_url, _SimpleResp(200, data))
 
@@ -56,7 +56,7 @@ def test_get_sensor_data_local_success(requests_stub):
     importlib.reload(purple_air)
     client = purple_air.PurpleAirClient()
 
-    pm25 = data.get("pm2_5_atm", 0)
+    pm25 = data["pm2_5_atm"]
     expected_aqi = int(round(client.pm25_to_aqi(pm25)))
 
     assert client.get_sensor_data_local(ip) == expected_aqi
