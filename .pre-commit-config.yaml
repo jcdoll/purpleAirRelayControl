@@ -20,3 +20,10 @@ repos:
         language_version: python
         additional_dependencies: [flake8-bugbear]
         args: ["--max-line-length=88", "--extend-ignore=E203,W503"] 
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.7
+    hooks:
+      - id: ruff
+        language_version: python
+        args: ["--fix"] 

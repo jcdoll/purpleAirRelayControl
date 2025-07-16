@@ -342,4 +342,6 @@ If you skip this step the commit proceeds normally; you can still run checks man
 
 ```bash
 pre-commit run --all-files
-``` 
+```
+
+Current POR is to NOT install pre-commit but to run manually.

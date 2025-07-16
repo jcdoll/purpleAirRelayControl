@@ -15,4 +15,5 @@ pillow==11.3.0  # Used by scripts/generate_mockup_image.py
 pytest>=7.4
 pytest-cov>=4.1
 pytest-mock>=3.11
-pre-commit>=3.7 
+pre-commit>=3.7
+ruff>=0.4 
