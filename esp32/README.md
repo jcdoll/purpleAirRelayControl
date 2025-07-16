@@ -1,338 +1,92 @@
-# purpleAirRelayControl ESP32-S3 Implementation
-Control your HVAC hardware based on PurpleAir sensor data using ESP32-S3 Reverse TFT Feather with integrated display and touch interface.
+# ESP32-S3 MicroPython Implementation
 
-## Hardware: ESP32-S3 Reverse TFT Feather
+Control HVAC ventilation based on PurpleAir air quality sensor data using ESP32-S3 Reverse TFT Feather with integrated display.
 
-**Board:** ESP32-S3 Reverse TFT Feather  
-https://www.adafruit.com/product/5691
+## Quick Start
 
-**Features:**
-- ESP32-S3 dual-core processor (240 MHz)
-- Built-in 1.14" TFT display (240x135 resolution)
-- Three tactile buttons (D0, D1, D2)
-- WiFi and Bluetooth 5.0
-- 8MB Flash, 2MB PSRAM
-- 21 GPIO pins
-- Built-in USB-C connector
+1. [Setup Guide](docs/setup.md) - Complete installation and setup instructions
+2. [Hardware Guide](docs/hardware.md) - Pin assignments and hardware details  
+3. [Development Guide](docs/development.md) - Development rules and workflow
 
-**Optional Hardware:**
-- External antenna for longer range: https://www.adafruit.com/product/5445
-- Header kit: https://www.adafruit.com/product/2886
+## Project Overview
 
-**Relay Options:**
-- Standard relay (higher power, solder jumper for A0 control): https://www.adafruit.com/product/3191
-- Low power latching relay (solder two wires for control): https://www.adafruit.com/product/2923
+This MicroPython implementation provides automated air quality-based ventilation control featuring:
+
+- Real-time monitoring of indoor and outdoor air quality (PurpleAir sensors)
+- Automated ventilation control based on configurable AQI thresholds
+- Visual status display on built-in 1.14" TFT screen
+- LED status indicators using built-in NeoPixel
+- Data logging to Google Sheets for trend analysis
+- Manual override via tactile buttons
+
+## Hardware
+
+- ESP32-S3 Reverse TFT Feather (Adafruit #5691) with built-in display and buttons
+- Relay modules for ventilation control
+- PurpleAir sensors for indoor/outdoor air quality monitoring
 
 ## Platform: MicroPython
 
-After evaluating Arduino IDE, CircuitPython, and MicroPython, MicroPython is the chosen platform for this project because:
+Why MicroPython?
+- Rapid development with no compile step
+- Interactive REPL debugging
+- Clear, maintainable Python syntax
+- Excellent hardware support for ESP32-S3
 
-1. **Learning Opportunity**: Excellent way to learn MicroPython with a real-world project
-2. **Rapid Development**: No compile step, REPL debugging, faster iteration
-3. **Code Readability**: Python syntax is clear and maintainable
-4. **Excellent Hardware Support**: All required components are well-supported
-5. **Rich Ecosystem**: Mature libraries for display, touch, networking, and sensors
-6. **Easy Debugging**: Interactive REPL makes troubleshooting straightforward
+## Documentation
 
-While Arduino IDE and CircuitPython would also be acceptable solutions, MicroPython provides the best balance of learning value and development efficiency for this project.
+All documentation is organized in the [`docs/`](docs/) directory:
 
-## Getting Started with MicroPython
+- [Setup Guide](docs/setup.md) - MicroPython installation, bootloader setup, and project deployment
+- [Hardware Documentation](docs/hardware.md) - Complete pin assignments and troubleshooting
+- [Development Guidelines](docs/development.md) - Critical rules, workflow, and best practices
+- [Reference Materials](docs/reference/) - Command references and technical details
 
-### 1. Flash MicroPython Firmware
+## Getting Started
 
-```bash
-# Download firmware
-wget https://micropython.org/resources/firmware/ESP32_GENERIC_S3-20241025-v1.25.0.bin
+Important: Read the [Setup Guide](docs/setup.md) carefully, especially the bootloader configuration steps for Adafruit boards.
 
-# Flash firmware (Windows users: use esptool.exe)
-esptool.py --chip esp32s3 --port COM3 erase_flash
-esptool.py --chip esp32s3 --port COM3 write_flash 0x0 ESP32_GENERIC_S3-20241025-v1.25.0.bin
-```
+1. Hardware Setup: Connect ESP32-S3 board and optional relays
+2. Software Setup: Follow [docs/setup.md](docs/setup.md) for MicroPython installation
+3. Configuration: Copy and edit configuration files
+4. Deployment: Use included deploy script to upload code
+5. Testing: Verify display, LED, and sensor connectivity
 
-### 2. Install Development Tools
-
-```bash
-pip install thonny  # IDE with excellent MicroPython support
-# or
-pip install ampy    # Command-line file transfer tool
-```
-
-### 3. Hardware Configuration
-
-**Pin Definitions for ESP32-S3 Reverse TFT Feather:**
-
-```python
-# Built-in TFT Display
-TFT_CS = 7
-TFT_RST = 40
-TFT_DC = 39
-TFT_MOSI = 35
-TFT_SCLK = 36
-
-# Tactile Buttons
-BUTTON_D0 = 0  # Also BOOT button
-BUTTON_D1 = 1
-BUTTON_D2 = 2
-
-# Relay Control
-RELAY1_PIN = 5
-RELAY2_PIN = 6
-
-# Manual Switch Input
-SWITCH_PIN = 9
-
-# Status LED (built-in NeoPixel)
-NEOPIXEL_PIN = 33
-```
-
-### 4. Required Libraries
-
-**Display & Graphics:**
-```python
-import mip
-mip.install("github:russhughes/st7789s3_mpy")  # Optimized display driver
-# or
-mip.install("github:russhughes/s3lcd")          # Alternative with framebuffer
-```
-
-**Button Input:**
-```python
-from machine import Pin  # Built-in for button handling
-```
-
-**Networking (Built-in):**
-```python
-import network    # WiFi management
-import urequests  # HTTP client
-import ujson      # JSON parser
-```
-
-### 5. Test Basic Display
-
-```python
-# Quick test to verify display works
-from machine import Pin, SPI
-import st7789
-
-# Configure SPI for display
-spi = SPI(1, baudrate=40000000, polarity=0, phase=0, 
-          sck=Pin(36), mosi=Pin(35))
-display = st7789.ST7789(spi, 135, 240, 
-                       reset=Pin(40), dc=Pin(39), cs=Pin(7))
-
-display.init()
-display.fill(st7789.RED)
-display.text("Hello World!", 10, 10, st7789.WHITE)
-```
-
-## MicroPython Implementation Plan
-
-### Project Structure
+## Project Structure
 
 ```
-/
-├── main.py              # Main application loop
-├── config.py            # Configuration settings
-├── purple_air.py        # PurpleAir API client
-├── ventilation.py       # Relay control logic
-├── wifi_manager.py      # WiFi connection management
-├── ui_manager.py        # Text-based display interface
-├── google_logger.py     # Google Sheets data logging
-└── lib/
-    ├── st7789.py        # Display driver
-    ├── ft6x06.py        # Touch driver
-    └── urequests.py     # HTTP client
+esp32/
+├── docs/                   # All documentation
+│   ├── setup.md            #   Complete setup guide
+│   ├── hardware.md         #   Hardware specifications
+│   ├── development.md      #   Development guidelines
+│   └── reference/          #   Command references
+├── main.py                 # Main application
+├── config.py               # Hardware and system configuration
+├── display_manager.py      # TFT display control
+├── led_manager.py          # NeoPixel LED control
+├── purple_air.py           # Air quality sensor interface
+├── ventilation.py          # Ventilation control logic
+├── wifi_manager.py         # WiFi connection management
+├── google_logger.py        # Data logging to Google Sheets
+├── utils/                  # Shared utility modules
+└── lib/                    # External libraries
 ```
 
-### Development Phases
+## Key Features
 
-**Phase 1: Core Functionality**
-- WiFi connection management
-- PurpleAir API integration
-- Basic relay control
-- Simple display output
+- Event-based logging: Status changes trigger immediate console output
+- Memory-efficient display: Software frame buffer prevents screen flashing
+- Robust error handling: Comprehensive exception handling and recovery
+- Single source of truth: All pin assignments centralized in `config.py`
+- Modular architecture: Separated concerns for display, LED, sensors, and ventilation
 
-**Phase 2: Display Interface**
-- Button interface implementation
-- Real-time air quality display
-- Basic UI controls
+## Support
 
-**Phase 3: Advanced Features**
-- Button-based configuration
-- Data logging and graphs
-- Enhanced user interface
-- Error handling and recovery
+- Setup Issues: Check [docs/setup.md Common Issues](docs/setup.md#common-issues)
+- Hardware Problems: See [docs/hardware.md Troubleshooting](docs/hardware.md#common-hardware-issues)  
+- Development Questions: Review [docs/development.md](docs/development.md)
 
-### Example Implementation
+## License
 
-```python
-# main.py - Core application structure
-import time
-import machine
-from purple_air import PurpleAirClient
-from ventilation import VentilationController
-from ui_manager import UIManager
-from wifi_manager import WiFiManager
-
-# Initialize components
-wifi = WiFiManager()
-purple_air = PurpleAirClient(api_key="your_key")
-ventilation = VentilationController(relay_pins=[5, 6])
-ui = UIManager()
-
-# Initialize buttons
-from machine import Pin
-button_d0 = Pin(0, Pin.IN, Pin.PULL_UP)  # BOOT button
-button_d1 = Pin(1, Pin.IN, Pin.PULL_UP)
-button_d2 = Pin(2, Pin.IN, Pin.PULL_UP)
-
-# Main loop
-while True:
-    # Update air quality data
-    outdoor_aqi = purple_air.get_outdoor_aqi()
-    indoor_aqi = purple_air.get_indoor_aqi()
-    
-    # Update display
-    ui.update_display(outdoor_aqi, indoor_aqi, ventilation, wifi)
-    
-    # Handle button input
-    if not button_d0.value():  # Button pressed (active low)
-        ventilation.handle_manual_override("button_0")
-    if not button_d1.value():
-        ventilation.handle_manual_override("button_1")
-    if not button_d2.value():
-        ventilation.handle_manual_override("button_2")
-    
-    # Update ventilation based on readings
-    ventilation.update(outdoor_aqi, indoor_aqi)
-    
-    # Log data if needed
-    if time.time() % 900 == 0:  # Every 15 minutes
-        purple_air.log_data(outdoor_aqi, indoor_aqi, ventilation.state)
-    
-    time.sleep(1)
-```
-
-## Migration from Arduino Version
-
-The MicroPython version will include these enhancements over the Arduino implementation:
-
-1. **Interactive Development:**
-   - REPL-based debugging and testing
-   - Live code modification without recompiling
-   - Easier experimentation and learning
-
-2. **Button Control Interface:**
-   - Real-time air quality display
-   - Three-button controls for manual override
-   - System status visualization
-   - Historical data graphs
-
-3. **Enhanced User Experience:**
-   - Visual feedback for all operations
-   - Button-based configuration
-   - Error status display
-   - Network status indicators
-
-4. **Python Advantages:**
-   - More readable and maintainable code
-   - Rich standard library
-   - Easy JSON and HTTP handling
-   - Excellent debugging experience
-
-## Hardware Support Status
-
-### ✅ **Fully Supported Components**
-
-**ESP32-S3 Features:**
-- Official MicroPython firmware (v1.25.0)
-- Auto-detection of PSRAM (2MB on your board)
-- Built-in WiFi and Bluetooth support
-- Full GPIO, I2C, SPI, PWM capabilities
-
-**Display (ST7789):**
-- `russhughes/st7789s3_mpy` - C-based driver optimized for ESP32-S3
-- `russhughes/s3lcd` - ESP_LCD based with framebuffer support
-- Advanced features: JPEG/PNG display, multiple fonts, graphics primitives
-
-**Button Interface:**
-- Built-in `machine.Pin` support for button handling
-- Three tactile buttons (D0, D1, D2) with pull-up resistors
-- Simple and reliable input method
-
-**Networking:**
-- `urequests` for HTTP/HTTPS API calls
-- `ujson` for JSON parsing
-- `network` module for WiFi management
-- All PurpleAir API functionality supported
-
-### ⚠️ **Minor Considerations**
-
-**Performance:**
-- Python is ~3-5x slower than C for intensive graphics operations
-- Higher memory usage (~50KB more RAM overhead)
-- Sufficient performance for air quality monitoring and HVAC control
-
-**Development Notes:**
-- `machine.bootloader()` has known issues on ESP32-S3 (requires physical reset)
-- No impact on normal operation, only affects development workflow
-
-## Alternative Platforms
-
-### Arduino IDE
-**Pros:**
-- Maximum performance (compiled C code)
-- Extensive library ecosystem
-- Easy migration from existing Arduino code
-- Lower memory usage
-
-**Cons:**
-- Compile-test-debug cycle slows development
-- Less readable C syntax
-- Steeper learning curve for beginners
-
-### CircuitPython
-**Pros:**
-- Python syntax with hardware abstraction
-- Beginner-friendly
-- Good for rapid prototyping
-
-**Cons:**
-- Limited ESP32-S3 support
-- Smaller ecosystem compared to MicroPython
-- Performance limitations
-
-### ESP-IDF
-**Pros:**
-- Maximum performance and features
-- Full access to ESP32 capabilities
-- Professional development framework
-
-**Cons:**
-- Very steep learning curve
-- Complex setup and configuration
-- Overkill for this project
-
-## Why MicroPython for This Project
-
-**Learning Value:**
-- Excellent introduction to MicroPython ecosystem
-- Real-world project with practical applications
-- Covers networking, hardware control, and user interfaces
-
-**Development Efficiency:**
-- REPL makes experimentation easy
-- No compile step speeds up iteration
-- Python's readability aids debugging and maintenance
-
-**Project Suitability:**
-- All required hardware is well-supported
-- Performance is sufficient for air quality monitoring
-- Rich ecosystem of libraries and examples
-
-**Future Expansion:**
-- Easy to add new features and sensors
-- Simple to modify thresholds and behaviors
-- Excellent foundation for learning embedded Python
-
-This project provides an excellent opportunity to learn MicroPython while building a useful HVAC control system with modern touch display interface.
+See [LICENSE](../LICENSE) file for license information.

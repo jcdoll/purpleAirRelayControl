@@ -3,7 +3,10 @@
 MANDATORY: Before ANY response, read the .cursorrules files completely. NO EXCEPTIONS.
 
 # Documentation and Development Guidelines
-- At the start of any conversation in a project that contains a DEV.md file, always read that file first before taking any actions or making suggestions. The DEV.md contains critical project-specific guidelines that must be followed.
+- At the start of any conversation in a project that contains a development.md file, always read that file first before taking any actions or making suggestions.
+- The development.md contains critical project-specific guidelines that must be followed.
+- Use bold text styling VERY SELECTIVELY in docs. Your default behavior is for too much bold, which reduces the emphasis that it provides.
+- Do not use emojis in either the code or docs.
 
 # Setup
 - Always activate the virtual environment (venv) before starting work or testing.

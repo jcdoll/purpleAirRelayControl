@@ -49,8 +49,15 @@ FILES = [
     "wifi_manager.py",
     "purple_air.py",
     "ventilation.py",
-    "ui_manager.py",  # New unified UI manager
+    "display_manager.py",  # Display functionality (split from ui_manager.py)
+    "led_manager.py",     # LED functionality (split from ui_manager.py)
     "google_logger.py",
+    # Shared utilities
+    "utils/__init__.py",
+    "utils/error_handling.py",
+    "utils/aqi_colors.py", 
+    "utils/connection_retry.py",
+    "utils/status_display.py",
 ]
 
 def find_port():
@@ -148,6 +155,12 @@ def deploy_files(port, files_to_deploy=None):
         print("  Creating lib directory...")
         run_mpremote_cmd(["mpremote", "connect", port, "mkdir", "lib"], timeout=5, retries=1)
     
+    # Ensure utils directory exists for utils files
+    utils_files = [f for f in files_to_deploy if f.startswith('utils/')]
+    if utils_files:
+        print("  Creating utils directory...")
+        run_mpremote_cmd(["mpremote", "connect", port, "mkdir", "utils"], timeout=5, retries=1)
+    
     failed_files = []
     deployed_count = 0
     
@@ -161,6 +174,8 @@ def deploy_files(port, files_to_deploy=None):
         # Determine target path
         if file_path.startswith('lib/'):
             target = f":{file_path}"  # Keep lib/ structure
+        elif file_path.startswith('utils/'):
+            target = f":{file_path}"  # Keep utils/ structure
         else:
             target = f":{Path(file_path).name}"  # Root directory
         

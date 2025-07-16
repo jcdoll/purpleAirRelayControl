@@ -6,8 +6,13 @@ import config
 from wifi_manager import WiFiManager
 from purple_air import PurpleAirClient
 from ventilation import VentilationController
-from ui_manager import UIManager
+from display_manager import DisplayManager
+from led_manager import LEDManager
 from google_logger import GoogleFormsLogger
+from utils.status_display import (
+    print_sensor_status, print_sensor_countdown_timers, 
+    print_sensor_config, print_startup_banner
+)
 
 # Initialize watchdog timer if enabled
 if config.WATCHDOG_TIMEOUT > 0:
@@ -17,23 +22,24 @@ else:
 
 def initialize_components():
     """Initialize all system components"""
-    print("PurpleAir Relay Control - ESP32 MicroPython")
-    print("Initializing UI...")
+    print_startup_banner()
+    print("Initializing display and LED...")
     
-    # Initialize UI Manager (handles both display and LED)
-    ui = UIManager()
-    ui.show_message("Starting up...")
+    # Initialize Display and LED Managers (split from UIManager)
+    display = DisplayManager()
+    led = LEDManager()
+    display.show_message("Starting up...")
     
     # Initialize WiFi
-    ui.set_status_led("wifi_connecting")
+    led.set_status_led("wifi_connecting")
     wifi = WiFiManager()
     if not wifi.connect():
-        ui.show_error("WiFi Failed!")
-        ui.set_status_led("error")
+        display.show_error("WiFi Failed!")
+        led.set_status_led("error")
         print(f"Failed to connect to WiFi SSID: {config.WIFI_SSID}")
         time.sleep(5)
         machine.reset()
-    ui.set_status_led("wifi_connected")
+    led.set_status_led("wifi_connected")
     print(f"WiFi connected successfully!")
     print(f"  SSID: {config.WIFI_SSID}")
     print(f"  IP: {wifi.get_ip()}")
@@ -44,19 +50,8 @@ def initialize_components():
     ventilation = VentilationController()
     logger = GoogleFormsLogger()
     
-    # Show sensor configuration
-    print("\nSensor Configuration:")
-    print(f"  Outdoor sensors:")
-    print(f"    Local IPs: {purple_air.local_outdoor_ips}")
-    print(f"    API IDs: {config.OUTDOOR_SENSOR_IDS}")
-    print(f"  Indoor sensors:")
-    print(f"    Local IPs: {purple_air.local_indoor_ips}")
-    print(f"    API IDs: {config.INDOOR_SENSOR_IDS}")
-    # Check if API key is properly configured (not just present)
-    api_key_valid = (config.PURPLE_AIR_API_KEY and 
-                     config.PURPLE_AIR_API_KEY.strip() != "" and
-                     len(config.PURPLE_AIR_API_KEY) > 10)
-    print(f"  API Key configured: {'Yes' if api_key_valid else 'No'}")
+    # Show sensor configuration using utility function
+    print_sensor_config(purple_air)
     
     # Force initial sensor reads
     print("\nPerforming initial sensor checks...")
@@ -71,43 +66,15 @@ def initialize_components():
         outdoor_aqi = -1
         indoor_aqi = -1
     
-    return ui, wifi, purple_air, ventilation, logger
+    return display, led, wifi, purple_air, ventilation, logger
 
-def print_sensor_countdown_timers(purple_air):
-    """Print countdown timers for next sensor checks (like Arduino)"""
-    current_time = time.time()
-    
-    print("--- Sensor Check Timers ---")
-    
-    # Outdoor sensor timers
-    time_until_outdoor_local = max(0, config.LOCAL_POLL_INTERVAL - (current_time - purple_air.last_outdoor_local_poll))
-    time_until_outdoor_api = max(0, config.API_POLL_INTERVAL - (current_time - purple_air.last_outdoor_api_poll))
-    
-    print(f"  Outdoor - Time until next local check: {int(time_until_outdoor_local)}s")
-    print(f"  Outdoor - Time until next API check: {int(time_until_outdoor_api)}s")
-    
-    # Indoor sensor timers (if configured)
-    if config.INDOOR_SENSOR_IDS or purple_air.local_indoor_ips:
-        time_until_indoor_local = max(0, config.LOCAL_POLL_INTERVAL - (current_time - purple_air.last_indoor_local_poll))
-        time_until_indoor_api = max(0, config.API_POLL_INTERVAL - (current_time - purple_air.last_indoor_api_poll))
-        
-        print(f"  Indoor - Time until next local check: {int(time_until_indoor_local)}s")
-        print(f"  Indoor - Time until next API check: {int(time_until_indoor_api)}s")
-
-def print_status_on_change(outdoor_aqi, indoor_aqi, ventilation, reason):
-    """Print status when sensor data changes or button pressed (event-based)"""
-    current_time = time.time()
-    status = ventilation.get_status()
-    
-    print(f"[{int(current_time)}] {reason}")
-    print(f"  AQI: Outdoor={outdoor_aqi:.1f}, Indoor={indoor_aqi:.1f}")
-    print(f"  Mode: {status['mode']} | Ventilation: {'ON' if status['enabled'] else 'OFF'}")
-    print(f"  Reason: {status['reason']}")
+# Status printing functions now available from utils.status_display
+# print_sensor_countdown_timers, print_sensor_status, print_sensor_config, print_startup_banner
 
 def main():
     """Main application loop"""
     # Initialize all components
-    ui, wifi, purple_air, ventilation, logger = initialize_components()
+    display, led, wifi, purple_air, ventilation, logger = initialize_components()
     
     # State tracking for event-based logging
     error_count = 0
@@ -127,7 +94,7 @@ def main():
         print(f"IP Address: {wifi.get_ip()}")
     
     print("System initialized. Starting main loop...")
-    ui.show_message("Ready!")
+    display.show_message("Ready!")
     time.sleep(1)
     
     while True:
@@ -138,12 +105,12 @@ def main():
             
             # Check WiFi connection
             if not wifi.is_connected():
-                ui.set_status_led("wifi_connecting")
+                led.set_status_led("wifi_connecting")
                 wifi.reconnect()
                 if wifi.is_connected():
-                    ui.set_status_led("wifi_connected")
+                    led.set_status_led("wifi_connected")
                 else:
-                    ui.set_status_led("error")
+                    led.set_status_led("error")
             
             # Get AQI data
             outdoor_aqi = purple_air.get_outdoor_aqi()
@@ -168,22 +135,22 @@ def main():
             
             # Print status on any change (like Arduino event-based logging)
             if sensor_data_changed:
-                print_status_on_change(outdoor_aqi, indoor_aqi, ventilation, "Sensor data updated")
+                print_sensor_status(outdoor_aqi, indoor_aqi, ventilation.get_status(), "Sensor data updated")
                 
             if vent_state_changed:
-                print_status_on_change(outdoor_aqi, indoor_aqi, ventilation, "Ventilation state changed")
+                print_sensor_status(outdoor_aqi, indoor_aqi, ventilation.get_status(), "Ventilation state changed")
                 
             if mode_changed:
-                print_status_on_change(outdoor_aqi, indoor_aqi, ventilation, "Mode changed")
+                print_sensor_status(outdoor_aqi, indoor_aqi, ventilation.get_status(), "Mode changed")
             
             # Update display
-            ui.update_display(outdoor_aqi, indoor_aqi, ventilation, wifi)
+            display.update_display(outdoor_aqi, indoor_aqi, ventilation, wifi)
             
             # Set status LED based on ventilation state
             if ventilation.ventilation_enabled:
-                ui.set_status_led("vent_on")
+                led.set_status_led("vent_on")
             else:
-                ui.set_status_led("vent_off")
+                led.set_status_led("vent_off")
             
             # Log data if needed (event-based)
             if ventilation.should_log() or logger.should_log():
@@ -219,8 +186,8 @@ def main():
             
         except KeyboardInterrupt:
             print("\nShutdown requested")
-            ui.show_message("Shutting down...")
-            ui.set_status_led("off")
+            display.show_message("Shutting down...")
+            led.set_status_led("off")
             break
             
         except Exception as e:
@@ -231,7 +198,7 @@ def main():
             import sys
             sys.print_exception(e)
             
-            ui.show_error("System Error")
+            display.show_error("System Error")
             
             if error_count > 10:
                 print("Too many errors, resetting...")

@@ -56,8 +56,9 @@ TFT_MOSI = 35        # SPI MOSI
 TFT_SCLK = 36        # SPI SCLK
 TFT_BACKLIGHT = 45   # GPIO45 per official pinout
 TFT_I2C_POWER = 7    # GPIO7 per official pinout - I2C and TFT power enable
-DISPLAY_WIDTH = 135
-DISPLAY_HEIGHT = 240
+TFT_WIDTH = 135      # Display width (landscape orientation)
+TFT_HEIGHT = 240     # Display height (landscape orientation)
+TFT_ROTATION = 1     # Landscape mode (matches original HARDWARE.md)
 
 # Google Forms Logging
 GOOGLE_FORMS_URL = ""  # Your Google Forms submission URL
