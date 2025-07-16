@@ -60,8 +60,12 @@ class DisplayManager:
                 self.backlight = Pin(config.TFT_BACKLIGHT, Pin.OUT)
                 self.backlight.on()
             
+            # Wait for power to stabilize
+            time.sleep(0.2)
+            
             # SPI and Display initialization
-            spi = SPI(1, baudrate=40000000, sck=Pin(config.TFT_SCLK), mosi=Pin(config.TFT_MOSI))
+            spi = SPI(1, baudrate=20000000, polarity=0, phase=0,
+                     sck=Pin(config.TFT_SCLK), mosi=Pin(config.TFT_MOSI))
             
             self.display = st7789.ST7789(
                 spi, config.TFT_WIDTH, config.TFT_HEIGHT,
