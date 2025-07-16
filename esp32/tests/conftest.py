@@ -85,3 +85,75 @@ if not hasattr(sys, "print_exception"):
     def _print_exception(exc, file=None):  # type: ignore
         _traceback.print_exception(type(exc), exc, exc.__traceback__, file=file or sys.stderr)
     sys.print_exception = _print_exception  # type: ignore 
+
+# ---------------------------------------------------------------------------
+# requests / urequests stub to simulate HTTP responses
+# ---------------------------------------------------------------------------
+class _FakeResponse:
+    def __init__(self, status_code=200, json_data=None):
+        self.status_code = status_code
+        self._json_data = json_data or {}
+    def json(self):
+        return self._json_data
+    def close(self):
+        pass
+
+class _RequestsStub(types.ModuleType):
+    def __init__(self):
+        super().__init__("requests")
+        # store mapping of prefix -> response
+        self._responses = {}
+
+    def set_response(self, url_prefix: str, response: _FakeResponse):
+        """Register a response to any GET that starts with url_prefix."""
+        self._responses[url_prefix] = response
+
+    # alias for convenience
+    def set_json(self, url_prefix: str, json_dict, status_code: int = 200):
+        self.set_response(url_prefix, _FakeResponse(status_code, json_dict))
+
+    def get(self, url, *args, **kwargs):
+        for prefix, resp in self._responses.items():
+            if url.startswith(prefix):
+                return resp
+        return _FakeResponse(status_code=404)
+
+# Fixture installs stub and yields helper to set responses
+@pytest.fixture
+def requests_stub(monkeypatch):
+    stub = _RequestsStub()
+    # Make both 'requests' and 'urequests' point to the same stub
+    monkeypatch.setitem(sys.modules, "requests", stub)
+    monkeypatch.setitem(sys.modules, "urequests", stub)
+    yield stub
+
+# ---------------------------------------------------------------------------
+# Make time.sleep a no-op for faster tests (can be overridden per test)
+# ---------------------------------------------------------------------------
+@pytest.fixture(autouse=True)
+def _fast_sleep(monkeypatch):
+    monkeypatch.setattr(_real_time, "sleep", lambda s: None)
+    yield 
+
+# Ensure basic stub for urequests and mip modules BEFORE any esp32 imports
+if "urequests" not in sys.modules:
+    sys.modules["urequests"] = types.ModuleType("urequests")
+    setattr(sys.modules["urequests"], "get", lambda *a, **k: (_FakeResponse(status_code=404)))
+
+if "mip" not in sys.modules:
+    mip_stub = types.ModuleType("mip")
+    def _install(pkg):
+        # no-op for tests
+        return None
+    mip_stub.install = _install  # type: ignore[attr-defined]
+    sys.modules["mip"] = mip_stub 
+
+if "ujson" not in sys.modules:
+    import json as _std_json
+    ujson_stub = types.ModuleType("ujson")
+    setattr(ujson_stub, 'loads', _std_json.loads)
+    setattr(ujson_stub, 'dumps', _std_json.dumps)
+    setattr(ujson_stub, 'dumpsb', lambda obj: _std_json.dumps(obj).encode())
+    setattr(ujson_stub, 'load', _std_json.load)
+    setattr(ujson_stub, 'dump', _std_json.dump)
+    sys.modules["ujson"] = ujson_stub 
