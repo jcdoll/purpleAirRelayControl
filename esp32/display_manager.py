@@ -7,7 +7,7 @@ import time
 import gc
 import config
 from utils.error_handling import print_exception, handle_hardware_error
-from utils.aqi_colors import get_aqi_color_st7789
+from utils.aqi_colors import get_aqi_color_rgb
 
 # Import display driver and font
 try:
@@ -23,6 +23,22 @@ try:
 except ImportError:
     print("Warning: vga1_8x8 font not found")
     FONT_AVAILABLE = False
+
+# Local helper: convert AQI→ST7789 RGB565 using generic RGB mapping
+def get_aqi_color_st7789(aqi_value):
+    """Return RGB565 color for a given AQI value using st7789.color565."""
+    try:
+        r, g, b = get_aqi_color_rgb(aqi_value)
+        # st7789.color565 converts 8-bit RGB to 16-bit RGB565
+        return st7789.color565(r, g, b)
+    except Exception:
+        # Fallback: manual RGB565 conversion if driver unavailable
+        r, g, b = get_aqi_color_rgb(aqi_value)
+        r5 = (r >> 3) & 0x1F
+        g6 = (g >> 2) & 0x3F
+        b5 = (b >> 3) & 0x1F
+        return (r5 << 11) | (g6 << 5) | b5
+
 
 class DisplayManager:
     def __init__(self):

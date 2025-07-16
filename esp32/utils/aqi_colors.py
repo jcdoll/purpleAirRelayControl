@@ -88,36 +88,4 @@ def get_aqi_color_name(aqi_value):
         "invalid": "gray"
     }
     
-    return color_names.get(category, "gray")
-
-# ST7789 display specific color constants (for compatibility)
-try:
-    import st7789py as st7789
-    
-    def get_aqi_color_st7789(aqi_value):
-        """
-        Get ST7789 color constant for AQI value
-        Args:
-            aqi_value: Numeric AQI value
-        Returns:
-            ST7789 color constant
-        """
-        category = get_aqi_category(aqi_value)
-        
-        st7789_colors = {
-            "good": st7789.GREEN,
-            "moderate": st7789.YELLOW,
-            "unhealthy_sensitive": getattr(st7789, 'ORANGE', st7789.color565(255, 165, 0)),
-            "unhealthy": st7789.RED,
-            "very_unhealthy": getattr(st7789, 'PURPLE', st7789.color565(128, 0, 128)),
-            "hazardous": getattr(st7789, 'MAROON', st7789.color565(128, 0, 0)),
-            "invalid": getattr(st7789, 'GRAY', st7789.color565(128, 128, 128))
-        }
-        
-        return st7789_colors.get(category, st7789.color565(128, 128, 128))
-
-except ImportError:
-    # Fallback when st7789 not available (development environment)
-    def get_aqi_color_st7789(aqi_value):
-        """Fallback when ST7789 not available"""
-        return get_aqi_color_565(aqi_value) 
+    return color_names.get(category, "gray") 

@@ -1,0 +1,17 @@
+# ------------------------------------------------------------
+# ESP32 Deployment & Hardware Tools (direct dependencies)
+# ------------------------------------------------------------
+esptool==5.0.0  # Flashing ESP32 chips
+mpremote==1.25.0  # MicroPython remote deployment utility
+
+# ------------------------------------------------------------
+# Utility Scripts
+# ------------------------------------------------------------
+pillow==11.3.0  # Used by scripts/generate_mockup_image.py
+
+# ------------------------------------------------------------
+# Host-Side Testing / Development Dependencies
+# ------------------------------------------------------------
+pytest>=7.4
+pytest-cov>=4.1
+pytest-mock>=3.11 
