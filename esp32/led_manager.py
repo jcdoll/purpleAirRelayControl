@@ -56,7 +56,7 @@ class LEDManager:
                 'wifi_connecting': (255, 165, 0),  # Orange (connecting)
                 'wifi_connected': (0, 0, 255),     # Blue (connected)
                 'vent_on': (0, 255, 0),     # Green (ventilation running)
-                'vent_off': (255, 255, 0),  # Yellow (ventilation off)
+                'vent_off': (255, 0, 0),    # Red (ventilation off)
                 'error': (255, 0, 0),       # Red (error state)
             }
             
