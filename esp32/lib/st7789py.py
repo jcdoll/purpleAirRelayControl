@@ -50,7 +50,7 @@ This driver supports:
 
 """
 
-from math import sin, cos
+from math import cos, sin
 
 #
 # This allows sphinx to build the docs

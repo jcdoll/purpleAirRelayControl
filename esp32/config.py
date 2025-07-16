@@ -31,9 +31,9 @@ LOCAL_RETRY_DELAY_MS = 500  # 500ms between retry attempts
 API_MAX_AGE = 3600  # Maximum age for API data in seconds
 
 # Ventilation Control
-AQI_ENABLE_THRESHOLD = 120   # Enable ventilation below this AQI
+AQI_ENABLE_THRESHOLD = 120  # Enable ventilation below this AQI
 AQI_DISABLE_THRESHOLD = 130  # Disable ventilation above this AQI
-DEFAULT_STATE = False        # Default relay state on startup
+DEFAULT_STATE = False  # Default relay state on startup
 
 # Hardware Pins (ESP32-S3 Reverse TFT Feather)
 RELAY1_PIN = 5
@@ -49,16 +49,16 @@ NEOPIXEL_PIN = 33  # Built-in NeoPixel data pin (Adafruit ESP32-S3 Reverse TFT F
 NEOPIXEL_POWER_PIN = 21  # NeoPixel power enable (must be HIGH) - WORKING, DON'T CHANGE
 
 # Display Configuration (ST7789 - Adafruit official pins from pinout diagram)
-TFT_CS = 42          # GPIO42 per official pinout
-TFT_RST = 41         # GPIO41 per official pinout  
-TFT_DC = 40          # GPIO40 per official pinout
-TFT_MOSI = 35        # SPI MOSI
-TFT_SCLK = 36        # SPI SCLK
-TFT_BACKLIGHT = 45   # GPIO45 per official pinout
-TFT_I2C_POWER = 7    # GPIO7 per official pinout - I2C and TFT power enable
-TFT_WIDTH = 135      # Display width (landscape orientation)
-TFT_HEIGHT = 240     # Display height (landscape orientation)
-TFT_ROTATION = 1     # Landscape mode (matches original HARDWARE.md)
+TFT_CS = 42  # GPIO42 per official pinout
+TFT_RST = 41  # GPIO41 per official pinout
+TFT_DC = 40  # GPIO40 per official pinout
+TFT_MOSI = 35  # SPI MOSI
+TFT_SCLK = 36  # SPI SCLK
+TFT_BACKLIGHT = 45  # GPIO45 per official pinout
+TFT_I2C_POWER = 7  # GPIO7 per official pinout - I2C and TFT power enable
+TFT_WIDTH = 135  # Display width (landscape orientation)
+TFT_HEIGHT = 240  # Display height (landscape orientation)
+TFT_ROTATION = 1  # Landscape mode (matches original HARDWARE.md)
 
 # Google Forms Logging
 GOOGLE_FORMS_URL = ""  # Your Google Forms submission URL
@@ -66,6 +66,7 @@ GOOGLE_FORMS_ENABLED = False
 LOG_INTERVAL = 900  # 15 minutes in seconds
 
 # System Configuration
-WATCHDOG_TIMEOUT = 0  # milliseconds - DISABLED for testing (was 16000) so that REPL is not killed
+# Default watchdog = 16000, disabled (0) to avoid breaking serial transfer during dev
+WATCHDOG_TIMEOUT = 0
 DEBUG_MODE = True
 MEMORY_DEBUG = False

@@ -1,23 +1,29 @@
-# Status display utilities for ESP32 MicroPython  
+# Status display utilities for ESP32 MicroPython
 # Shared status printing and formatting functions
 
 import time
 
-def print_sensor_status(outdoor_aqi, indoor_aqi, ventilation_status, reason="Status update"):
+
+def print_sensor_status(
+    outdoor_aqi, indoor_aqi, ventilation_status, reason="Status update"
+):
     """
     Print formatted sensor status (extracted from main.py)
     Args:
         outdoor_aqi: Outdoor AQI value (-1 if unavailable)
-        indoor_aqi: Indoor AQI value (-1 if unavailable)  
+        indoor_aqi: Indoor AQI value (-1 if unavailable)
         ventilation_status: Dict with 'enabled', 'mode', 'reason' keys
         reason: Reason for status update
     """
     current_time = time.time()
-    
+
     print(f"[{int(current_time)}] {reason}")
     print(f"  AQI: Outdoor={outdoor_aqi:.1f}, Indoor={indoor_aqi:.1f}")
-    print(f"  Mode: {ventilation_status['mode']} | Ventilation: {'ON' if ventilation_status['enabled'] else 'OFF'}")
+    print(
+        f"  Mode: {ventilation_status['mode']} | Ventilation: {'ON' if ventilation_status['enabled'] else 'OFF'}"
+    )
     print(f"  Reason: {ventilation_status['reason']}")
+
 
 def print_sensor_countdown_timers(purple_air_client):
     """
@@ -26,24 +32,44 @@ def print_sensor_countdown_timers(purple_air_client):
         purple_air_client: PurpleAirClient instance with timing attributes
     """
     import config
+
     current_time = time.time()
-    
+
     print("--- Sensor Check Timers ---")
-    
+
     # Outdoor sensor timers
-    time_until_outdoor_local = max(0, config.LOCAL_POLL_INTERVAL - (current_time - purple_air_client.last_outdoor_local_poll))
-    time_until_outdoor_api = max(0, config.API_POLL_INTERVAL - (current_time - purple_air_client.last_outdoor_api_poll))
-    
+    time_until_outdoor_local = max(
+        0,
+        config.LOCAL_POLL_INTERVAL
+        - (current_time - purple_air_client.last_outdoor_local_poll),
+    )
+    time_until_outdoor_api = max(
+        0,
+        config.API_POLL_INTERVAL
+        - (current_time - purple_air_client.last_outdoor_api_poll),
+    )
+
     print(f"  Outdoor - Time until next local check: {int(time_until_outdoor_local)}s")
     print(f"  Outdoor - Time until next API check: {int(time_until_outdoor_api)}s")
-    
+
     # Indoor sensor timers (if configured)
     if config.INDOOR_SENSOR_IDS or purple_air_client.local_indoor_ips:
-        time_until_indoor_local = max(0, config.LOCAL_POLL_INTERVAL - (current_time - purple_air_client.last_indoor_local_poll))
-        time_until_indoor_api = max(0, config.API_POLL_INTERVAL - (current_time - purple_air_client.last_indoor_api_poll))
-        
-        print(f"  Indoor - Time until next local check: {int(time_until_indoor_local)}s")
+        time_until_indoor_local = max(
+            0,
+            config.LOCAL_POLL_INTERVAL
+            - (current_time - purple_air_client.last_indoor_local_poll),
+        )
+        time_until_indoor_api = max(
+            0,
+            config.API_POLL_INTERVAL
+            - (current_time - purple_air_client.last_indoor_api_poll),
+        )
+
+        print(
+            f"  Indoor - Time until next local check: {int(time_until_indoor_local)}s"
+        )
         print(f"  Indoor - Time until next API check: {int(time_until_indoor_api)}s")
+
 
 def print_system_info(wifi_manager=None, memory_info=True):
     """
@@ -53,23 +79,25 @@ def print_system_info(wifi_manager=None, memory_info=True):
         memory_info: Whether to include memory usage
     """
     print("--- System Status ---")
-    
+
     if wifi_manager and wifi_manager.is_connected():
         print(f"  WiFi: Connected")
         print(f"    IP: {wifi_manager.get_ip()}")
         print(f"    Signal: {wifi_manager.get_rssi()} dBm")
     else:
         print(f"  WiFi: Disconnected")
-    
+
     if memory_info:
         try:
             import gc
+
             gc.collect()
             free_mem = gc.mem_free()
             used_mem = gc.mem_alloc()
             print(f"  Memory: Free={free_mem/1024:.1f}KB, Used={used_mem/1024:.1f}KB")
         except Exception:
             print(f"  Memory: Information unavailable")
+
 
 def print_sensor_config(purple_air_client):
     """
@@ -78,7 +106,7 @@ def print_sensor_config(purple_air_client):
         purple_air_client: PurpleAirClient instance
     """
     import config
-    
+
     print("--- Sensor Configuration ---")
     print(f"  Outdoor sensors:")
     print(f"    Local IPs: {purple_air_client.local_outdoor_ips}")
@@ -86,12 +114,15 @@ def print_sensor_config(purple_air_client):
     print(f"  Indoor sensors:")
     print(f"    Local IPs: {purple_air_client.local_indoor_ips}")
     print(f"    API IDs: {config.INDOOR_SENSOR_IDS}")
-    
+
     # Check if API key is properly configured
-    api_key_valid = (config.PURPLE_AIR_API_KEY and 
-                     config.PURPLE_AIR_API_KEY.strip() != "" and
-                     len(config.PURPLE_AIR_API_KEY) > 10)
+    api_key_valid = (
+        config.PURPLE_AIR_API_KEY
+        and config.PURPLE_AIR_API_KEY.strip() != ""
+        and len(config.PURPLE_AIR_API_KEY) > 10
+    )
     print(f"  API Key: {'Configured' if api_key_valid else 'Not configured'}")
+
 
 def format_aqi_value(aqi_value, decimal_places=1):
     """
@@ -105,6 +136,7 @@ def format_aqi_value(aqi_value, decimal_places=1):
     if aqi_value < 0:
         return "---"
     return f"{aqi_value:.{decimal_places}f}"
+
 
 def format_duration(seconds):
     """
@@ -125,12 +157,14 @@ def format_duration(seconds):
         remaining_minutes = int((seconds % 3600) // 60)
         return f"{hours}h {remaining_minutes}m"
 
+
 def print_startup_banner():
     """Print application startup banner"""
     print("=" * 40)
     print("PurpleAir Relay Control - ESP32 MicroPython")
     print("=" * 40)
 
+
 def print_separator(char="-", length=40):
     """Print a separator line"""
-    print(char * length) 
+    print(char * length)

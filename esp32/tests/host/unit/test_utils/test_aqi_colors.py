@@ -6,6 +6,7 @@ from utils import aqi_colors
 # Helper to convert RGB888 to RGB565 for expectation comparison
 # ---------------------------------------------------------------------------
 
+
 def rgb888_to_565(r, g, b):
     r5 = (r >> 3) & 0x1F
     g6 = (g >> 2) & 0x3F
@@ -40,4 +41,4 @@ def test_rgb_and_565_consistency():
 def test_color_names():
     # Spot-check a couple of values
     assert aqi_colors.get_aqi_color_name(25) == "green"
-    assert aqi_colors.get_aqi_color_name(125) == "orange" 
+    assert aqi_colors.get_aqi_color_name(125) == "orange"

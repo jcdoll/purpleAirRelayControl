@@ -1,9 +1,10 @@
-import math
 import importlib
 import json
+import math
 from pathlib import Path
 
 import config
+
 
 # Utility simple response for requests_stub
 class _SimpleResp:
@@ -75,7 +76,9 @@ def test_get_sensor_data_api_success(requests_stub):
     client.api_key = "dummy"
 
     expected_aqi = client.pm25_to_aqi(pm25)
-    assert math.isclose(client.get_sensor_data_api(sensor_id), expected_aqi, abs_tol=0.1)
+    assert math.isclose(
+        client.get_sensor_data_api(sensor_id), expected_aqi, abs_tol=0.1
+    )
 
 
 def test_get_multiple_sensors_api_average(requests_stub):
@@ -96,4 +99,4 @@ def test_get_multiple_sensors_api_average(requests_stub):
 
     avg_pm = sum(pm_values) / len(pm_values)
     expected_aqi = client.pm25_to_aqi(avg_pm)
-    assert math.isclose(client.get_multiple_sensors_api(ids), expected_aqi, abs_tol=0.1) 
+    assert math.isclose(client.get_multiple_sensors_api(ids), expected_aqi, abs_tol=0.1)

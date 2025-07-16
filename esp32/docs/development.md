@@ -336,6 +336,10 @@ pip install pre-commit  # already in requirements.txt
 pre-commit install       # installs the .git/hooks/pre-commit script
 ```
 
-After that, `git commit` will format/lint the staged files.  If any check fails the commit is aborted; simply fix the issues (or run `pre-commit run --all-files` to auto-apply) and commit again.
+After that, `git commit` will run the hooks **only if you installed them**.
 
-CI also runs `pre-commit run --all-files`, so hooks must pass before PRs can merge. 
+If you skip this step the commit proceeds normally; you can still run checks manually anytime:
+
+```bash
+pre-commit run --all-files
+``` 

@@ -16,4 +16,4 @@ def test_end_to_end_decision():
 
     # Good AQI — ventilation turns ON
     controller.update(outdoor_aqi=50)
-    assert controller.ventilation_enabled is True 
+    assert controller.ventilation_enabled is True

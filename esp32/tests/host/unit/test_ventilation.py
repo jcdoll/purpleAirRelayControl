@@ -41,4 +41,4 @@ def test_purpleair_control_logic():
 
     # AQI too high -> should disable
     controller.update(outdoor_aqi=150)
-    assert controller.ventilation_enabled is False 
+    assert controller.ventilation_enabled is False

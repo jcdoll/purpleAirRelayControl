@@ -1,0 +1,24 @@
+# Deployment manifest for ESP32 project
+# One file per line, paths are relative to this file
+# Lines starting with # are ignored
+
+lib/st7789py.py
+lib/vga1_8x8.py
+
+boot.py
+main.py
+config.py
+secrets.py  # Optional – will be skipped if missing
+wifi_manager.py
+purple_air.py
+ventilation.py
+display_manager.py
+led_manager.py
+google_logger.py
+
+# Shared utilities
+utils/__init__.py
+utils/error_handling.py
+utils/aqi_colors.py
+utils/connection_retry.py
+utils/status_display.py 

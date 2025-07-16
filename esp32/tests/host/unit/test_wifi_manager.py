@@ -1,5 +1,6 @@
 import importlib
 
+
 def test_wifi_connect_cycle():
     wifi_manager = importlib.import_module("wifi_manager")
     WM = wifi_manager.WiFiManager()
@@ -17,4 +18,4 @@ def test_wifi_connect_cycle():
 
     # Reconnect path
     assert WM.reconnect() is True
-    assert WM.is_connected() is True 
+    assert WM.is_connected() is True
