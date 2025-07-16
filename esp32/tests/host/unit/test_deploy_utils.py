@@ -2,7 +2,9 @@ import importlib.util
 from pathlib import Path
 
 # Dynamically load the deploy module so we do not rely on it being a package
-DEPLOY_PATH = Path(__file__).resolve().parents[3] / "esp32" / "deploy.py"
+# Locate esp32/deploy.py regardless of where tests are executed from
+ESP32_DIR = Path(__file__).resolve().parents[3]
+DEPLOY_PATH = ESP32_DIR / "deploy.py"
 
 spec = importlib.util.spec_from_file_location("deploy", DEPLOY_PATH)
 deploy = importlib.util.module_from_spec(spec)  # type: ignore
