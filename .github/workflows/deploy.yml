@@ -3,8 +3,12 @@ name: Deploy React App to GitHub Pages
 on:
   push:
     branches: [ master ]
+    paths:
+      - 'dashboard/**'
   pull_request:
     branches: [ master ]
+    paths:
+      - 'dashboard/**'
 
 permissions:
   contents: read
