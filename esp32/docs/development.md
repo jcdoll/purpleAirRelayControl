@@ -323,3 +323,19 @@ mpremote exec "import gc; print(gc.mem_free())"
 - Update documentation when adding new procedures
 - Document hardware changes in hardware.md
 - Keep commit messages descriptive and focused 
+
+## Local Pre-commit Hooks
+
+This repository uses the **pre-commit** framework to run Black, isort, and flake8 automatically whenever you commit.
+
+One-time setup:
+
+```bash
+# Inside the project root (venv active)
+pip install pre-commit  # already in requirements.txt
+pre-commit install       # installs the .git/hooks/pre-commit script
+```
+
+After that, `git commit` will format/lint the staged files.  If any check fails the commit is aborted; simply fix the issues (or run `pre-commit run --all-files` to auto-apply) and commit again.
+
+CI also runs `pre-commit run --all-files`, so hooks must pass before PRs can merge. 
