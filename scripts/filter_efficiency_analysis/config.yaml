@@ -1,0 +1,79 @@
+# Filter Efficiency Analysis Configuration
+# Customize these parameters for your specific building and HVAC system
+
+building:
+  # Building dimensions
+  area_sq_ft: 3000          # Total floor area in square feet
+  ceiling_height_ft: 9      # Average ceiling height in feet
+  
+  # Calculated building volume (auto-calculated from above)
+  # volume_m3: 765.0  # This will be calculated: area × height × 0.0283 m³/ft³
+
+hvac:
+  # HVAC system specifications
+  flow_rate_cfm: 1500       # Air flow rate in cubic feet per minute
+  
+  # Calculated filtration rate (auto-calculated from above)
+  # filtration_rate_m3h: 2550.0  # This will be calculated: CFM × 1.7 m³/h per CFM
+  
+  # Natural deposition rate (particle settling/removal)
+  deposition_rate_percent: 10  # Percentage of building volume per hour
+
+# Analysis parameters
+analysis:
+  # Time periods for night-time analysis (sealed building conditions)
+  night_start_hour: 22      # 10 PM - start of sealed period
+  night_end_hour: 8         # 8 AM - end of sealed period
+  
+  # Data quality settings
+  min_data_points: 10       # Minimum night-time data points required
+  outlier_threshold: 2.0    # IQR threshold for outlier detection
+  
+  # Model parameters
+  min_r_squared: 0.5        # Minimum R² for reliable results
+  efficiency_alert_threshold: 0.7  # Alert if efficiency drops below 70%
+
+# Google Sheets configuration
+google_sheets:
+  # Spreadsheet ID (extract from your Google Sheets URL)
+  # https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/edit
+  spreadsheet_id: "1Vc-x1wph20yg4KeYVHZjrQMLsKetaGiaZCDtLoLROQk"
+  
+  # Sheet names and ranges
+  data_sheet: "Form Responses 1"   # Sheet containing sensor data (from Google Forms)
+  results_sheet: "FilterAnalysis"  # Sheet for analysis results
+  
+  # Data columns (adjust to match your sheet structure)
+  columns:
+    timestamp: "A"              # Timestamp column
+    indoor_aqi: "E"             # IndoorAirQuality column  
+    outdoor_aqi: "D"            # OutdoorAirQuality column
+  
+  # Data range settings
+  header_row: 1               # Row containing column headers
+  max_rows: 10000             # Maximum rows to read (for performance)
+
+# Analysis schedule
+schedule:
+  # How many days of historical data to analyze
+  # Set to large number (e.g., 365) to reprocess entire dataset during algorithm development
+  # Set to smaller number (e.g., 7) for production to analyze recent data only
+  analysis_window_days: 365   # Use entire dataset for algorithm development
+  
+  # How often to run the analysis
+  frequency: "daily"          # daily, weekly, or manual
+  
+  # Results retention  
+  keep_results_days: 0     # Keep analysis results for N days (or set to 0 for unlimited)
+
+# Alerts and notifications
+alerts:
+  # Filter replacement recommendations
+  efficiency_thresholds:
+    excellent: 0.85           # > 85% efficiency
+    good: 0.70               # 70-85% efficiency  
+    declining: 0.50          # 50-70% efficiency
+    poor: 0.50               # < 50% efficiency
+  
+  # Model quality warnings
+  min_confidence: 0.5         # Minimum model R² for reliable results 

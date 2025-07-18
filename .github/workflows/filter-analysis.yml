@@ -1,0 +1,125 @@
+name: Filter Efficiency Analysis
+
+# Schedule the analysis to run daily at 9 AM PDT / 8 AM PST  
+# You can also trigger it manually from the GitHub Actions tab
+on:
+  schedule:
+    - cron: '0 16 * * *'  # Daily at 9 AM PDT / 8 AM PST
+  workflow_dispatch:      # Allow manual triggering
+    inputs:
+      days_back:
+        description: 'Number of days of data to analyze'
+        required: false
+        default: '7'
+        type: string
+      dry_run:
+        description: 'Run in dry-run mode (no write to sheets)'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Cache Python dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('scripts/filter_efficiency_analysis/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+          
+    - name: Install dependencies
+      run: |
+        cd scripts/filter_efficiency_analysis
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Run filter efficiency analysis
+      env:
+        # Google Sheets credentials stored as GitHub secret
+        GOOGLE_SHEETS_CREDENTIALS: ${{ secrets.GOOGLE_SHEETS_CREDENTIALS }}
+      run: |
+        cd scripts/filter_efficiency_analysis
+        
+        # Set parameters
+        DAYS_BACK="${{ github.event.inputs.days_back || '7' }}"
+        DRY_RUN_FLAG=""
+        if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+          DRY_RUN_FLAG="--dry-run"
+        fi
+        
+        # Run the analysis
+        python analyze_filter_performance.py \
+          --days $DAYS_BACK \
+          --log-level INFO \
+          --output analysis_results.json \
+          $DRY_RUN_FLAG
+          
+    - name: Upload analysis results
+      if: always()  # Upload results even if analysis fails
+      uses: actions/upload-artifact@v3
+      with:
+        name: filter-analysis-results-${{ github.run_number }}
+        path: scripts/filter_efficiency_analysis/analysis_results.json
+        retention-days: 30
+        
+    - name: Create summary comment (on manual run)
+      if: github.event_name == 'workflow_dispatch'
+      run: |
+        cd scripts/filter_efficiency_analysis
+        
+        # Extract key metrics from results if available
+        if [ -f analysis_results.json ]; then
+          echo "## 🔍 Filter Efficiency Analysis Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Try to extract summary using Python
+          python3 -c "
+        import json
+        import sys
+        
+        try:
+            with open('analysis_results.json', 'r') as f:
+                results = json.load(f)
+            
+            if results.get('success'):
+                summary = results['summary']
+                efficiency = summary['filter_efficiency']
+                confidence = summary['model_confidence']
+                ach = summary['air_changes_per_hour']
+                
+                print(f\"✅ **Filter Efficiency:** {efficiency['value']}% ({efficiency['status']})\")
+                print(f\"📊 **Model Confidence:** {confidence['value']}%\")
+                print(f\"🌬️ **Air Changes:** {ach['value']} ACH\")
+                print(f\"📅 **Analysis Date:** {summary['last_updated'][:19]}\")
+                
+                if summary.get('alerts'):
+                    print(f\"\n🚨 **Alerts:**\")
+                    for alert in summary['alerts']:
+                        print(f\"- {alert}\")
+                
+                if summary.get('next_actions'):
+                    print(f\"\n📋 **Recommended Actions:**\")
+                    for i, action in enumerate(summary['next_actions'], 1):
+                        print(f\"{i}. {action}\")
+            else:
+                print(f\"❌ **Analysis Failed:** {results.get('error', 'Unknown error')}\")
+                
+        except Exception as e:
+            print(f\"❌ **Error reading results:** {e}\")
+        " >> $GITHUB_STEP_SUMMARY
+        
+        else
+          echo "❌ **Analysis results not found**" >> $GITHUB_STEP_SUMMARY
+        fi 
