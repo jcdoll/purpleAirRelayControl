@@ -65,6 +65,7 @@ NEOPIXEL_PIN = 33  # Built-in NeoPixel data pin (Adafruit ESP32-S3 Reverse TFT F
 NEOPIXEL_POWER_PIN = 21  # NeoPixel power enable (must be HIGH) - WORKING, DON'T CHANGE
 
 # Display Configuration (ST7789 - Adafruit official pins from pinout diagram)
+# https://learn.adafruit.com/esp32-s3-reverse-tft-feather/pinouts
 TFT_CS = 42  # GPIO42 per official pinout
 TFT_RST = 41  # GPIO41 per official pinout
 TFT_DC = 40  # GPIO40 per official pinout

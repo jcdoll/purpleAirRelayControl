@@ -4,8 +4,10 @@ import { getAQIClass } from '../../utils/aqiUtils';
 
 // Create CSS class mapper that uses the centralized AQI classification
 const getAQICSSClass = (aqiValue) => {
+  if (isNaN(aqiValue)) return '';
+
   const baseClass = getAQIClass(aqiValue);
-  
+
   // Map AQI utility classes to CSS module classes
   const classMap = {
     'aqi-good': styles.aqiGood,
@@ -15,7 +17,7 @@ const getAQICSSClass = (aqiValue) => {
     'aqi-very-unhealthy': styles.aqiVeryUnhealthy,
     'aqi-hazardous': styles.aqiHazardous
   };
-  
+
   return classMap[baseClass] || '';
 };
 
@@ -25,23 +27,18 @@ const SummaryCards = ({ summary }) => {
   return (
     <div className={styles.summaryCards}>
       <div className={styles.card}>
-        <h3 className={styles.cardTitle}>Peak Hour</h3>
-        <div className={styles.cardValue}>{summary.peakHour.hour}</div>
-        <div className={styles.cardLabel}>{summary.peakHour.aqi} AQI avg</div>
+        <h3 className={styles.cardTitle}>Indoor</h3>
+        <div className={`${styles.cardValue} ${getAQICSSClass(parseFloat(summary.indoorLatest || 0))}`}>
+          {summary.indoorLatest}
+        </div>
+        <div className={styles.cardLabel}>Latest AQI</div>
       </div>
       <div className={styles.card}>
-        <h3 className={styles.cardTitle}>Indoor Average</h3>
-        <div className={`${styles.cardValue} ${getAQICSSClass(parseFloat(summary.indoorAvg || 0))}`}>
-          {summary.indoorAvg}
+        <h3 className={styles.cardTitle}>Outdoor</h3>
+        <div className={`${styles.cardValue} ${getAQICSSClass(parseFloat(summary.outdoorLatest || 0))}`}>
+          {summary.outdoorLatest}
         </div>
-        <div className={styles.cardLabel}>AQI</div>
-      </div>
-      <div className={styles.card}>
-        <h3 className={styles.cardTitle}>Outdoor Average</h3>
-        <div className={`${styles.cardValue} ${getAQICSSClass(parseFloat(summary.outdoorAvg || 0))}`}>
-          {summary.outdoorAvg}
-        </div>
-        <div className={styles.cardLabel}>AQI</div>
+        <div className={styles.cardLabel}>Latest AQI</div>
       </div>
     </div>
   );

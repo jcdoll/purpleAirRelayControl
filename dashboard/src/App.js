@@ -9,8 +9,7 @@ import {
   processHourlyStats,
   processTimeSeriesData,
   processCorrelationData,
-  processAnnualHeatmapData,
-  calculatePatternSummary
+  processAnnualHeatmapData
 } from './utils/chartDataProcessors';
 import { formatDateToYMD } from './utils/common';
 
@@ -34,7 +33,7 @@ import { CSV_URL, REFRESH_INTERVAL, VIEW_TYPES, TIME_CONSTANTS } from './constan
 function App() {
   // Consolidated state management
   const [state, setState] = useState({
-    selectedView: VIEW_TYPES.HEATMAP,
+    selectedView: VIEW_TYPES.TIMELINE,
     dateRange: 7,
     selectedYear: new Date().getFullYear(),
     aggregation: '95th',
@@ -196,8 +195,20 @@ function App() {
     [data, state.selectedYear, state.aggregation]
   );
 
-  // Calculate pattern summary
-  const summary = useMemo(() => calculatePatternSummary(data, filteredData), [data, filteredData]);
+  // Calculate latest sensor values summary
+  const summary = useMemo(() => {
+    if (data.length === 0) {
+      return { indoorLatest: 'N/A', outdoorLatest: 'N/A' };
+    }
+    const latest = data[data.length - 1];
+    const indoor = (!isNaN(latest.IndoorAirQuality) && latest.IndoorAirQuality !== null)
+      ? latest.IndoorAirQuality.toFixed(1)
+      : 'N/A';
+    const outdoor = (!isNaN(latest.OutdoorAirQuality) && latest.OutdoorAirQuality !== null)
+      ? latest.OutdoorAirQuality.toFixed(1)
+      : 'N/A';
+    return { indoorLatest: indoor, outdoorLatest: outdoor };
+  }, [data]);
 
   // Handle loading and error states
   if (loading || error) {
