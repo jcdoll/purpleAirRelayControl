@@ -19,3 +19,5 @@ dashboard/yarn-error.log*
 .coverage
 .ruff_cache/
 .pytest_cache/
+*.pyc
+__pycache__/

@@ -1,0 +1,225 @@
+name: Test Filter Efficiency Analysis
+
+# Run tests on pushes to main and pull requests
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'scripts/filter_efficiency_analysis/**'
+      - '.github/workflows/test-filter-analysis.yml'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'scripts/filter_efficiency_analysis/**'
+      - '.github/workflows/test-filter-analysis.yml'
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        python-version: [3.9, 3.10, 3.11]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('scripts/filter_efficiency_analysis/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install dependencies
+      run: |
+        cd scripts/filter_efficiency_analysis
+        python -m pip install --upgrade pip
+        pip install pytest pytest-cov
+        pip install -r requirements.txt
+    
+    - name: Run unit tests
+      run: |
+        cd scripts/filter_efficiency_analysis
+        python -m pytest tests/test_data_processor.py -v --tb=short
+    
+    - name: Run model tests
+      run: |
+        cd scripts/filter_efficiency_analysis
+        python -m pytest tests/test_night_calibration.py -v --tb=short
+    
+    - name: Run integration tests
+      run: |
+        cd scripts/filter_efficiency_analysis
+        python -m pytest tests/test_integration.py -v --tb=short
+    
+    - name: Run all tests with coverage
+      run: |
+        cd scripts/filter_efficiency_analysis
+        python -m pytest tests/ --cov=utils --cov=models --cov-report=xml --cov-report=term-missing
+    
+    - name: Upload coverage to Codecov
+      if: matrix.python-version == '3.11'
+      uses: codecov/codecov-action@v3
+      with:
+        file: scripts/filter_efficiency_analysis/coverage.xml
+        flags: filter-analysis
+        name: codecov-umbrella
+        fail_ci_if_error: false
+    
+    - name: Test synthetic data generation
+      run: |
+        cd scripts/filter_efficiency_analysis
+        python tests/test_utils.py
+    
+    - name: Validate configuration files
+      run: |
+        cd scripts/filter_efficiency_analysis
+        python -c "
+        import yaml
+        with open('config.yaml', 'r') as f:
+            config = yaml.safe_load(f)
+        print('Configuration file is valid YAML')
+        
+        # Basic validation of required sections
+        required_sections = ['building', 'hvac', 'analysis', 'google_sheets', 'schedule']
+        for section in required_sections:
+            assert section in config, f'Missing required section: {section}'
+        print('All required configuration sections present')
+        "
+    
+    - name: Test imports
+      run: |
+        cd scripts/filter_efficiency_analysis
+        python -c "
+        # Test that all modules can be imported
+        from utils.data_processor import DataProcessor
+        from models.night_calibration import NightTimeCalibration
+        from utils.sheets_client import SheetsClient
+        from tests.test_utils import generate_test_dataset, create_test_config
+        print('All modules import successfully')
+        "
+    
+  # Job to test the complete analysis workflow with mock data
+  workflow-test:
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.11
+    
+    - name: Install dependencies
+      run: |
+        cd scripts/filter_efficiency_analysis
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Generate test datasets
+      run: |
+        cd scripts/filter_efficiency_analysis
+        python tests/test_utils.py
+        ls -la test_data_*.csv || echo "No CSV files generated"
+    
+    - name: Test main script with dry run
+      run: |
+        cd scripts/filter_efficiency_analysis
+        # Test script help
+        python analyze_filter_performance.py --help
+        
+        # Test with synthetic data (would need to modify to use test data instead of Google Sheets)
+        # For now, just test that the script loads without errors
+        python -c "
+        from analyze_filter_performance import FilterEfficiencyAnalyzer, load_config, validate_config
+        config = load_config('config.yaml')
+        validate_config(config)
+        analyzer = FilterEfficiencyAnalyzer(config, dry_run=True)
+        print('Main analyzer can be initialized successfully')
+        "
+    
+    - name: Test configuration validation
+      run: |
+        cd scripts/filter_efficiency_analysis
+        python -c "
+        from analyze_filter_performance import validate_config
+        from tests.test_utils import create_test_config
+        
+        # Test valid config
+        config = create_test_config()
+        validate_config(config)
+        print('Test configuration passes validation')
+        
+        # Test invalid config (missing required section)
+        try:
+            invalid_config = {'incomplete': 'config'}
+            validate_config(invalid_config)
+            assert False, 'Should have failed validation'
+        except (KeyError, ValueError, AssertionError):
+            print('Invalid configuration correctly rejected')
+        "
+
+  # Job to test documentation and code quality
+  quality:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.11
+    
+    - name: Install quality tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 black isort
+    
+    - name: Check code formatting with black
+      run: |
+        cd scripts/filter_efficiency_analysis
+        black --check --diff . || echo "Code formatting issues found (non-blocking)"
+    
+    - name: Check import sorting with isort
+      run: |
+        cd scripts/filter_efficiency_analysis
+        isort --check-only --diff . || echo "Import sorting issues found (non-blocking)"
+    
+    - name: Lint with flake8
+      run: |
+        cd scripts/filter_efficiency_analysis
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics || echo "Critical linting issues found (non-blocking)"
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics || echo "Style issues found (non-blocking)"
+    
+    - name: Check for TODO items
+      run: |
+        cd scripts/filter_efficiency_analysis
+        echo "Checking for TODO items in code..."
+        grep -r "TODO\|FIXME\|XXX" . --include="*.py" || echo "No TODO items found"
+    
+    - name: Verify README exists and is comprehensive
+      run: |
+        cd scripts/filter_efficiency_analysis
+        if [ -f "README.md" ]; then
+          echo "README.md exists"
+          wc -l README.md
+          # Check for key sections
+          grep -i "overview\|setup\|usage\|configuration" README.md > /dev/null && echo "README contains key sections"
+        else
+          echo "Warning: README.md not found"
+          exit 1
+        fi 

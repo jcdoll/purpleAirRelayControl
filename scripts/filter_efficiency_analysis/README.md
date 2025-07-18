@@ -195,6 +195,68 @@ You can manually trigger the analysis:
 3. Click "Run workflow"
 4. Optionally adjust days of data or enable dry-run mode
 
+## Testing
+
+The analysis system includes comprehensive unit and integration tests to ensure reliability. Tests use synthetic data with known parameters to validate the algorithms.
+
+### Run All Tests
+
+```bash
+# Install test dependencies
+pip install pytest pytest-cov
+
+# Run all tests with coverage
+python -m pytest tests/ --cov=utils --cov=models --cov-report=term-missing
+
+# Quick test run (no coverage)
+python -m pytest tests/ -v
+```
+
+### Run Specific Test Categories
+
+```bash
+# Unit tests only
+python -m pytest tests/test_data_processor.py tests/test_night_calibration.py -v
+
+# Integration tests only  
+python -m pytest tests/test_integration.py -v
+
+# Test specific functionality
+python -m pytest tests/test_data_processor.py::TestAQIConversion -v
+python -m pytest tests/test_night_calibration.py::TestParameterEstimation -v
+```
+
+### Test Coverage Overview
+
+- **Data Processing Tests** (14 tests): AQI conversion, time filtering, outlier detection, data preparation
+- **Night Calibration Tests** (13 tests): Model fitting, parameter estimation, predictions, diagnostics  
+- **Integration Tests** (13 tests): End-to-end workflows, multiple scenarios, edge cases, robustness
+
+### Synthetic Data Testing
+
+Tests use realistic synthetic data with known filter efficiency and infiltration parameters:
+
+```bash
+# Test specific scenarios
+python -m pytest tests/test_integration.py::TestEndToEndAnalysis::test_different_filter_scenarios -v
+
+# Test with mock data
+python -m pytest tests/test_integration.py::TestEndToEndAnalysis::test_complete_analysis_workflow -v
+```
+
+The synthetic data includes:
+- **Good Filter** (80% efficiency): High-quality pleated filter
+- **Degraded Filter** (60% efficiency): Filter needing replacement  
+- **Poor Filter** (40% efficiency): Minimal filtration effectiveness
+
+### Continuous Integration
+
+Tests run automatically on GitHub Actions for:
+- Python 3.9, 3.10, 3.11 compatibility
+- Code quality checks (flake8, black, isort)
+- Test coverage reporting
+- Synthetic data validation
+
 ## Usage Examples
 
 ### Basic Analysis
@@ -381,24 +443,3 @@ python analyze_filter_performance.py --config office_config.yaml
 - Indoor particle generation is minimal at night
 - HVAC system operation is consistent
 
-## Contributing
-
-This system is designed to be extensible. Areas for improvement:
-
-- **Additional Models**: Implement other analysis methods (Extended Kalman Filter, machine learning)
-- **Visualization**: Add charts and plots for better insights
-- **Integration**: Connect with smart home systems or IoT platforms
-- **Validation**: Compare with professional HVAC testing
-
-## Support
-
-For issues and questions:
-
-1. Check the troubleshooting guide above
-2. Review GitHub Issues for similar problems  
-3. Run with `--log-level DEBUG` for detailed diagnostics
-4. Verify your building parameters and data quality
-
-## License
-
-This project is part of the Purple Air Relay Control system and follows the same licensing terms. 

@@ -14,12 +14,12 @@ def pm25_to_aqi(pm25: float) -> float:
     """Convert PM2.5 concentration to AQI using EPA breakpoints."""
     breakpoints = [
         (0.0, 12.0, 0, 50),      # Good
-        (12.1, 35.4, 51, 100),   # Moderate  
-        (35.5, 55.4, 101, 150),  # Unhealthy for Sensitive
-        (55.5, 150.4, 151, 200), # Unhealthy
-        (150.5, 250.4, 201, 300),# Very Unhealthy
-        (250.5, 350.4, 301, 400),# Hazardous
-        (350.5, 500.4, 401, 500) # Hazardous
+        (12.0, 35.4, 50, 100),   # Moderate  
+        (35.4, 55.4, 100, 150),  # Unhealthy for Sensitive
+        (55.4, 150.4, 150, 200), # Unhealthy
+        (150.4, 250.4, 200, 300),# Very Unhealthy
+        (250.4, 350.4, 300, 400),# Hazardous
+        (350.4, 500.4, 400, 500) # Hazardous
     ]
     
     if pm25 <= 0:
@@ -285,6 +285,15 @@ def create_test_config(
             "analysis_window_days": 14,
             "frequency": "daily",
             "keep_results_days": 0
+        },
+        "alerts": {
+            "min_confidence": 0.6,
+            "efficiency_thresholds": {
+                "excellent": 0.85,
+                "good": 0.70,
+                "declining": 0.50,
+                "poor": 0.30
+            }
         }
     }
     
