@@ -96,7 +96,7 @@ def solve_filter_efficiency_from_ratio(
         return 0.0
 
     efficiency = numerator / denominator
-    return max(0.0, min(1.0, efficiency))  # Clamp to [0, 1]
+    return max(0.0, efficiency)  # Allow efficiency > 100% to indicate model issues
 
 
 def calculate_infiltration_components(config: Dict[str, Any]) -> Dict[str, float]:
@@ -221,4 +221,4 @@ def solve_filter_efficiency_from_ratio_with_erv(
         return 0.0
 
     efficiency = numerator / denominator
-    return max(0.0, min(1.0, efficiency))  # Clamp to [0, 1]
+    return max(0.0, efficiency)  # Allow efficiency > 100% to indicate model issues

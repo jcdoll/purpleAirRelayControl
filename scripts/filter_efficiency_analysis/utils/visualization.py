@@ -8,7 +8,7 @@ across test files and ensure consistent visualization across the entire test sui
 import warnings
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import matplotlib
 import matplotlib.dates as mdates
@@ -48,16 +48,20 @@ class FilterVisualization:
     def format_datetime_axis(self, ax, df: pd.DataFrame, interval_hours: int = 2):
         """Apply standard datetime formatting to x-axis."""
         total_hours = (df['timestamp'].max() - df['timestamp'].min()).total_seconds() / 3600
+        total_days = total_hours / 24
 
         if total_hours <= 48:  # Less than 2 days - show hours
             ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
             ax.xaxis.set_major_locator(mdates.HourLocator(interval=interval_hours))
-        elif total_hours <= 168:  # Less than 1 week - show days
+        elif total_days <= 7:  # Weekly summaries - one tick per day
             ax.xaxis.set_major_formatter(mdates.DateFormatter('%m/%d'))
             ax.xaxis.set_major_locator(mdates.DayLocator(interval=1))
-        else:  # More than 1 week - show dates with year for clarity
-            ax.xaxis.set_major_formatter(mdates.DateFormatter('%m/%d/%y'))
-            ax.xaxis.set_major_locator(mdates.DayLocator(interval=max(1, int(total_hours / (24 * 5)))))
+        elif total_days <= 30:  # Medium periods - one tick per week
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%m/%d'))
+            ax.xaxis.set_major_locator(mdates.WeekdayLocator(interval=1))
+        else:  # Long periods - one tick per month
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%m/%y'))
+            ax.xaxis.set_major_locator(mdates.MonthLocator(interval=1))
 
         plt.setp(ax.xaxis.get_majorticklabels(), rotation=45)
 
@@ -157,6 +161,7 @@ class FilterVisualization:
 
         ax.set_title(title)
         ax.set_ylabel('Indoor/Outdoor Ratio')
+        ax.set_ylim(0, 1)  # Fix y-axis limits to show normal operation range
         ax.legend()
         ax.grid(True, alpha=0.3)
 
@@ -312,6 +317,7 @@ class FilterVisualization:
 
             ax.set_title(f'{model_name.upper()} - I/O Ratio')
             ax.set_ylabel('Indoor/Outdoor Ratio')
+            ax.set_ylim(0, 1)  # Fix y-axis limits to show normal operation range
             ax.legend()
             ax.grid(True, alpha=0.3)
             self.format_datetime_axis(ax, df)
@@ -437,31 +443,13 @@ class FilterVisualization:
         scenario_info: Dict[str, Any],
         title: str = "Filter Analysis",
     ) -> Any:
-        """Create comprehensive analysis plot with 3 subplots."""
-        fig, axes = plt.subplots(3, 1, figsize=(15, 12))
+        """Create comprehensive analysis plot with 4 subplots."""
+        fig, axes = plt.subplots(4, 1, figsize=(15, 16))
 
         # Subplot 1: Time series data
         axes[0].plot(df['timestamp'], df['outdoor_pm25'], 'r-', linewidth=2, label='Outdoor PM2.5', alpha=0.8)
         axes[0].plot(df['timestamp'], df['indoor_pm25'], 'b-', linewidth=1.5, label='Indoor PM2.5', alpha=0.9)
 
-        # Add predicted if available
-        for model_name, result in model_results.items():
-            if result.get('success') and 'model' in result:
-                model = result['model']
-                if hasattr(model, 'state_history') and model.state_history:
-                    hist_df = pd.DataFrame(model.state_history)
-                    hist_df['timestamp'] = pd.to_datetime(hist_df['timestamp'])
-                    if 'predicted_indoor' in hist_df.columns:
-                        axes[0].plot(
-                            hist_df['timestamp'],
-                            hist_df['predicted_indoor'],
-                            'k--',
-                            linewidth=1.2,
-                            alpha=0.8,
-                            label=f'{model_name.upper()} Predicted',
-                        )
-
-        axes[0].set_title(f'{title} - Time Series')
         axes[0].set_ylabel('PM2.5 (μg/m³)')
         axes[0].legend()
         axes[0].grid(True, alpha=0.3)
@@ -471,25 +459,44 @@ class FilterVisualization:
         ratio = df['indoor_pm25'] / df['outdoor_pm25']
         axes[1].plot(df['timestamp'], ratio, 'purple', linewidth=1.5, alpha=0.8, label='I/O Ratio')
 
-        # Expected ratio line
-        if 'filter_efficiency' in scenario_info:
-            eff = scenario_info['filter_efficiency']
-            expected_ratio = self._calculate_expected_io_ratio(eff, scenario_info)
-            axes[1].axhline(
-                y=expected_ratio,
-                color='gray',
-                linestyle='--',
-                alpha=0.7,
-                label=f'Expected Steady State ({expected_ratio:.3f})',
-            )
-
-        axes[1].set_title(f'{title} - Indoor/Outdoor Ratio')
         axes[1].set_ylabel('Indoor/Outdoor Ratio')
-        axes[1].legend()
+        axes[1].set_ylim(0, 1)  # Fix y-axis limits to show normal operation range
         axes[1].grid(True, alpha=0.3)
         self.format_datetime_axis(axes[1], df)
 
-        # Subplot 3: Kalman filter results
+        # Subplot 3: Indoor vs Predicted Indoor
+        axes[2].plot(df['timestamp'], df['indoor_pm25'], 'b-', linewidth=1.5, alpha=0.9, label='Actual Indoor')
+
+        # Add predicted indoor from model history (filtered to match timeframe)
+        for model_name, result in model_results.items():
+            if result.get('success') and 'model' in result:
+                model = result['model']
+                if hasattr(model, 'state_history') and model.state_history:
+                    hist_df = pd.DataFrame(model.state_history)
+                    hist_df['timestamp'] = pd.to_datetime(hist_df['timestamp'])
+
+                    # Filter history to match the timeframe of the input data
+                    start_time = df['timestamp'].min()
+                    end_time = df['timestamp'].max()
+                    time_mask = (hist_df['timestamp'] >= start_time) & (hist_df['timestamp'] <= end_time)
+                    filtered_hist = hist_df[time_mask]
+
+                    if 'predicted_indoor' in filtered_hist.columns and len(filtered_hist) > 0:
+                        axes[2].plot(
+                            filtered_hist['timestamp'],
+                            filtered_hist['predicted_indoor'],
+                            'k-',
+                            linewidth=1.2,
+                            alpha=0.8,
+                            label='Predicted Indoor',
+                        )
+
+        axes[2].set_ylabel('PM2.5 (μg/m³)')
+        axes[2].legend()
+        axes[2].grid(True, alpha=0.3)
+        self.format_datetime_axis(axes[2], df)
+
+        # Subplot 4: Kalman filter efficiency results
         has_filter_data = False
         for model_name, result in model_results.items():
             if result.get('success') and 'model' in result:
@@ -498,8 +505,68 @@ class FilterVisualization:
                     hist_df = pd.DataFrame(model.state_history)
                     hist_df['timestamp'] = pd.to_datetime(hist_df['timestamp'])
 
-                    # Plot efficiency evolution
-                    axes[2].plot(
+                    # Filter history to match the timeframe of the input data
+                    start_time = df['timestamp'].min()
+                    end_time = df['timestamp'].max()
+                    time_mask = (hist_df['timestamp'] >= start_time) & (hist_df['timestamp'] <= end_time)
+                    filtered_hist = hist_df[time_mask]
+
+                    # Plot efficiency evolution for this timeframe
+                    if len(filtered_hist) > 0:
+                        axes[3].plot(
+                            filtered_hist['timestamp'],
+                            filtered_hist['efficiency'] * 100,
+                            'b-',
+                            linewidth=2,
+                            label=f'{model_name.upper()} Efficiency',
+                        )
+
+                        has_filter_data = True
+
+        if has_filter_data:
+            axes[3].set_ylabel('Filter Efficiency (%)')
+            axes[3].set_xlabel('Time')
+            axes[3].grid(True, alpha=0.3)
+            # Use the input data timeframe for formatting
+            self.format_datetime_axis(axes[3], df)
+        else:
+            axes[3].text(
+                0.5,
+                0.5,
+                'No Kalman filter tracking\navailable',
+                transform=axes[3].transAxes,
+                ha='center',
+                va='center',
+                fontsize=14,
+                color='gray',
+            )
+            axes[3].axis('off')
+
+        plt.suptitle(f'{scenario_info.get("description", title)}', fontsize=16, y=0.98)
+        plt.tight_layout(rect=(0, 0, 1, 0.96))
+
+        return fig
+
+    def plot_efficiency_summary(
+        self,
+        model_results: Dict[str, Any],
+        scenario_info: Dict[str, Any],
+        title: str = "Filter Efficiency Summary",
+    ) -> Any:
+        """Create summary plot showing complete efficiency evolution."""
+        fig, ax = plt.subplots(1, 1, figsize=(8, 6))
+
+        # Plot complete efficiency evolution
+        has_filter_data = False
+        for model_name, result in model_results.items():
+            if result.get('success') and 'model' in result:
+                model = result['model']
+                if hasattr(model, 'state_history') and model.state_history:
+                    hist_df = pd.DataFrame(model.state_history)
+                    hist_df['timestamp'] = pd.to_datetime(hist_df['timestamp'])
+
+                    # Plot complete efficiency evolution
+                    ax.plot(
                         hist_df['timestamp'],
                         hist_df['efficiency'] * 100,
                         'b-',
@@ -507,60 +574,239 @@ class FilterVisualization:
                         label=f'{model_name.upper()} Efficiency',
                     )
 
-                    # Add final estimate as text
-                    final_eff = hist_df['efficiency'].iloc[-1] * 100
-                    axes[2].text(
-                        0.02,
-                        0.98,
-                        f'Final Estimate: {final_eff:.1f}%',
-                        transform=axes[2].transAxes,
-                        fontsize=12,
-                        bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.8),
-                        verticalalignment='top',
-                    )
-
                     has_filter_data = True
 
-        # True efficiency reference line
-        if 'filter_efficiency' in scenario_info:
-            true_eff = scenario_info['filter_efficiency'] * 100
-            axes[2].axhline(
-                y=true_eff, color='red', linestyle='--', alpha=0.7, label=f'True Efficiency ({true_eff:.0f}%)'
-            )
-
         if has_filter_data:
-            axes[2].set_title(f'{title} - Filter Efficiency Evolution')
-            axes[2].set_ylabel('Filter Efficiency (%)')
-            axes[2].set_xlabel('Time')
-            axes[2].legend()
-            axes[2].grid(True, alpha=0.3)
-            # Get timestamp range from filter data
+            ax.set_ylabel('Filter Efficiency (%)')
+            ax.set_xlabel('Time')
+            ax.grid(True, alpha=0.3)
+
+            # Use the full history for time formatting
             for _, result in model_results.items():
                 if result.get('success') and 'model' in result:
                     model = result['model']
                     if hasattr(model, 'state_history') and model.state_history:
                         hist_df = pd.DataFrame(model.state_history)
                         hist_df['timestamp'] = pd.to_datetime(hist_df['timestamp'])
-                        self.format_datetime_axis(axes[2], hist_df)
+                        self.format_datetime_axis(ax, hist_df)
                         break
         else:
+            ax.text(
+                0.5,
+                0.5,
+                'No filter efficiency data available',
+                ha='center',
+                va='center',
+                transform=ax.transAxes,
+                fontsize=14,
+                color='gray',
+            )
+            ax.axis('off')
+
+        plt.suptitle(f'{scenario_info.get("description", title)}', fontsize=16, y=0.98)
+        plt.tight_layout(rect=(0, 0, 1, 0.94))
+
+        return fig
+
+    def plot_standard_analysis(
+        self,
+        df: pd.DataFrame,
+        title: str = "Filter Analysis",
+        model_results: Optional[Dict[str, Any]] = None,
+        true_efficiency: Optional[float] = None,
+        expected_io_ratio: Optional[float] = None,
+        step_boundaries: Optional[List[datetime]] = None,
+        save_filename: Optional[str] = None,
+    ) -> Any:
+        """
+        Create standardized 4-subplot analysis that works for all data types.
+
+        This single function replaces the need for separate plotting methods
+        for step tests, synthetic tests, real data, etc.
+
+        Args:
+            df: DataFrame with 'timestamp', 'indoor_pm25', 'outdoor_pm25'
+            title: Plot title
+            model_results: Optional model results with state history
+            true_efficiency: Known true efficiency (for test data)
+            expected_io_ratio: Expected I/O ratio (for test data)
+            step_boundaries: Step change timestamps (for step tests)
+            save_filename: If provided, save plot to this filename
+        """
+        fig, axes = plt.subplots(4, 1, figsize=(15, 16))
+
+        # Subplot 1: Time series data (outdoor and indoor only)
+        axes[0].plot(df['timestamp'], df['outdoor_pm25'], 'r-', linewidth=2, alpha=0.8)
+        axes[0].plot(df['timestamp'], df['indoor_pm25'], 'b-', linewidth=1.5, alpha=0.9)
+
+        # Add step boundaries if provided
+        if step_boundaries:
+            for boundary in step_boundaries:
+                axes[0].axvline(x=boundary, color='gray', linestyle='--', alpha=0.5)
+
+        axes[0].set_ylabel('PM2.5 (μg/m³)')
+        axes[0].grid(True, alpha=0.3)
+        self.format_datetime_axis(axes[0], df)
+
+        # Subplot 2: I/O Ratio
+        ratio = df['indoor_pm25'] / df['outdoor_pm25']
+        axes[1].plot(df['timestamp'], ratio, 'purple', linewidth=1.5, alpha=0.8)
+
+        # Add expected ratio line if provided
+        if expected_io_ratio is not None:
+            axes[1].axhline(
+                y=expected_io_ratio,
+                color='gray',
+                linestyle='--',
+                alpha=0.7,
+            )
+
+        # Add step boundaries
+        if step_boundaries:
+            for boundary in step_boundaries:
+                axes[1].axvline(x=boundary, color='gray', linestyle='--', alpha=0.5)
+
+        axes[1].set_ylabel('Indoor/Outdoor Ratio')
+        axes[1].set_ylim(0, 1)
+        axes[1].grid(True, alpha=0.3)
+        self.format_datetime_axis(axes[1], df)
+
+        # Subplot 3: Actual vs Predicted
+        axes[2].plot(df['timestamp'], df['indoor_pm25'], 'b-', linewidth=1.5, alpha=0.9)
+
+        predicted_data = self._extract_predicted_data(df, model_results)
+        if predicted_data is not None:
+            axes[2].plot(df['timestamp'], predicted_data, 'k-', linewidth=1.2, alpha=0.8)
+
+            # Add prediction error as text
+            error = np.mean(np.abs(df['indoor_pm25'] - predicted_data))
             axes[2].text(
-                0.5,
-                0.5,
-                'No Kalman filter tracking\navailable',
+                0.02,
+                0.98,
+                f'MAE: {error:.2f} μg/m³',
                 transform=axes[2].transAxes,
+                verticalalignment='top',
+                bbox=dict(boxstyle='round', facecolor='white', alpha=0.8),
+            )
+
+        # Add step boundaries
+        if step_boundaries:
+            for boundary in step_boundaries:
+                axes[2].axvline(x=boundary, color='gray', linestyle='--', alpha=0.5)
+
+        axes[2].set_ylabel('PM2.5 (μg/m³)')
+        axes[2].grid(True, alpha=0.3)
+        self.format_datetime_axis(axes[2], df)
+
+        # Subplot 4: Filter efficiency evolution
+        efficiency_data = self._extract_efficiency_data(df, model_results)
+        if efficiency_data is not None:
+            eff_df, eff_values = efficiency_data
+            axes[3].plot(eff_df['timestamp'], eff_values * 100, 'b-', linewidth=2)
+
+            # Add true efficiency reference line if provided
+            if true_efficiency is not None:
+                axes[3].axhline(
+                    y=true_efficiency * 100,
+                    color='red',
+                    linestyle='--',
+                    alpha=0.7,
+                )
+
+            # Add step boundaries
+            if step_boundaries:
+                for boundary in step_boundaries:
+                    axes[3].axvline(x=boundary, color='gray', linestyle='--', alpha=0.5)
+
+            axes[3].set_ylabel('Filter Efficiency (%)')
+            axes[3].set_xlabel('Time')
+            axes[3].grid(True, alpha=0.3)
+            self.format_datetime_axis(axes[3], eff_df)
+        else:
+            axes[3].text(
+                0.5,
+                0.5,
+                'No efficiency tracking available',
+                transform=axes[3].transAxes,
                 ha='center',
                 va='center',
                 fontsize=14,
                 color='gray',
             )
-            axes[2].set_title(f'{title} - Filter Efficiency (No Data)')
-            axes[2].axis('off')
+            axes[3].axis('off')
 
-        plt.suptitle(f'{scenario_info.get("description", title)}', fontsize=16, y=0.98)
+        plt.suptitle(title, fontsize=16, y=0.98)
         plt.tight_layout(rect=(0, 0, 1, 0.96))
 
+        if save_filename:
+            return self.save_plot(save_filename)
         return fig
+
+    def _extract_predicted_data(
+        self, df: pd.DataFrame, model_results: Optional[Dict[str, Any]]
+    ) -> Optional[np.ndarray]:
+        """Extract predicted indoor PM2.5 data from model results."""
+        if not model_results:
+            return None
+
+        for model_name, result in model_results.items():
+            if result.get('success') and 'model' in result:
+                model = result['model']
+
+                # Try to get predictions from state history
+                if hasattr(model, 'state_history') and model.state_history:
+                    hist_df = pd.DataFrame(model.state_history)
+                    hist_df['timestamp'] = pd.to_datetime(hist_df['timestamp'])
+
+                    # Filter to match input timeframe
+                    start_time = df['timestamp'].min()
+                    end_time = df['timestamp'].max()
+                    time_mask = (hist_df['timestamp'] >= start_time) & (hist_df['timestamp'] <= end_time)
+                    filtered_hist = hist_df[time_mask]
+
+                    if 'predicted_indoor' in filtered_hist.columns and len(filtered_hist) > 0:
+                        # Interpolate to match input timestamps
+                        return np.interp(
+                            df['timestamp'].astype(np.int64),
+                            filtered_hist['timestamp'].astype(np.int64),
+                            filtered_hist['predicted_indoor'],
+                        )
+
+                # Try direct prediction method
+                if hasattr(model, 'predict_indoor_pm25'):
+                    predicted = []
+                    for _, row in df.iterrows():
+                        pred = model.predict_indoor_pm25(row['outdoor_pm25'])
+                        predicted.append(pred if pred is not None else np.nan)
+                    return np.array(predicted)
+
+        return None
+
+    def _extract_efficiency_data(
+        self, df: pd.DataFrame, model_results: Optional[Dict[str, Any]]
+    ) -> Optional[Tuple[pd.DataFrame, np.ndarray]]:
+        """Extract efficiency evolution data from model results."""
+        if not model_results:
+            return None
+
+        for model_name, result in model_results.items():
+            if result.get('success') and 'model' in result:
+                model = result['model']
+                if hasattr(model, 'state_history') and model.state_history:
+                    hist_df = pd.DataFrame(model.state_history)
+                    hist_df['timestamp'] = pd.to_datetime(hist_df['timestamp'])
+
+                    # Filter to match input timeframe
+                    start_time = df['timestamp'].min()
+                    end_time = df['timestamp'].max()
+                    time_mask = (hist_df['timestamp'] >= start_time) & (hist_df['timestamp'] <= end_time)
+                    filtered_hist = hist_df.loc[time_mask].copy()
+
+                    if 'efficiency' in filtered_hist.columns and len(filtered_hist) > 0:
+                        efficiency_values = np.array(filtered_hist['efficiency'])
+                        return filtered_hist, efficiency_values
+
+        return None
 
 
 # Convenience functions for direct use
@@ -576,17 +822,58 @@ def save_test_visualization(
     scenario_info: Dict[str, Any],
     true_params: Optional[Dict[str, float]] = None,
     output_dir: Union[str, Path] = "test_visualizations",
+    create_summary: bool = False,
 ) -> List[Path]:
     """
-    Save a comprehensive test visualization with 3 subplots in a single figure.
+    Save a comprehensive test visualization with 4 subplots in a single figure.
+    Uses the standardized plot_standard_analysis function for consistency.
 
     Returns list of saved file paths.
     """
     viz = FilterVisualization(output_dir)
     saved_files = []
 
-    # Create comprehensive single figure with 3 subplots
-    viz.plot_comprehensive_analysis(df, model_results, scenario_info, test_name)
-    saved_files.append(viz.save_plot(f"{test_name}_comprehensive.png"))
+    # Extract parameters for standardized plotting
+    title = scenario_info.get('description', test_name)
+    true_efficiency = true_params.get('filter_efficiency') if true_params else None
+    expected_io_ratio = None
+    step_boundaries = scenario_info.get('step_boundaries', None)
+
+    # Calculate expected I/O ratio if we have true parameters
+    if true_params and all(
+        k in true_params
+        for k in ['filter_efficiency', 'infiltration_rate_m3h', 'filtration_rate_m3h', 'deposition_rate_m3h']
+    ):
+        # Calculate expected steady-state I/O ratio
+        infiltration = true_params['infiltration_rate_m3h']
+        filtration = true_params['filtration_rate_m3h']
+        deposition = true_params['deposition_rate_m3h']
+        efficiency = true_params['filter_efficiency']
+        expected_io_ratio = infiltration / (infiltration + efficiency * filtration + deposition)
+
+    # Create single figure using standardized plotting
+    filename = f"{test_name}.png"
+    saved_path = viz.plot_standard_analysis(
+        df=df,
+        title=title,
+        model_results=model_results,
+        true_efficiency=true_efficiency,
+        expected_io_ratio=expected_io_ratio,
+        step_boundaries=step_boundaries,
+        save_filename=filename,
+    )
+    saved_files.append(saved_path)
+
+    # Create efficiency summary if requested (using the same standardized function)
+    if create_summary:
+        summary_filename = f"{test_name}_efficiency_summary.png"
+        summary_path = viz.plot_standard_analysis(
+            df=df,
+            title=f"{title} - Summary",
+            model_results=model_results,
+            true_efficiency=true_efficiency,
+            save_filename=summary_filename,
+        )
+        saved_files.append(summary_path)
 
     return saved_files

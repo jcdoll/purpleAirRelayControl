@@ -11,13 +11,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
 
-import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 from analyze_filter_performance import FilterEfficiencyAnalyzer
 
 from tests.test_utils import create_test_config
 from utils.test_data_generator import generate_standard_test_dataset
+from utils.visualization import FilterVisualization
 
 
 class TestPerformanceVisualizer:
@@ -35,6 +35,7 @@ class TestPerformanceVisualizer:
         )
 
         self.results = {}
+        self.viz = FilterVisualization(output_dir)
 
     def run_comprehensive_analysis(self, days: int = 14, random_seed: int = 42) -> Dict[str, Any]:
         """Run analysis on all scenarios and collect results."""
@@ -126,9 +127,8 @@ class TestPerformanceVisualizer:
                 dataset['timestamp'], dataset['indoor_pm25'], label='Indoor PM2.5', color='blue', alpha=0.8, linewidth=1
             )
 
-            # Format x-axis
-            axes[idx].xaxis.set_major_formatter(mdates.DateFormatter('%m/%d'))
-            axes[idx].xaxis.set_major_locator(mdates.DayLocator(interval=2))
+            # Format x-axis using common function
+            self.viz.format_datetime_axis(axes[idx], dataset)
 
             # Add efficiency info
             true_eff = true_params['filter_efficiency'] * 100

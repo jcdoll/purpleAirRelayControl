@@ -11,6 +11,7 @@ import os
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
+import numpy as np
 import pandas as pd
 
 try:
@@ -161,20 +162,19 @@ class SheetsClient:
         # Make a copy to avoid modifying original
         df = df.copy()
 
-        # Map common column names to standard names
-        column_mapping = {
-            'Timestamp': 'timestamp',
-            'Time': 'timestamp',
-            'DateTime': 'timestamp',
-            'Indoor AQI': 'indoor_aqi',
-            'Indoor': 'indoor_aqi',
-            'Outdoor AQI': 'outdoor_aqi',
-            'Outdoor': 'outdoor_aqi',
-            'PurpleAir Indoor': 'indoor_aqi',
-            'PurpleAir Outdoor': 'outdoor_aqi',
-        }
+        # Use ONLY the configured column names - no fallbacks
+        config_columns = self.config.get('columns', {})
+        column_mapping = {}
 
-        # Rename columns
+        # Map exactly what's configured
+        if 'timestamp' in config_columns:
+            column_mapping[config_columns['timestamp']] = 'timestamp'
+        if 'indoor_aqi' in config_columns:
+            column_mapping[config_columns['indoor_aqi']] = 'indoor_aqi'
+        if 'outdoor_aqi' in config_columns:
+            column_mapping[config_columns['outdoor_aqi']] = 'outdoor_aqi'
+
+        # Rename columns based on config only
         df = df.rename(columns=column_mapping)
 
         # Ensure we have required columns
@@ -213,9 +213,10 @@ class SheetsClient:
     def write_analysis_results(self, results: Dict[str, Any], sheet_name: Optional[str] = None) -> bool:
         """
         Write filter efficiency analysis results to Google Sheets.
+        This clears the existing sheet and writes fresh time-series data.
 
         Args:
-            results: Analysis results dictionary
+            results: Analysis results dictionary containing time-series data
             sheet_name: Sheet name for results (uses config default if None)
 
         Returns:
@@ -234,29 +235,54 @@ class SheetsClient:
             if self.service is None:
                 raise RuntimeError("Google Sheets service not initialized")
 
-            # Prepare results data for writing
-            results_data = self._prepare_results_data(results)
-
             # Check if results sheet exists, create if not
             self._ensure_results_sheet_exists(sheet_name)
 
-            # Write headers if sheet is empty
-            self._write_results_headers(sheet_name)
+            # Prepare time-series data for writing
+            time_series_data = self._prepare_time_series_data(results)
 
-            # Append new results
-            range_name = f"{sheet_name}!A:Z"  # Will append to next empty row
+            if not time_series_data:
+                self.logger.warning("No time-series data to write")
+                return False
 
-            body = {'values': [results_data]}
+            # Prepare headers and data together
+            headers = [
+                'Timestamp',
+                'Indoor PM2.5',
+                'Outdoor PM2.5',
+                'Ratio',
+                'Estimated Filter Efficiency (%)',
+                'Efficiency Uncertainty (%)',
+                'Predicted Indoor PM2.5',
+                'Prediction Error',
+            ]
 
-            self.service.spreadsheets().values().append(
+            # Combine headers with data
+            all_data = [headers] + time_series_data
+
+            # Clear the entire sheet first to remove any old columns
+            clear_range = f"{sheet_name}!A:Z"  # Clear all columns
+
+            self.service.spreadsheets().values().clear(
+                spreadsheetId=spreadsheet_id,
+                range=clear_range,
+            ).execute()
+
+            # Write fresh data with correct headers (8 columns only)
+            range_name = f"{sheet_name}!A:H"  # 8 columns: A through H
+
+            body = {'values': all_data}
+
+            self.service.spreadsheets().values().update(
                 spreadsheetId=spreadsheet_id,
                 range=range_name,
                 valueInputOption='RAW',
-                insertDataOption='INSERT_ROWS',
                 body=body,
             ).execute()
 
-            self.logger.info(f"Successfully wrote analysis results to sheet '{sheet_name}'")
+            self.logger.info(
+                f"Successfully wrote headers and {len(time_series_data)} time-series records to sheet '{sheet_name}' (sheet cleared and regenerated)"
+            )
             return True
 
         except HttpError as e:
@@ -266,45 +292,68 @@ class SheetsClient:
             self.logger.error(f"Error writing analysis results: {e}")
             return False
 
-    def _prepare_results_data(self, results: Dict[str, Any]) -> List[str]:
+    def _prepare_time_series_data(self, results: Dict[str, Any]) -> List[List[str]]:
         """
-        Prepare analysis results for writing to sheets.
+        Prepare time-series analysis results for writing to sheets.
 
         Args:
-            results: Analysis results dictionary
+            results: Analysis results dictionary containing state_history
 
         Returns:
-            List of values for a single row
+            List of rows, each containing values for the 8 columns
         """
-        timestamp = results.get('analysis_timestamp', datetime.now())
-        if isinstance(timestamp, datetime):
-            timestamp_str = timestamp.isoformat()
-        else:
-            timestamp_str = str(timestamp)
+        # Extract state history from the tracker
+        tracker = results.get('tracker')
+        if tracker is None or not hasattr(tracker, 'state_history'):
+            self.logger.error("No tracker or state_history found in results")
+            return []
 
-        # Extract key metrics
-        performance = results.get('filter_performance', {})
-        quality = results.get('model_quality', {})
-        data_period = results.get('data_period', {})
-        recommendations = results.get('recommendations', {})
+        state_history = tracker.state_history
+        if not state_history:
+            self.logger.warning("State history is empty")
+            return []
 
-        # Format data row
-        data_row = [
-            timestamp_str,
-            performance.get('efficiency_percentage', ''),
-            performance.get('infiltration_rate', ''),
-            quality.get('r_squared', ''),
-            quality.get('rmse', ''),
-            data_period.get('n_points_clean', ''),
-            recommendations.get('filter_status', ''),
-            '; '.join(recommendations.get('alerts', [])),
-            '; '.join(recommendations.get('actions', [])[:2]),  # Top 2 actions
-            str(data_period.get('start', '')),
-            str(data_period.get('end', '')),
-        ]
+        time_series_rows = []
 
-        # Convert all values to strings
-        return [str(val) for val in data_row]
+        for record in state_history:
+            # Calculate efficiency uncertainty from tracker covariance
+            if hasattr(tracker, 'covariance'):
+                efficiency_uncertainty = float(np.sqrt(tracker.covariance) * 100)  # Convert to percentage
+            else:
+                efficiency_uncertainty = ''
+
+            # Calculate prediction error
+            predicted_indoor = record.get('predicted_indoor', 0.0)
+            actual_indoor = record.get('actual_indoor', 0.0)
+            prediction_error = float(actual_indoor - predicted_indoor)
+
+            # Calculate I/O ratio
+            outdoor_pm25 = record.get('outdoor', 0.0)
+            indoor_pm25 = record.get('actual_indoor', 0.0)
+            ratio = float(indoor_pm25 / outdoor_pm25) if outdoor_pm25 > 0 else ''
+
+            # Format timestamp
+            timestamp = record.get('timestamp')
+            if isinstance(timestamp, datetime):
+                timestamp_str = timestamp.isoformat()
+            else:
+                timestamp_str = str(timestamp)
+
+            # Create row with 8 columns
+            row = [
+                timestamp_str,  # Timestamp
+                str(float(indoor_pm25)),  # Indoor PM2.5
+                str(float(outdoor_pm25)),  # Outdoor PM2.5
+                str(ratio) if ratio != '' else '',  # Ratio
+                str(float(record.get('efficiency', 0.0) * 100)),  # Estimated Filter Efficiency (%)
+                str(efficiency_uncertainty) if efficiency_uncertainty != '' else '',  # Efficiency Uncertainty (%)
+                str(float(predicted_indoor)),  # Predicted Indoor PM2.5
+                str(prediction_error),  # Prediction Error
+            ]
+
+            time_series_rows.append(row)
+
+        return time_series_rows
 
     def _ensure_results_sheet_exists(self, sheet_name: str):
         """
@@ -338,54 +387,6 @@ class SheetsClient:
 
         except Exception as e:
             self.logger.warning(f"Could not ensure results sheet exists: {e}")
-
-    def _write_results_headers(self, sheet_name: str):
-        """
-        Write headers to results sheet if it's empty.
-
-        Args:
-            sheet_name: Name of the results sheet
-        """
-        spreadsheet_id = self.config['spreadsheet_id']
-
-        try:
-            # Ensure service is initialized
-            if self.service is None:
-                raise RuntimeError("Google Sheets service not initialized")
-
-            # Check if sheet is empty
-            range_name = f"{sheet_name}!A1:A1"
-            result = self.service.spreadsheets().values().get(spreadsheetId=spreadsheet_id, range=range_name).execute()
-
-            values = result.get('values', [])
-
-            if not values or not values[0]:
-                # Sheet is empty, write headers
-                headers = [
-                    'Analysis Timestamp',
-                    'Filter Efficiency (%)',
-                    'Infiltration Rate (ACH)',
-                    'Model R²',
-                    'Model RMSE',
-                    'Data Points Used',
-                    'Filter Status',
-                    'Alerts',
-                    'Recommended Actions',
-                    'Data Period Start',
-                    'Data Period End',
-                ]
-
-                body = {'values': [headers]}
-
-                if self.service is not None:
-                    self.service.spreadsheets().values().update(
-                        spreadsheetId=spreadsheet_id, range=f"{sheet_name}!A1:K1", valueInputOption='RAW', body=body
-                    ).execute()
-
-                self.logger.info(f"Wrote headers to results sheet: {sheet_name}")
-
-        except Exception as e:
-            self.logger.warning(f"Could not write headers: {e}")
 
     def get_latest_analysis_timestamp(self, sheet_name: Optional[str] = None) -> Optional[datetime]:
         """

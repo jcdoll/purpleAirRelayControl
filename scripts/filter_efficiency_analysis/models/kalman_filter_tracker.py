@@ -7,9 +7,12 @@ total ACH as time-varying states, learning building parameters from temporal dyn
 """
 
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
-import matplotlib.dates as mdates
+import matplotlib
+
+matplotlib.use("Agg")  # Use non-interactive backend to prevent window popups
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -18,6 +21,7 @@ from utils.mass_balance import (
     calculate_steady_state_indoor_pm25,
     solve_filter_efficiency_from_ratio,
 )
+from utils.visualization import FilterVisualization
 
 from .base_filter_tracker import BaseFilterTracker
 
@@ -65,12 +69,10 @@ class KalmanFilterTracker(BaseFilterTracker):
         self.prev_timestamp = None
         self.prev_indoor = None
 
-        self.total_ach_const = self.infiltration_ach + self.hvac_filtration_ach + self.deposition_ach
-
     @property
     def efficiency(self) -> float:
         """Current filter efficiency estimate."""
-        return max(0.0, min(1.0, float(self.state)))
+        return max(0.0, float(self.state))  # Allow efficiency > 100% to indicate model issues
 
     @property
     def leak_ach(self) -> float:
@@ -79,8 +81,8 @@ class KalmanFilterTracker(BaseFilterTracker):
 
     @property
     def total_removal_ach(self) -> float:
-        """Fixed total ACH used in generator (independent of efficiency)."""
-        return self.total_ach_const
+        """Current total removal ACH (depends on efficiency)."""
+        return self.infiltration_ach + self.hvac_filtration_ach * self.efficiency + self.deposition_ach
 
     def add_measurement(self, timestamp: datetime, indoor_pm25: float, outdoor_pm25: float) -> None:
         """Add a new measurement and update the Kalman filter."""
@@ -110,7 +112,7 @@ class KalmanFilterTracker(BaseFilterTracker):
                 filtration_rate=self.hvac_filtration_ach,
                 deposition_rate=self.deposition_ach,
             )
-            self.state = max(0.1, min(0.95, initial_efficiency))  # Clamp to reasonable range
+            self.state = max(0.0, initial_efficiency)  # Allow efficiency > 100% to indicate model issues
 
         # Always run prediction step (time propagation)
         predicted_indoor = self._predict_step(dt_hours, outdoor_pm25)
@@ -120,6 +122,7 @@ class KalmanFilterTracker(BaseFilterTracker):
             # Good signal - update with appropriate confidence
             confidence_multiplier = self._get_time_confidence_multiplier(timestamp)
             self._update_step(indoor_pm25, outdoor_pm25, predicted_indoor, dt_hours, confidence_multiplier)
+
         # If signal is weak, skip update and carry forward previous estimate
 
         # Store history
@@ -196,7 +199,7 @@ class KalmanFilterTracker(BaseFilterTracker):
             self.covariance = (1 - K * H) * self.covariance
 
         # Enforce physical constraints
-        self.state = max(0.0, min(1.0, self.state))  # Efficiency: [0, 1]
+        self.state = max(0.0, self.state)  # Allow efficiency > 100% to indicate model issues
 
         # Ensure covariance stays positive
         self.covariance = max(1e-8, self.covariance)
@@ -206,8 +209,18 @@ class KalmanFilterTracker(BaseFilterTracker):
         kalman_config = self.config.get('kalman_filter', {})
         min_indoor = kalman_config.get('min_indoor_pm25_for_learning', 10.0)
         min_outdoor = kalman_config.get('min_outdoor_pm25_for_learning', 30.0)
+        max_ratio = kalman_config.get('max_ratio_for_learning', 1.0)
 
-        return indoor_pm25 >= min_indoor and outdoor_pm25 >= min_outdoor
+        # Check minimum signal thresholds
+        if indoor_pm25 < min_indoor or outdoor_pm25 < min_outdoor:
+            return False
+
+        # Check for indoor particle generation (indoor > outdoor indicates source)
+        ratio = indoor_pm25 / outdoor_pm25
+        if ratio >= max_ratio:
+            return False
+
+        return True
 
     def _get_time_confidence_multiplier(self, timestamp: datetime) -> float:
         """Get confidence multiplier based on time of day."""
@@ -242,19 +255,32 @@ class KalmanFilterTracker(BaseFilterTracker):
 
     def _calculate_jacobian(self, outdoor_pm25: float, dt_hours: float) -> float:
         """Calculate Jacobian (sensitivity) for observation model w.r.t. efficiency."""
-        # For canonical PHYSICS.md model: C_in = Q_inf * C_out / (Q_inf + Q_filt * η + Q_dep)
-        # d(C_in)/dη = -Q_inf * Q_filt * C_out / (Q_inf + Q_filt * η + Q_dep)²
+        # For temporal model: predicted = steady_state + (prev_indoor - steady_state) * exp(-λ_tot * dt)
+        # Need derivatives of both steady_state and λ_tot w.r.t. efficiency
         λ_in = self.leak_ach
         λ_f = self.hvac_filtration_ach
         λ_dep = self.deposition_ach
         η = self.efficiency
 
+        # Derivative of steady-state w.r.t. efficiency
         denominator = λ_in + λ_f * η + λ_dep
         d_ss_d_eta = -λ_in * λ_f * outdoor_pm25 / (denominator * denominator)
 
-        exp_term = np.exp(-self.total_ach_const * dt_hours)
-        d_pred_d_eta = (1 - exp_term) * d_ss_d_eta
-        return d_pred_d_eta
+        # For temporal model, need both terms of the derivative
+        exp_term = np.exp(-self.total_removal_ach * dt_hours)
+        steady_state = self._steady_state_model(outdoor_pm25)
+
+        # First term: d(steady_state)/dη * (1 - exp(-λ_tot * dt))
+        term1 = d_ss_d_eta * (1 - exp_term)
+
+        # Second term: (prev_indoor - steady_state) * exp(-λ_tot * dt) * (-dt) * d(λ_tot)/dη
+        # d(λ_tot)/dη = λ_f (since λ_tot = λ_in + λ_f * η + λ_dep)
+        if self.prev_indoor is not None:
+            term2 = (self.prev_indoor - steady_state) * exp_term * (-dt_hours) * λ_f
+        else:
+            term2 = 0.0  # First measurement, no previous indoor value
+
+        return term1 + term2
 
     def _update_daily_data(self, timestamp: datetime) -> None:
         """Update daily aggregated data."""
@@ -380,7 +406,7 @@ class KalmanFilterTracker(BaseFilterTracker):
         return lower, upper
 
     def plot_efficiency_trend(self, days_back: Optional[int] = None, save_path: Optional[str] = None) -> None:
-        """Plot the efficiency trend with confidence intervals."""
+        """Plot the efficiency trend using standardized visualization."""
         daily_df = self.get_daily_data()
 
         if daily_df.empty:
@@ -390,51 +416,28 @@ class KalmanFilterTracker(BaseFilterTracker):
         if days_back is not None:
             daily_df = daily_df.tail(days_back)
 
-        fig, axes = plt.subplots(3, 1, figsize=(12, 12))
+        # Prepare data for standardized plotting
+        plot_df = daily_df.rename(columns={'actual_indoor': 'indoor_pm25', 'outdoor_pm25': 'outdoor_pm25'})
 
-        # Plot 1: Filter efficiency over time with uncertainty
-        axes[0].plot(daily_df['timestamp'], daily_df['efficiency'] * 100, 'b-', linewidth=2, label='Efficiency')
+        # Create model results structure
+        model_results = {
+            'kalman': {
+                'success': True,
+                'model': self,
+                'stats': self.get_summary_stats() if hasattr(self, 'get_summary_stats') else {},
+            }
+        }
 
-        # Add uncertainty bands if available
-        if 'efficiency_std' in daily_df.columns:
-            upper_bound = (daily_df['efficiency'] + daily_df['efficiency_std']) * 100
-            lower_bound = (daily_df['efficiency'] - daily_df['efficiency_std']) * 100
-            axes[0].fill_between(daily_df['timestamp'], lower_bound, upper_bound, alpha=0.3, color='blue', label='±1σ')
-
-        axes[0].set_ylabel('Filter Efficiency (%)')
-        axes[0].set_title('Filter Efficiency Trend (Kalman Filter)')
-        axes[0].legend()
-        axes[0].grid(True, alpha=0.3)
-
-        # Plot 2: Indoor PM2.5 (actual vs predicted)
-        axes[1].plot(daily_df['timestamp'], daily_df['actual_indoor'], 'b-', linewidth=2, label='Actual Indoor')
-        axes[1].plot(daily_df['timestamp'], daily_df['predicted_indoor'], 'r--', linewidth=2, label='Predicted Indoor')
-        axes[1].plot(daily_df['timestamp'], daily_df['outdoor_pm25'], 'g:', linewidth=2, label='Outdoor')
-
-        axes[1].set_ylabel('PM2.5 (μg/m³)')
-        axes[1].set_title('Indoor PM2.5: Actual vs Predicted')
-        axes[1].legend()
-        axes[1].grid(True, alpha=0.3)
-
-        # Plot 3: Prediction error over time
-        axes[2].plot(
-            daily_df['timestamp'], daily_df['prediction_error'], 'purple', linewidth=2, marker='o', markersize=3
-        )
-        axes[2].axhline(y=0, color='gray', linestyle='--', alpha=0.5)
-        axes[2].set_ylabel('Prediction Error (μg/m³)')
-        axes[2].set_xlabel('Date')
-        axes[2].set_title('Model Prediction Error')
-        axes[2].grid(True, alpha=0.3)
-
-        # Format x-axes
-        for ax in axes:
-            ax.xaxis.set_major_formatter(mdates.DateFormatter('%m/%d'))
-            ax.xaxis.set_major_locator(mdates.DayLocator(interval=max(1, len(daily_df) // 10)))
-            plt.setp(ax.xaxis.get_majorticklabels(), rotation=45)
-
-        plt.tight_layout()
+        # Use standardized plotting
+        viz = FilterVisualization()
+        title = f"Kalman Filter Efficiency Trend ({len(daily_df)} days)"
 
         if save_path:
-            plt.savefig(save_path, dpi=150, bbox_inches='tight')
-
-        plt.show()
+            save_filename = Path(save_path).name
+            viz.output_dir = Path(save_path).parent
+            viz.plot_standard_analysis(
+                df=plot_df, title=title, model_results=model_results, save_filename=save_filename
+            )
+        else:
+            viz.plot_standard_analysis(df=plot_df, title=title, model_results=model_results)
+            plt.show()

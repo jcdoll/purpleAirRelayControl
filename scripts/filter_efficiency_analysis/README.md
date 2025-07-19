@@ -195,6 +195,18 @@ cp path/to/your/service-account-key.json scripts/filter_efficiency_analysis/cred
 **For GitHub Actions:**
 Store the entire JSON content as a GitHub Secret (see below).
 
+### 4. Validate Local Connection
+
+Test your Google Sheets connection before running analysis:
+
+```bash
+# Test with dry run (reads data but doesn't write results)
+python analyze_filter_performance.py --dry-run --days 7
+
+# If successful, you'll see real data from your sheets
+# If credentials are missing, you'll get a clear error message
+```
+
 ## GitHub Actions Setup
 
 ### 1. Add Google Sheets Credentials
@@ -237,51 +249,6 @@ python -m pytest tests/ --cov=utils --cov=models --cov-report=term-missing
 python -m pytest tests/ -v
 ```
 
-### Run Specific Test Categories
-
-```bash
-# Unit tests only
-python -m pytest tests/test_data_processor.py tests/test_night_calibration.py -v
-
-# Integration tests only  
-python -m pytest tests/test_integration.py -v
-
-# Test specific functionality
-python -m pytest tests/test_data_processor.py::TestAQIConversion -v
-python -m pytest tests/test_night_calibration.py::TestParameterEstimation -v
-```
-
-### Test Coverage Overview
-
-- **Data Processing Tests** (14 tests): AQI conversion, time filtering, outlier detection, data preparation
-- **Night Calibration Tests** (13 tests): Model fitting, parameter estimation, predictions, diagnostics  
-- **Integration Tests** (13 tests): End-to-end workflows, multiple scenarios, edge cases, robustness
-
-### Synthetic Data Testing
-
-Tests use realistic synthetic data with known filter efficiency and infiltration parameters:
-
-```bash
-# Test specific scenarios
-python -m pytest tests/test_integration.py::TestEndToEndAnalysis::test_different_filter_scenarios -v
-
-# Test with mock data
-python -m pytest tests/test_integration.py::TestEndToEndAnalysis::test_complete_analysis_workflow -v
-```
-
-The synthetic data includes:
-- **Good Filter** (80% efficiency): High-quality pleated filter
-- **Degraded Filter** (60% efficiency): Filter needing replacement  
-- **Poor Filter** (40% efficiency): Minimal filtration effectiveness
-
-### Continuous Integration
-
-Tests run automatically on GitHub Actions for:
-- Python 3.9, 3.10, 3.11 compatibility
-- Code quality checks (flake8, black, isort)
-- Test coverage reporting
-- Synthetic data validation
-
 ## Usage Examples
 
 ### Basic Analysis
@@ -309,162 +276,3 @@ python analyze_filter_performance.py --output results.json
 # Debug mode
 python analyze_filter_performance.py --log-level DEBUG
 ```
-
-### Interpreting Results
-
-**Filter Efficiency:**
-- **90%+**: Excellent (HEPA-level performance)
-- **80-90%**: Very Good (high-quality pleated filter)
-- **60-80%**: Good (standard pleated filter)
-- **40-60%**: Fair (basic filter, may need replacement)
-- **<40%**: Poor (replace immediately)
-
-**Air Changes per Hour (ACH):**
-- **<0.5**: Very tight building
-- **0.5-1.0**: Well-sealed building (typical new construction)
-- **1.0-2.0**: Average building tightness
-- **>2.0**: Leaky building (older construction)
-
-**Model Confidence (R²):**
-- **>0.8**: Excellent fit, high confidence
-- **0.6-0.8**: Good fit, reasonable confidence  
-- **0.4-0.6**: Moderate fit, check data quality
-- **<0.4**: Poor fit, results may be unreliable
-
-## Troubleshooting
-
-### Common Issues
-
-**"Insufficient night-time data"**
-- Check that your data includes timestamps
-- Verify night-time hours in config match your schedule
-- Ensure you have data spanning multiple days
-
-**"Missing required columns"**
-- Check column names in your Google Sheets
-- Update column mapping in config if needed
-- Ensure both indoor and outdoor AQI columns exist
-
-**"Analysis confidence is low"**
-- Check for sensor calibration issues
-- Look for periods with unusual activity (parties, construction)
-- Verify HVAC system was running during analysis period
-
-**"Google Sheets connection failed"**
-- Verify service account email has access to spreadsheet
-- Check that spreadsheet ID is correct
-- Ensure Google Sheets API is enabled
-
-### Data Quality Tips
-
-1. **Sensor Placement**: 
-   - Indoor sensor away from HVAC vents
-   - Outdoor sensor in representative location
-   - Avoid kitchens, bathrooms, or dusty areas
-
-2. **Data Collection**:
-   - Collect at least 7 days of continuous data
-   - Include both weekdays and weekends
-   - Avoid periods with unusual activities
-
-3. **HVAC Operation**:
-   - Ensure system runs regularly during analysis period
-   - Note any filter changes or maintenance
-   - Consider seasonal variations in operation
-
-## Building Parameter Guide
-
-### Measuring Your Building Volume
-
-**Simple Method:**
-```
-Volume = Floor Area × Ceiling Height × 0.8
-```
-(The 0.8 factor accounts for interior walls, furniture, etc.)
-
-**Detailed Method:**
-1. Measure each conditioned room
-2. Multiply length × width × height
-3. Sum all rooms
-4. Include hallways, closets
-5. Exclude garage, unfinished basement
-
-### Determining HVAC Flow Rate
-
-**From Equipment Labels:**
-- Air handler unit nameplate
-- Blower motor specifications
-- System design documents
-
-**Professional Measurement:**
-- HVAC contractor with flow meter
-- Duct blaster testing
-- Commissioning reports
-
-**Estimation by Tonnage:**
-```
-CFM ≈ Cooling Tons × 400
-```
-(Standard rule of thumb: 400 CFM per ton)
-
-## Advanced Configuration
-
-### Custom Alert Thresholds
-
-Adjust thresholds based on your filter type:
-
-```yaml
-# For basic fiberglass filters
-alerts:
-  efficiency_thresholds:
-    excellent: 0.60
-    good: 0.40
-    declining: 0.30
-    poor: 0.20
-
-# For HEPA filters  
-alerts:
-  efficiency_thresholds:
-    excellent: 0.95
-    good: 0.90
-    declining: 0.85
-    poor: 0.80
-```
-
-### Multiple Buildings
-
-Create separate config files:
-
-```bash
-# House config
-python analyze_filter_performance.py --config house_config.yaml
-
-# Office config  
-python analyze_filter_performance.py --config office_config.yaml
-```
-
-## Technical Details
-
-### Dependencies
-
-- **numpy, pandas, scipy**: Data analysis and scientific computing
-- **PyYAML**: Configuration file parsing
-- **google-api-python-client**: Google Sheets integration
-- **matplotlib** (optional): Plotting and visualization
-
-### Algorithm Overview
-
-1. **Data Preprocessing**: Convert AQI to PM2.5, filter night-time data, remove outliers
-2. **Model Fitting**: Maximum likelihood estimation of filter efficiency and infiltration rate
-3. **Validation**: Calculate R², RMSE, and other quality metrics
-4. **Trending**: Track efficiency changes over time
-5. **Recommendations**: Generate actionable insights
-
-### Model Assumptions
-
-- Building air is well-mixed
-- Filter efficiency is constant during analysis period
-- Night-time conditions are representative
-- Indoor particle generation is minimal at night
-- HVAC system operation is consistent
-

@@ -3,13 +3,13 @@
 
 building:
   # Building dimensions
-  area_sq_ft: 3000          # Total floor area in square feet
+  area_sq_ft: 3000           # Total floor area in square feet
   ceiling_height_ft: 9      # Average ceiling height in feet
   
   # Building characteristics for infiltration calculation
   # Somewhat arbitrary normalization so that efficiency is reasonable
   # If actual infiltration rate > calculated => calculated filter < actual filter
-  construction_type: average  # tight, average, or leaky construction
+  construction_type: tight    # tight, average, or leaky construction
   age_years: 4                # Building age in years
   
   # Calculated metrics (auto-calculated if commented out below)
@@ -18,29 +18,32 @@ building:
 
 hvac:
   # HVAC system specifications
-  flow_rate_cfm: 1500       # Air flow rate in cubic feet per minute
+  flow_rate_cfm: 1000       # Air flow rate in cubic feet per minute (daily average)
   
   # ERV (Energy Recovery Ventilator) specifications
   erv_enabled: true         # Enable ERV airflow calculations
-  erv_flow_rate_cfm: 170    # Example: Lifebreath 170 ERVD rated flow rate is 170 cfm
+  erv_flow_rate_cfm: 50     # Example: Lifebreath 170 ERVD rated flow rate is 170 cfm
   erv_runtime_fraction: 1.0 # Fraction of time ERV runs (0.0-1.0)
   
   # Calculated filtration rate (auto-calculated from above if not specified)
   # filtration_rate_m3h: 2550.0  # This will be calculated: CFM × 1.7 m³/h per CFM
   
   # Natural deposition rate (particle settling/removal independent of filtering)
-  # PM2.5 particles settle very slowly - 0.02/hr is typical from literature
-  deposition_rate_percent: 2
+  # PM2.5 particles settle very slowly
+  # 0.2 to 0.6 / hr for occuplied homes per the literature
+  # https://pubs.acs.org/doi/10.1021/es010723y
+  deposition_rate_percent: 50
 
 # Kalman Filter Algorithm Settings
 kalman_filter:
   # Learning confidence based on time of day
   day_confidence_multiplier: 0.5    # Lower confidence during day (more variable conditions)
-  night_confidence_multiplier: 2.0  # Higher confidence at night (stable sealed conditions)
+  night_confidence_multiplier: 4.0  # Higher confidence at night (stable sealed conditions)
   
   # Signal strength thresholds for reliable learning
-  min_indoor_pm25_for_learning: 10.0   # Don't learn below this indoor PM2.5 (μg/m³)
-  min_outdoor_pm25_for_learning: 30.0  # Don't learn below this outdoor PM2.5 (μg/m³)
+  min_indoor_pm25_for_learning: 1.0   # Don't learn below this indoor PM2.5 (μg/m³)
+  min_outdoor_pm25_for_learning: 5.0  # Don't learn below this outdoor PM2.5 (μg/m³)
+  max_ratio_for_learning: 1.0         # Skip learning when indoor/outdoor ratio >= this (indoor generation)
 
 # Analysis parameters
 analysis:
@@ -66,15 +69,15 @@ google_sheets:
   data_sheet: "Form Responses 1"   # Sheet containing sensor data (from Google Forms)
   results_sheet: "FilterAnalysis"  # Sheet for analysis results
   
-  # Data columns (adjust to match your sheet structure)
+  # Data columns (use actual header names from your sheet)
   columns:
-    timestamp: "A"              # Timestamp column
-    indoor_aqi: "E"             # IndoorAirQuality column  
-    outdoor_aqi: "D"            # OutdoorAirQuality column
+    timestamp: "Timestamp"           # Timestamp column header name
+    indoor_aqi: "IndoorAirQuality"   # Indoor AQI column header name  
+    outdoor_aqi: "OutdoorAirQuality" # Outdoor AQI column header name
   
   # Data range settings
   header_row: 1               # Row containing column headers
-  max_rows: 10000             # Maximum rows to read (for performance)
+  max_rows: 100000            # Maximum rows to read (for performance)
 
 # Analysis schedule
 schedule:

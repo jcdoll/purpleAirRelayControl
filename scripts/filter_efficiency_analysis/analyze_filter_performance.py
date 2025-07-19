@@ -140,10 +140,15 @@ class FilterEfficiencyAnalyzer:
         self.data_processor = DataProcessor(config)
         self.tracker = KalmanFilterTracker(config)
 
-        if not dry_run:
+        # Always initialize sheets client to read data (dry-run only affects writing)
+        try:
             self.sheets_client = SheetsClient(config)
-        else:
-            self.sheets_client = None
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to initialize Google Sheets client: {e}. " "Ensure credentials are properly configured."
+            ) from e
+
+        if dry_run:
             self.logger.info("Running in dry-run mode - results will not be written to Google Sheets")
 
     def run_analysis(self, days_back: int = 0) -> Dict[str, Any]:
@@ -206,18 +211,13 @@ class FilterEfficiencyAnalyzer:
 
     def _load_data(self, days_back: int) -> Any:
         """Load data from Google Sheets."""
-        # Use sheets_client if available (including MockSheetsClient for testing)
-        if self.sheets_client is not None:
-            return self.sheets_client.read_sensor_data(days_back)
-        else:
-            # Fallback to mock data only if no sheets client
-            from utils.test_data_generator import generate_standard_test_dataset
+        if self.sheets_client is None:
+            raise RuntimeError(
+                "No Google Sheets client available. This should not happen in production mode. "
+                "Ensure credentials are properly configured or run with --dry-run for testing."
+            )
 
-            # For mock data, use reasonable default if all data requested
-            mock_days = days_back if days_back > 0 else 14  # Default to 14 days for mock data
-            dataset, _ = generate_standard_test_dataset(scenario="good_filter", days=mock_days, random_seed=42)
-            self.logger.info(f"Created fallback mock data with {len(dataset)} points")
-            return dataset
+        return self.sheets_client.read_sensor_data(days_back)
 
     def _process_data(self, df: Any) -> Dict[str, Any]:
         """Process and clean the raw data."""
@@ -234,12 +234,8 @@ class FilterEfficiencyAnalyzer:
         # Calculate I/O ratio
         all_data = self.data_processor.calculate_io_ratio(all_data)
 
-        # Detect outliers
-        all_data = self.data_processor.detect_outliers(all_data, ['indoor_pm25', 'outdoor_pm25'])
-
-        # Remove outliers
-        clean_mask = ~(all_data['indoor_pm25_outlier'] | all_data['outdoor_pm25_outlier'])
-        clean_data = all_data[clean_mask].copy()
+        # Skip outlier detection - let Kalman filter handle noisy data
+        clean_data = all_data.copy()
 
         if len(clean_data) < 5:
             raise ValueError(f"Insufficient clean data after outlier removal: {len(clean_data)} points")
@@ -377,11 +373,11 @@ class FilterEfficiencyAnalyzer:
     def _write_results(self, results: Dict[str, Any]) -> bool:
         """Write analysis results to Google Sheets."""
         try:
-            if self.sheets_client is not None:
-                return self.sheets_client.write_analysis_results(results)
-            else:
-                self.logger.info("Dry run, skipping write to sheets.")
-                return True
+            # Add the tracker to results so sheets client can access state_history
+            enhanced_results = results.copy()
+            enhanced_results['tracker'] = self.tracker
+
+            return self.sheets_client.write_analysis_results(enhanced_results)
         except Exception as e:
             self.logger.error(f"Failed to write results to Google Sheets: {e}")
             return False
@@ -455,7 +451,7 @@ class FilterEfficiencyAnalyzer:
         return summary
 
     def _generate_visualization(self, processed_data: Dict[str, Any], analysis_results: Dict[str, Any]) -> List[str]:
-        """Generate visualization charts for the analysis results."""
+        """Generate weekly visualization charts for the analysis results."""
         try:
             visualization_files = []
 
@@ -467,6 +463,12 @@ class FilterEfficiencyAnalyzer:
                 self.logger.warning("Missing required columns for visualization")
                 return []
 
+            # Ensure timestamp is datetime
+            clean_data['timestamp'] = pd.to_datetime(clean_data['timestamp'])
+
+            # Sort by timestamp
+            clean_data = clean_data.sort_values('timestamp').reset_index(drop=True)
+
             # Create model results structure expected by visualization
             model_results = {
                 'kalman': {
@@ -476,11 +478,75 @@ class FilterEfficiencyAnalyzer:
                 }
             }
 
-            # Create scenario info structure
-            scenario_info = {
+            # Split data into weekly chunks
+            start_date = clean_data['timestamp'].min()
+            end_date = clean_data['timestamp'].max()
+
+            current_date = start_date
+            week_num = 1
+
+            while current_date < end_date:
+                # Define week boundaries
+                week_start = current_date
+                week_end = current_date + pd.Timedelta(days=7)
+
+                # Filter data for this week
+                week_mask = (clean_data['timestamp'] >= week_start) & (clean_data['timestamp'] < week_end)
+                week_data = clean_data[week_mask].copy()
+
+                # Skip weeks with insufficient data
+                if len(week_data) < 10:
+                    current_date = week_end
+                    week_num += 1
+                    continue
+
+                # Create scenario info for this week
+                scenario_info = {
+                    'description': (
+                        f"Filter Efficiency Analysis - Week {week_num} "
+                        f"({week_start.strftime('%Y-%m-%d')} to {week_end.strftime('%Y-%m-%d')})"
+                    ),
+                    'filter_efficiency': analysis_results['filter_performance']['current_efficiency'],
+                    'infiltration_ach': analysis_results['filter_performance']['infiltration_rate_ach'],
+                    'building_volume_m3': (
+                        self.tracker._calculate_building_volume_m3()
+                        if hasattr(self.tracker, '_calculate_building_volume_m3')
+                        else 765
+                    ),
+                    'hvac_m3h': (
+                        self.tracker._calculate_filtration_rate() * self.tracker._calculate_building_volume_m3()
+                        if hasattr(self.tracker, '_calculate_building_volume_m3')
+                        else 2549
+                    ),
+                }
+
+                # Generate visualization for this week
+                timestamp_str = analysis_results['analysis_timestamp'].strftime('%Y%m%d_%H%M%S')
+                test_name = f"filter_analysis_{timestamp_str}_week{week_num:02d}"
+
+                # Save weekly visualization
+                try:
+                    saved_files = save_test_visualization(
+                        test_name=test_name,
+                        df=week_data,
+                        model_results=model_results,
+                        scenario_info=scenario_info,
+                        output_dir="analysis_visualizations",
+                    )
+                    visualization_files.extend([str(f) for f in saved_files])
+
+                except Exception as e:
+                    self.logger.warning(f"Failed to generate visualization for week {week_num}: {e}")
+
+                # Move to next week
+                current_date = week_end
+                week_num += 1
+
+            # Generate summary efficiency plot for the entire time period
+            summary_scenario_info = {
                 'description': (
-                    f"Filter Efficiency Analysis - "
-                    f"{analysis_results['analysis_timestamp'].strftime('%Y-%m-%d %H:%M')}"
+                    f"Filter Efficiency Analysis - Complete Time Series "
+                    f"({start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')})"
                 ),
                 'filter_efficiency': analysis_results['filter_performance']['current_efficiency'],
                 'infiltration_ach': analysis_results['filter_performance']['infiltration_rate_ach'],
@@ -496,26 +562,33 @@ class FilterEfficiencyAnalyzer:
                 ),
             }
 
-            # Generate visualization
-            timestamp_str = analysis_results['analysis_timestamp'].strftime('%Y%m%d_%H%M%S')
-            test_name = f"filter_analysis_{timestamp_str}"
+            # Generate summary plot using the full time series
+            summary_test_name = f"filter_analysis_{timestamp_str}_summary"
 
-            # Save visualization
-            saved_files = save_test_visualization(
-                test_name=test_name,
-                df=clean_data,
-                model_results=model_results,
-                scenario_info=scenario_info,
-                output_dir="analysis_visualizations",
+            try:
+                # Use the full clean_data for the summary plot
+                saved_files = save_test_visualization(
+                    test_name=summary_test_name,
+                    df=clean_data,  # Use full time series for summary
+                    model_results=model_results,
+                    scenario_info=summary_scenario_info,
+                    output_dir="analysis_visualizations",
+                    create_summary=False,  # Don't create duplicate efficiency summary
+                )
+                # Add the comprehensive summary file
+                if saved_files:
+                    visualization_files.append(str(saved_files[0]))
+
+            except Exception as e:
+                self.logger.warning(f"Failed to generate summary: {e}")
+
+            self.logger.info(
+                f"Generated {len(visualization_files)} visualization files ({week_num-1} weekly + 1 summary)"
             )
-
-            visualization_files = [str(f) for f in saved_files]
-            self.logger.info(f"Generated {len(visualization_files)} visualization files: {visualization_files}")
-
             return visualization_files
 
         except Exception as e:
-            self.logger.warning(f"Failed to generate visualization: {e}")
+            self.logger.warning(f"Failed to generate visualizations: {e}")
             return []
 
 
