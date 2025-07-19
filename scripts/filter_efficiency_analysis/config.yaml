@@ -6,8 +6,13 @@ building:
   area_sq_ft: 3000          # Total floor area in square feet
   ceiling_height_ft: 9      # Average ceiling height in feet
   
-  # Calculated building volume (auto-calculated from above)
-  # volume_m3: 765.0  # This will be calculated: area × height × 0.0283 m³/ft³
+  # Building characteristics for infiltration calculation
+  construction_type: tight  # tight, average, or leaky construction
+  age_years: 4             # Building age in years (finished 2020, so ~4 years old)
+  
+  # Calculated values (auto-calculated from above)
+  # volume_m3: 765.0        # Calculated: area × height × 0.0283 m³/ft³
+  # infiltration_ach: ~0.18 # Calculated based on construction_type and age_years
 
 hvac:
   # HVAC system specifications
