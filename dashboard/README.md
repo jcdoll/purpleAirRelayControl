@@ -62,6 +62,34 @@ Technologies:
    npm start
    ```
 
+### Getting Google Sheets CSV URL
+
+To configure your Google Sheets data source, follow these steps:
+
+1. **Open Your Google Sheets Document**
+   - Go to the Google Sheets document containing your data
+
+2. **Publish the Sheet**
+   - Click **File** → **Share** → **Publish to web**
+   - Select the specific sheet (not "Entire Document")
+   - Choose **Comma-separated values (.csv)** format
+   - Click **Publish**
+
+3. **Get the Sheet ID (gid)**
+   - Click on the sheet tab at the bottom of your spreadsheet
+   - Look at the URL in your browser: `https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit#gid=123456789`
+   - Note the number after `gid=` (e.g., `123456789`)
+
+4. **Construct the CSV URL**
+   Use this format:
+   ```
+   https://docs.google.com/spreadsheets/d/e/SPREADSHEET_ID/pub?gid=SHEET_ID&single=true&output=csv
+   ```
+
+5. **Test the URL**
+   - Paste the URL into a browser to verify it returns CSV data
+   - You should see your data with proper column headers
+
 ## Testing
 
 The project includes comprehensive tests for utility functions and chart data processors.

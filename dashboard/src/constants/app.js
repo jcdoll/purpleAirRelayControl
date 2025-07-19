@@ -3,6 +3,9 @@
 // Data Source
 export const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRN0PHzfkvu7IMHEf2PG6_Ne4Vr-Pstsg0Sa8-WNBSy9a_-10Vvpr_jYGZxLszyMw8CybUq_7tDGkBq/pub?gid=394013654&single=true&output=csv';
 
+// Filter Efficiency Data Source
+export const FILTER_EFFICIENCY_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRN0PHzfkvu7IMHEf2PG6_Ne4Vr-Pstsg0Sa8-WNBSy9a_-10Vvpr_jYGZxLszyMw8CybUq_7tDGkBq/pub?gid=96546614&single=true&output=csv';
+
 // Application Info
 export const GITHUB_URL = 'https://github.com/jcdoll/purpleAirRelayControl';
 
@@ -78,7 +81,8 @@ export const VIEW_TYPES = {
   HOURLY: 'hourly',
   TIMELINE: 'timeline',
   CORRELATION: 'correlation',
-  ANNUAL_HEATMAP: 'annual-heatmap'
+  ANNUAL_HEATMAP: 'annual-heatmap',
+  FILTER_EFFICIENCY: 'filter-efficiency'
 };
 
 // View Options
@@ -87,7 +91,8 @@ export const VIEW_OPTIONS = [
   { value: VIEW_TYPES.HOURLY, label: 'Hourly Analysis' },
   { value: VIEW_TYPES.TIMELINE, label: 'Timeline' },
   { value: VIEW_TYPES.CORRELATION, label: 'Correlation' },
-  { value: VIEW_TYPES.ANNUAL_HEATMAP, label: 'Annual' }
+  { value: VIEW_TYPES.ANNUAL_HEATMAP, label: 'Annual' },
+  { value: VIEW_TYPES.FILTER_EFFICIENCY, label: 'Filter Efficiency' }
 ];
 
 // Aggregation Options
@@ -143,6 +148,24 @@ export const AQI_LEGEND_ITEMS = [
   { color: '#8F3F97', label: 'Very Unhealthy (<300)' },
   { color: '#7E0023', label: 'Hazardous (>300)' }
 ];
+
+// Filter Efficiency Colors (inverted from AQI - higher efficiency is better)
+export const FILTER_EFFICIENCY_COLORS = {
+  EXCELLENT: '#00E400',    // Green (85-100%)
+  GOOD: '#7ED321',         // Light Green (70-85%)
+  MODERATE: '#FFDC00',     // Yellow (50-70%)
+  DECLINING: '#FF7E00',    // Orange (30-50%)
+  POOR: '#FF0000',         // Red (0-30%)
+  NO_DATA: '#f0f0f0'       // Light gray for no data
+};
+
+// Filter Efficiency Thresholds
+export const FILTER_EFFICIENCY_THRESHOLDS = {
+  EXCELLENT: 85,
+  GOOD: 70,
+  MODERATE: 50,
+  DECLINING: 30
+};
 
 // Chart Constants
 export const CHART_CONSTANTS = {

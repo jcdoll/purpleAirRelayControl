@@ -404,4 +404,137 @@ export const calculatePatternSummary = (data, filteredData) => {
     indoorAvg: getAverage('indoor'),
     outdoorAvg: getAverage('outdoor')
   };
+};
+
+/**
+ * Processes filter efficiency data for timeline chart
+ * @param {Object[]} filteredData - Array of filter efficiency data objects
+ * @returns {Array} Array with filter efficiency timeline data
+ */
+export const processFilterEfficiencyTimelineData = (filteredData) => {
+  if (!filteredData || filteredData.length === 0) {
+    return [];
+  }
+
+  const validData = filteredData.filter(row => 
+    row.timestamp && 
+    isValidValue(row.filterEfficiency)
+  );
+
+  return [{
+    name: 'Filter Efficiency',
+    data: validData.map(row => ({
+      x: row.timestamp.getTime(), // ApexCharts expects timestamp in milliseconds
+      y: row.filterEfficiency
+    }))
+  }];
+};
+
+/**
+ * Processes filter efficiency data for annual heatmap (GitHub-style calendar)
+ * @param {Object[]} data - Array of all filter efficiency data
+ * @param {number} selectedYear - Year to display data for
+ * @param {string} aggregation - Aggregation method ('average', 'max', 'median', or '95th')
+ * @returns {Array} Array with single heatmap data object for filter efficiency
+ */
+export const processFilterEfficiencyAnnualData = (data, selectedYear, aggregation = 'average') => {
+  if (!data || data.length === 0) {
+    return [];
+  }
+
+  // Filter data for selected year
+  const yearData = data.filter(d => d.timestamp.getFullYear() === selectedYear);
+  
+  // Group by date
+  const dailyData = {};
+  yearData.forEach(row => {
+    const date = row.date;
+    if (!dailyData[date]) {
+      dailyData[date] = [];
+    }
+    if (isValidValue(row.filterEfficiency)) {
+      dailyData[date].push(row.filterEfficiency);
+    }
+  });
+
+  // Calculate daily aggregated values
+  const dailyValues = {};
+  Object.keys(dailyData).forEach(date => {
+    const values = dailyData[date];
+    if (values.length > 0) {
+      switch (aggregation) {
+        case 'average':
+          dailyValues[date] = calculateAverage(values);
+          break;
+        case 'median':
+          dailyValues[date] = calculateMedian(values);
+          break;
+        case 'max':
+          dailyValues[date] = Math.max(...values);
+          break;
+        case '95th':
+        default:
+          dailyValues[date] = calculate95thPercentile(values);
+          break;
+      }
+    }
+  });
+
+  // Generate calendar data (same format as existing AQI annual heatmap)
+  const yearStart = new Date(selectedYear, 0, 1);
+  const firstSunday = new Date(yearStart);
+  firstSunday.setDate(firstSunday.getDate() - firstSunday.getDay());
+  
+  let currentDate = new Date(firstSunday);
+  const heatmapData = [];
+  const heatmapText = [];
+  const heatmapX = [];
+  const heatmapY = [];
+  
+  for (let week = 0; week < 52; week++) {
+    for (let day = 0; day < 7; day++) {
+      const dateStr = currentDate.toISOString().split('T')[0];
+      const isTargetYear = currentDate.getFullYear() === selectedYear;
+      const isFuture = selectedYear === new Date().getFullYear() && currentDate > new Date();
+      
+      heatmapX.push(week);
+      heatmapY.push(day);
+      
+      if (isTargetYear && !isFuture) {
+        const value = dailyValues[dateStr];
+        heatmapData.push(value !== undefined ? value : -1);
+        heatmapText.push(value !== undefined 
+          ? `${dateStr}<br>Filter Efficiency: ${value.toFixed(1)}%` 
+          : `${dateStr}<br>Filter Efficiency: No data`);
+      } else {
+        heatmapData.push(-1);
+        heatmapText.push(`${dateStr}<br>Filter Efficiency: No data`);
+      }
+      
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+  }
+
+  // Transform to ApexCharts format (same as AQI annual heatmap)
+  const weekLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const series = [];
+  
+  for (let day = 0; day < 7; day++) {
+    const dayData = [];
+    for (let week = 0; week < 52; week++) {
+      const index = week * 7 + day;
+      if (index < heatmapData.length) {
+        const value = heatmapData[index];
+        const text = heatmapText[index];
+        dayData.push({ 
+          x: week, 
+          y: value,
+          text: text // Store tooltip text
+        });
+      }
+    }
+    series.push({ name: weekLabels[day], data: dayData });
+  }
+  
+  return series;
 }; 

@@ -9,7 +9,9 @@ import {
   processHourlyStats,
   processTimeSeriesData,
   processCorrelationData,
-  processAnnualHeatmapData
+  processAnnualHeatmapData,
+  processFilterEfficiencyTimelineData,
+  processFilterEfficiencyAnnualData
 } from './utils/chartDataProcessors';
 import { formatDateToYMD } from './utils/common';
 
@@ -19,7 +21,9 @@ import {
   TimelineChart,
   HourlyChart,
   CorrelationChart,
-  AnnualHeatmapChart
+  AnnualHeatmapChart,
+  FilterTimelineChart,
+  FilterAnnualHeatmapChart
 } from './components/Charts';
 
 // Import UI components
@@ -28,7 +32,7 @@ import SummaryCards from './components/UI/SummaryCards';
 import LoadingError from './components/UI/LoadingError';
 import ViewSelector from './components/Controls/ViewSelector';
 import DateRangeControls from './components/Controls/DateRangeControls';
-import { CSV_URL, REFRESH_INTERVAL, VIEW_TYPES, TIME_CONSTANTS } from './constants/app';
+import { CSV_URL, FILTER_EFFICIENCY_CSV_URL, REFRESH_INTERVAL, VIEW_TYPES, TIME_CONSTANTS } from './constants/app';
 
 function App() {
   // Consolidated state management
@@ -44,68 +48,124 @@ function App() {
 
   // Data state
   const [data, setData] = useState([]);
+  const [filterData, setFilterData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(new Date());
 
-  // Simplified data fetching - no timezone complexity
+  // Air quality data fetching function
+  const fetchAirQualityData = useCallback(async () => {
+    const response = await fetch(CSV_URL);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const csvText = await response.text();
+    
+    return new Promise((resolve, reject) => {
+      Papa.parse(csvText, {
+        header: true,
+        complete: (results) => {
+          if (results.errors.length > 0) {
+            reject(new Error('CSV parsing error: ' + results.errors[0].message));
+            return;
+          }
+          
+          const processedData = results.data
+            .filter(row => row.Timestamp && row.OutdoorAirQuality && row.IndoorAirQuality)
+            .map(row => {
+              const timestamp = new Date(row.Timestamp);
+              return {
+                timestamp,
+                Timestamp: row.Timestamp,
+                IndoorAirQuality: parseFloat(row.IndoorAirQuality),
+                OutdoorAirQuality: parseFloat(row.OutdoorAirQuality),
+                hour: timestamp.getHours(),
+                date: formatDateToYMD(timestamp),
+                dayOfWeek: timestamp.toLocaleDateString('en-US', { weekday: 'long' }),
+                switch_state: row.SwitchState,
+                sensor_type: row.VentilationState,
+                log_reason: row.Reason || ''
+              };
+            })
+            .filter(row => !isNaN(row.timestamp.getTime()) && !isNaN(row.IndoorAirQuality) && !isNaN(row.OutdoorAirQuality))
+            .sort((a, b) => a.timestamp - b.timestamp);
+          
+          resolve(processedData);
+        },
+        error: (error) => {
+          reject(error);
+        }
+      });
+    });
+  }, []);
+
+  // Filter efficiency data fetching function
+  const fetchFilterEfficiencyData = useCallback(async () => {
+    const response = await fetch(FILTER_EFFICIENCY_CSV_URL);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const csvText = await response.text();
+    
+    return new Promise((resolve, reject) => {
+      Papa.parse(csvText, {
+        header: true,
+        complete: (results) => {
+          if (results.errors.length > 0) {
+            reject(new Error('Filter efficiency CSV parsing error: ' + results.errors[0].message));
+            return;
+          }
+          
+          const processedData = results.data
+            .filter(row => row.Timestamp && row['Estimated Filter Efficiency (%)'] !== undefined && row['Estimated Filter Efficiency (%)'] !== '')
+            .map(row => {
+              const timestamp = new Date(row.Timestamp);
+              return {
+                timestamp,
+                Timestamp: row.Timestamp,
+                filterEfficiency: parseFloat(row['Estimated Filter Efficiency (%)']),
+                efficiencyUncertainty: parseFloat(row['Efficiency Uncertainty (%)']) || 0,
+                indoorPM25: parseFloat(row['Indoor PM2.5']) || 0,
+                outdoorPM25: parseFloat(row['Outdoor PM2.5']) || 0,
+                hour: timestamp.getHours(),
+                date: formatDateToYMD(timestamp)
+              };
+            })
+            .filter(row => !isNaN(row.timestamp.getTime()) && !isNaN(row.filterEfficiency))
+            .sort((a, b) => a.timestamp - b.timestamp);
+          
+          resolve(processedData);
+        },
+        error: (error) => {
+          reject(error);
+        }
+      });
+    });
+  }, []);
+
+  // Combined data fetching function
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       
-      const response = await fetch(CSV_URL);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      // Fetch both datasets in parallel
+      const [airQualityData, filterEfficiencyData] = await Promise.all([
+        fetchAirQualityData(),
+        fetchFilterEfficiencyData().catch(() => []) // Gracefully handle filter data errors
+      ]);
       
-      const csvText = await response.text();
-      
-      return new Promise((resolve, reject) => {
-        Papa.parse(csvText, {
-          header: true, // CSV has headers
-          complete: (results) => {
-            if (results.errors.length > 0) {
-              reject(new Error('CSV parsing error: ' + results.errors[0].message));
-              return;
-            }
-            
-            // Process CSV data using header names
-            const processedData = results.data
-              .filter(row => row.Timestamp && row.OutdoorAirQuality && row.IndoorAirQuality) // Filter out empty rows
-              .map(row => {
-                const timestamp = new Date(row.Timestamp);
-                return {
-                  timestamp,
-                  Timestamp: row.Timestamp, // Keep original string for compatibility
-                  IndoorAirQuality: parseFloat(row.IndoorAirQuality),
-                  OutdoorAirQuality: parseFloat(row.OutdoorAirQuality),
-                  hour: timestamp.getHours(),
-                  date: formatDateToYMD(timestamp), // no timezone, use sensor date directly
-                  dayOfWeek: timestamp.toLocaleDateString('en-US', { weekday: 'long' }),
-                  switch_state: row.SwitchState,
-                  sensor_type: row.VentilationState,
-                  log_reason: row.Reason || ''
-                };
-              })
-              .filter(row => !isNaN(row.timestamp.getTime()) && !isNaN(row.IndoorAirQuality) && !isNaN(row.OutdoorAirQuality))
-              .sort((a, b) => a.timestamp - b.timestamp);
-            
-            setData(processedData);
-            setLastUpdate(new Date());
-            setLoading(false);
-            resolve();
-          },
-          error: (error) => {
-            reject(error);
-          }
-        });
-      });
+      setData(airQualityData);
+      setFilterData(filterEfficiencyData);
+      setLastUpdate(new Date());
+      setLoading(false);
     } catch (error) {
       setError(error.message);
       setLoading(false);
     }
-  }, []);
+  }, [fetchAirQualityData, fetchFilterEfficiencyData]);
 
   // Initial load
   useEffect(() => {
@@ -128,11 +188,12 @@ function App() {
 
   // Get available years for annual heatmap
   const availableYears = useMemo(() => {
-    if (data.length === 0) return [new Date().getFullYear()];
-    const years = data.map(item => item.timestamp.getFullYear());
+    const combinedData = [...data, ...filterData];
+    if (combinedData.length === 0) return [new Date().getFullYear()];
+    const years = combinedData.map(item => item.timestamp.getFullYear());
     const uniqueYears = [...new Set(years)].sort((a, b) => b - a);
     return uniqueYears.length > 0 ? uniqueYears : [new Date().getFullYear()];
-  }, [data]);
+  }, [data, filterData]);
 
   // Filter data based on date range
   const filteredData = useMemo(() => {
@@ -144,7 +205,6 @@ function App() {
     if (state.dateRangeMode === 'custom') {
       startDate = state.customStartDate ? new Date(state.customStartDate) : new Date(now.getTime() - (state.dateRange * TIME_CONSTANTS.MS_PER_DAY));
     } else {
-      // Calculate start date and set to beginning of day (midnight)
       startDate = new Date(now.getTime() - (state.dateRange * TIME_CONSTANTS.MS_PER_DAY));
       startDate.setHours(0, 0, 0, 0);
     }
@@ -157,6 +217,29 @@ function App() {
       return itemDate >= startDate && itemDate <= endDate;
     });
   }, [data, state.dateRange, state.dateRangeMode, state.customStartDate, state.customEndDate]);
+
+  // Filter efficiency data based on date range
+  const filteredFilterData = useMemo(() => {
+    if (!filterData || filterData.length === 0) return [];
+    
+    const now = new Date();
+    let startDate;
+    
+    if (state.dateRangeMode === 'custom') {
+      startDate = state.customStartDate ? new Date(state.customStartDate) : new Date(now.getTime() - (state.dateRange * TIME_CONSTANTS.MS_PER_DAY));
+    } else {
+      startDate = new Date(now.getTime() - (state.dateRange * TIME_CONSTANTS.MS_PER_DAY));
+      startDate.setHours(0, 0, 0, 0);
+    }
+    
+    const endDate = state.dateRangeMode === 'custom' && state.customEndDate ? 
+      new Date(state.customEndDate) : now;
+    
+    return filterData.filter(item => {
+      const itemDate = item.timestamp;
+      return itemDate >= startDate && itemDate <= endDate;
+    });
+  }, [filterData, state.dateRange, state.dateRangeMode, state.customStartDate, state.customEndDate]);
 
   // Generate time range description
   const timeRangeDescription = useMemo(() => {
@@ -195,6 +278,23 @@ function App() {
     [data, state.selectedYear, state.aggregation]
   );
 
+  // Process filter efficiency data (use all data for timeline, not filtered by date range)
+  const filterTimelineData = useMemo(() => 
+    processFilterEfficiencyTimelineData(filterData),
+    [filterData]
+  );
+  
+  // Use appropriate aggregation defaults for each view type
+  const effectiveAggregation = useMemo(() => {
+    // Use 'average' as default for filter efficiency, '95th' for AQI views
+    return state.selectedView === VIEW_TYPES.FILTER_EFFICIENCY && state.aggregation === '95th' ? 'average' : state.aggregation;
+  }, [state.selectedView, state.aggregation]);
+
+  const filterAnnualData = useMemo(() => 
+    processFilterEfficiencyAnnualData(filterData, state.selectedYear, effectiveAggregation),
+    [filterData, state.selectedYear, effectiveAggregation]
+  );
+
   // Calculate latest sensor values summary
   const summary = useMemo(() => {
     if (data.length === 0) {
@@ -214,6 +314,9 @@ function App() {
   if (loading || error) {
     return <LoadingError loading={loading} error={error} onRetry={fetchData} />;
   }
+
+  // Determine which chart to show based on selected view
+  const isFilterEfficiencyView = state.selectedView === VIEW_TYPES.FILTER_EFFICIENCY;
 
   return (
     <div className={styles.app}>
@@ -245,7 +348,7 @@ function App() {
       </div>
 
       <div className={styles.chartContainer}>
-        {/* Pre-render all charts for instant tab switching */}
+        {/* Air Quality Charts */}
         <RecentHeatmapChart 
           data={heatmapData} 
           timeRangeDescription={timeRangeDescription} 
@@ -273,6 +376,23 @@ function App() {
           aggregation={state.aggregation}
           isVisible={state.selectedView === VIEW_TYPES.ANNUAL_HEATMAP}
         />
+        
+        {/* Filter Efficiency Charts */}
+        {isFilterEfficiencyView && (
+          <>
+            <FilterTimelineChart 
+              data={filterTimelineData} 
+              timeRangeDescription={timeRangeDescription} 
+              isVisible={true}
+            />
+            <FilterAnnualHeatmapChart 
+              data={filterAnnualData} 
+              selectedYear={state.selectedYear} 
+              aggregation={effectiveAggregation}
+              isVisible={true}
+            />
+          </>
+        )}
       </div>
 
       <footer className={styles.footer}>

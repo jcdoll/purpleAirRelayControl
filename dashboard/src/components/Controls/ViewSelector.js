@@ -34,6 +34,12 @@ const ViewSelector = ({ selectedView, onViewChange }) => {
       >
         Correlation
       </button>
+      <button 
+        className={selectedView === 'filter-efficiency' ? styles.active : ''}
+        onClick={() => onViewChange('filter-efficiency')}
+      >
+        Filter Efficiency
+      </button>
     </div>
   );
 };
