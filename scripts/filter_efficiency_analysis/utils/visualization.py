@@ -636,8 +636,8 @@ class FilterVisualization:
         fig, axes = plt.subplots(4, 1, figsize=(15, 16))
 
         # Subplot 1: Time series data (outdoor and indoor only)
-        axes[0].plot(df['timestamp'], df['outdoor_pm25'], 'r-', linewidth=2, alpha=0.8)
-        axes[0].plot(df['timestamp'], df['indoor_pm25'], 'b-', linewidth=1.5, alpha=0.9)
+        axes[0].plot(df['timestamp'], df['outdoor_pm25'], 'r-', linewidth=2, alpha=0.8, label='Outdoor PM2.5')
+        axes[0].plot(df['timestamp'], df['indoor_pm25'], 'b-', linewidth=1.5, alpha=0.9, label='Indoor PM2.5')
 
         # Add step boundaries if provided
         if step_boundaries:
@@ -645,6 +645,7 @@ class FilterVisualization:
                 axes[0].axvline(x=boundary, color='gray', linestyle='--', alpha=0.5)
 
         axes[0].set_ylabel('PM2.5 (μg/m³)')
+        axes[0].legend()
         axes[0].grid(True, alpha=0.3)
         self.format_datetime_axis(axes[0], df)
 
@@ -659,6 +660,7 @@ class FilterVisualization:
                 color='gray',
                 linestyle='--',
                 alpha=0.7,
+                label=f'Expected ({expected_io_ratio:.3f})',
             )
 
         # Add step boundaries
@@ -668,16 +670,17 @@ class FilterVisualization:
 
         axes[1].set_ylabel('Indoor/Outdoor Ratio')
         axes[1].set_ylim(0, 1)
+        axes[1].legend()
         axes[1].grid(True, alpha=0.3)
         self.format_datetime_axis(axes[1], df)
 
-        # Subplot 3: Actual vs Predicted
-        axes[2].plot(df['timestamp'], df['indoor_pm25'], 'b-', linewidth=1.5, alpha=0.9)
-
+                # Subplot 3: Actual vs Predicted
+        axes[2].plot(df['timestamp'], df['indoor_pm25'], 'b-', linewidth=1.5, alpha=0.9, label='Actual Indoor')
+        
         predicted_data = self._extract_predicted_data(df, model_results)
         if predicted_data is not None:
-            axes[2].plot(df['timestamp'], predicted_data, 'k-', linewidth=1.2, alpha=0.8)
-
+            axes[2].plot(df['timestamp'], predicted_data, 'k-', linewidth=1.2, alpha=0.8, label='Predicted Indoor')
+            
             # Add prediction error as text
             error = np.mean(np.abs(df['indoor_pm25'] - predicted_data))
             axes[2].text(
@@ -695,6 +698,7 @@ class FilterVisualization:
                 axes[2].axvline(x=boundary, color='gray', linestyle='--', alpha=0.5)
 
         axes[2].set_ylabel('PM2.5 (μg/m³)')
+        axes[2].legend()
         axes[2].grid(True, alpha=0.3)
         self.format_datetime_axis(axes[2], df)
 
