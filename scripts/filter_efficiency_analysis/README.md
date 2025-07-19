@@ -77,6 +77,15 @@ During night-time when conditions are stable:
 
 By fitting this model to real data, we can solve for the unknown filter efficiency.
 
+### System Requirements and Assumptions
+
+**HVAC Operation Requirements:**
+- **Continuous fan operation during night hours** - The analysis assumes relatively constant airflow through the filter during the 10pm-8am analysis window. Systems with intermittent fan operation may produce unreliable results.
+- **Consistent flow rate** - While some variation during active heating/cooling is acceptable, major flow rate changes will affect accuracy.
+
+**Data Requirements:**
+- **Consistent AQI-PM2.5 conversion** - Both sensor hardware and analysis software must use the same EPA AQI standard for accurate round-trip conversion.
+
 ### Night-Time Calibration
 
 Why night-time? During 10pm-8am:
@@ -91,6 +100,22 @@ The system provides several quality metrics:
 - **R² (Coefficient of Determination)**: How well the model fits your data (>0.8 is excellent)
 - **RMSE/MAE**: Prediction accuracy metrics
 - **Data Quality**: Number of valid data points used
+
+## **CRITICAL: Current Model Performance Issues**
+
+**Performance testing has revealed significant issues with the current implementation:**
+
+- **Parameter estimation failures** - Model converges to similar values (~80% efficiency) regardless of true filter performance
+- **Poor fit quality** - R² values often negative, indicating model fits worse than a simple average
+- **High estimation errors** - Mean efficiency estimation error of 59%, with maximum errors exceeding 200%
+- **Optimization problems** - Algorithm appears to get stuck in local minima or hit parameter bounds
+
+**Recommendation**: This tool should be considered **experimental** and not used for critical filter replacement decisions until these issues are resolved.
+
+**For reliable filter monitoring, consider:**
+- Direct pressure drop measurements across the filter
+- Periodic visual inspection and manufacturer replacement schedules
+- Professional HVAC system evaluation
 
 ## Configuration Reference
 

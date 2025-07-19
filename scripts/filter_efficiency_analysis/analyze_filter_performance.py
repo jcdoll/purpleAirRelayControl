@@ -28,15 +28,16 @@ import json
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, Any, Optional
+import pandas as pd
 
 # Add utils to path
 script_dir = Path(__file__).parent
 sys.path.append(str(script_dir / 'utils'))
 sys.path.append(str(script_dir / 'models'))
 
-from data_processor import DataProcessor
-from night_calibration import NightTimeCalibration
-from sheets_client import SheetsClient
+from utils.data_processor import DataProcessor
+from models.kalman_filter_tracker import KalmanFilterTracker
+from utils.sheets_client import SheetsClient
 
 
 def setup_logging(log_level: str = 'INFO') -> logging.Logger:
@@ -138,7 +139,7 @@ class FilterEfficiencyAnalyzer:
         
         # Initialize components
         self.data_processor = DataProcessor(config)
-        self.night_model = NightTimeCalibration(config, self.data_processor.building_params)
+        self.tracker = KalmanFilterTracker(config)
         
         if not dry_run:
             self.sheets_client = SheetsClient(config)
@@ -167,14 +168,12 @@ class FilterEfficiencyAnalyzer:
             self.logger.info("Processing and cleaning data...")
             processed_data = self._process_data(df)
             
-            # Step 3: Run night-time analysis
-            self.logger.info("Running night-time calibration analysis...")
+            # Step 3: Run Kalman filter analysis
+            self.logger.info("Running Kalman filter analysis...")
             analysis_results = self._analyze_filter_efficiency(processed_data)
-            
-            # Step 4: Generate recommendations
-            self.logger.info("Generating recommendations...")
-            recommendations = self.night_model.generate_recommendations()
-            analysis_results['recommendations'] = recommendations
+
+            # No recommendation engine yet; leave empty list
+            analysis_results['recommendations'] = {}
             
             # Step 5: Write results back to Google Sheets
             if not self.dry_run:
@@ -204,42 +203,19 @@ class FilterEfficiencyAnalyzer:
     
     def _load_data(self, days_back: int) -> Any:
         """Load data from Google Sheets."""
-        if self.dry_run:
-            # For dry run, create mock data
-            return self._create_mock_data(days_back)
-        else:
+        # Use sheets_client if available (including MockSheetsClient for testing)
+        if self.sheets_client is not None:
             return self.sheets_client.read_sensor_data(days_back)
-    
-    def _create_mock_data(self, days_back: int) -> Any:
-        """Create mock data for dry run testing."""
-        import pandas as pd
-        import numpy as np
-        
-        # Generate timestamps
-        end_time = datetime.now()
-        start_time = end_time - timedelta(days=days_back)
-        timestamps = pd.date_range(start=start_time, end=end_time, freq='H')
-        
-        # Generate realistic AQI data
-        n_points = len(timestamps)
-        np.random.seed(42)  # For reproducible results
-        
-        # Outdoor varies more, indoor is filtered
-        outdoor_aqi = 25 + 15 * np.sin(np.linspace(0, 2*np.pi*days_back, n_points)) + np.random.normal(0, 8, n_points)
-        indoor_aqi = outdoor_aqi * 0.3 + np.random.normal(0, 3, n_points)
-        
-        # Ensure positive values
-        outdoor_aqi = np.maximum(outdoor_aqi, 5)
-        indoor_aqi = np.maximum(indoor_aqi, 2)
-        
-        df = pd.DataFrame({
-            'timestamp': timestamps,
-            'indoor_aqi': indoor_aqi,
-            'outdoor_aqi': outdoor_aqi
-        })
-        
-        self.logger.info(f"Created mock data with {len(df)} points for testing")
-        return df
+        else:
+            # Fallback to mock data only if no sheets client
+            from utils.test_data_generator import generate_standard_test_dataset
+            dataset, _ = generate_standard_test_dataset(
+                scenario="good_filter", 
+                days=days_back,
+                random_seed=42
+            )
+            self.logger.info(f"Created fallback mock data with {len(dataset)} points")
+            return dataset
     
     def _process_data(self, df: Any) -> Dict[str, Any]:
         """Process and clean the raw data."""
@@ -285,28 +261,35 @@ class FilterEfficiencyAnalyzer:
         }
     
     def _analyze_filter_efficiency(self, processed_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Run the filter efficiency analysis."""
+        """Run Kalman filter on processed data and compute metrics."""
         model_data = processed_data['model_data']
-        
-        # Fit the night-time calibration model
-        fit_results = self.night_model.fit_maximum_likelihood(
+
+        # Fix: Use timestamps from model_data to ensure alignment with PM2.5 values
+        for ts, indoor, outdoor in zip(
+            model_data['timestamps'],
             model_data['indoor_pm25'],
             model_data['outdoor_pm25']
-        )
-        
-        # Update parameter history
-        self.night_model.update_parameter_history()
-        
-        # Get diagnostics
-        diagnostics = self.night_model.get_diagnostics()
-        
-        # Calculate performance metrics
+        ):
+            # Convert numpy.datetime64 to Python datetime
+            if hasattr(ts, 'to_pydatetime'):
+                ts = ts.to_pydatetime()
+            elif hasattr(ts, 'item'):
+                ts = pd.Timestamp(ts).to_pydatetime()
+            
+            self.tracker.add_measurement(ts, float(indoor), float(outdoor))
+
+        current_eff = self.tracker.get_current_efficiency()
+        diagnostics = {
+            'state_history_len': len(self.tracker.state_history),
+            'measurement_count': len(self.tracker.measurements)
+        }
+
         performance = {
-            'current_efficiency': fit_results['efficiency'],
-            'efficiency_percentage': fit_results['efficiency'] * 100,
-            'infiltration_rate_ach': fit_results['infiltration_rate_ach'],
-            'infiltration_rate_m3h': fit_results['infiltration_rate_m3h'],
-            'degradation_rate_per_day': self.night_model.get_filter_degradation_rate()
+            'current_efficiency': current_eff,
+            'efficiency_percentage': current_eff * 100 if current_eff is not None else None,
+            'infiltration_rate_ach': self.tracker.leak_ach,
+            'infiltration_rate_m3h': None,
+            'degradation_rate_per_day': None
         }
         
         # Data period info
@@ -318,23 +301,39 @@ class FilterEfficiencyAnalyzer:
             'n_points_clean': len(clean_data)
         }
         
-        return {
+        # Build consolidated analysis results dictionary expected by downstream code/tests
+        analysis_results = {
             'analysis_timestamp': datetime.now(),
             'filter_performance': performance,
             'model_quality': {
-                'r_squared': fit_results['r_squared'],
-                'rmse': fit_results['rmse'],
-                'mae': fit_results['mae']
+                'r_squared': None, # No direct R-squared for Kalman filter
+                'rmse': None,
+                'mae': None
             },
             'data_period': data_period,
             'diagnostics': diagnostics,
-            'fit_results': fit_results
+            'fit_results': None # No direct fit_results for Kalman filter
         }
+
+        # ------------------------------------------------------------------
+        #  Compatibility keys for integration tests / external consumers
+        # ------------------------------------------------------------------
+        # Direct access keys (scalar values)
+        analysis_results['filter_efficiency'] = performance['current_efficiency']
+        analysis_results['infiltration_rate_ach'] = performance['infiltration_rate_ach']
+        # Aggregate diagnostics
+        analysis_results['model_diagnostics'] = analysis_results['model_quality']
+
+        return analysis_results
     
     def _write_results(self, results: Dict[str, Any]) -> bool:
         """Write analysis results to Google Sheets."""
         try:
-            return self.sheets_client.write_analysis_results(results)
+            if self.sheets_client is not None:
+                return self.sheets_client.write_analysis_results(results)
+            else:
+                self.logger.info("Dry run, skipping write to sheets.")
+                return True
         except Exception as e:
             self.logger.error(f"Failed to write results to Google Sheets: {e}")
             return False
@@ -347,22 +346,26 @@ class FilterEfficiencyAnalyzer:
         
         # Status determination
         efficiency_pct = performance['efficiency_percentage']
-        if efficiency_pct >= 85:
-            status_color = 'green'
-            status_text = 'Excellent'
-        elif efficiency_pct >= 70:
-            status_color = 'yellow'
-            status_text = 'Good'
-        elif efficiency_pct >= 50:
-            status_color = 'orange'
-            status_text = 'Declining'
+        if efficiency_pct is not None:
+            if efficiency_pct >= 85:
+                status_color = 'green'
+                status_text = 'Excellent'
+            elif efficiency_pct >= 70:
+                status_color = 'yellow'
+                status_text = 'Good'
+            elif efficiency_pct >= 50:
+                status_color = 'orange'
+                status_text = 'Declining'
+            else:
+                status_color = 'red'
+                status_text = 'Poor'
         else:
-            status_color = 'red'
-            status_text = 'Poor'
+            status_color = 'gray'
+            status_text = 'N/A'
         
         summary = {
             'filter_efficiency': {
-                'value': round(efficiency_pct, 1),
+                'value': round(performance['efficiency_percentage'], 1) if performance['efficiency_percentage'] is not None else 'N/A',
                 'unit': '%',
                 'status': status_text,
                 'color': status_color
@@ -373,7 +376,7 @@ class FilterEfficiencyAnalyzer:
                 'description': 'Building air leakage rate'
             },
             'model_confidence': {
-                'value': round(quality['r_squared'] * 100, 1),
+                'value': 'N/A', # No direct R-squared for Kalman filter
                 'unit': '%',
                 'description': 'Analysis reliability'
             },

@@ -1,8 +1,8 @@
 """
 Data processing utilities for filter efficiency estimation.
 
-This module provides functions for converting AQI to PM2.5 concentrations,
-filtering data by time periods, and preparing data for analysis.
+This module provides functions for filtering data by time periods and preparing data for analysis.
+AQI conversion functions are imported from the dedicated data_conversion module.
 """
 
 import numpy as np
@@ -10,51 +10,9 @@ import pandas as pd
 from datetime import datetime, time
 from typing import Tuple, Optional, Dict, Any
 import logging
+from utils.data_conversion import aqi_to_pm25
 
 logger = logging.getLogger(__name__)
-
-
-def aqi_to_pm25(aqi: float) -> float:
-    """
-    Convert Air Quality Index (AQI) to PM2.5 concentration in μg/m³.
-    
-    Based on EPA AQI calculation: https://www.airnow.gov/aqi/aqi-calculator/
-    
-    Args:
-        aqi: Air Quality Index value
-        
-    Returns:
-        PM2.5 concentration in μg/m³
-        
-    Raises:
-        ValueError: If AQI is negative or exceeds 500
-    """
-    if aqi < 0:
-        raise ValueError(f"AQI cannot be negative: {aqi}")
-    
-    if aqi > 500:
-        logger.warning(f"AQI value {aqi} exceeds typical range")
-        return 500.4  # Maximum PM2.5 for AQI 500
-    
-    # EPA AQI breakpoints for PM2.5
-    # (AQI_low, AQI_high, PM25_low, PM25_high)
-    breakpoints = [
-        (0, 50, 0.0, 12.0),
-        (50, 100, 12.0, 35.4),
-        (100, 150, 35.4, 55.4),
-        (150, 200, 55.4, 150.4),
-        (200, 300, 150.4, 250.4),
-        (300, 500, 250.4, 500.4)
-    ]
-    
-    for aqi_low, aqi_high, pm25_low, pm25_high in breakpoints:
-        if aqi_low <= aqi <= aqi_high:
-            # Linear interpolation
-            pm25 = pm25_low + (aqi - aqi_low) * (pm25_high - pm25_low) / (aqi_high - aqi_low)
-            return round(pm25, 2)
-    
-    # Should not reach here if breakpoints are complete
-    raise ValueError(f"AQI value {aqi} outside valid range")
 
 
 def pm25_to_aqi(pm25: float) -> float:
@@ -205,6 +163,11 @@ class DataProcessor:
         """
         df = df.copy()
         
+        # Check if PM2.5 columns already exist - if so, skip conversion to avoid corruption
+        if 'indoor_pm25' in df.columns and 'outdoor_pm25' in df.columns:
+            self.logger.info("PM2.5 columns already exist - skipping AQI conversion")
+            return df
+        
         # Convert indoor AQI
         if indoor_aqi_col in df.columns:
             df['indoor_pm25'] = df[indoor_aqi_col].apply(
@@ -329,7 +292,7 @@ class DataProcessor:
             raise ValueError("No valid data points after filtering")
         
         # Sort by timestamp  
-        clean_df = clean_df.sort_values([timestamp_col])
+        clean_df = clean_df.sort_values(by=timestamp_col)
         
         # Extract values as numpy arrays
         indoor_values = clean_df[indoor_col].values

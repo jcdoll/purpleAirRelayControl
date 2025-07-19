@@ -17,7 +17,18 @@ hvac:
   # filtration_rate_m3h: 2550.0  # This will be calculated: CFM × 1.7 m³/h per CFM
   
   # Natural deposition rate (particle settling/removal)
-  deposition_rate_percent: 10  # Percentage of building volume per hour
+  # PM2.5 particles settle very slowly - 0.02/hr is typical from literature
+  deposition_rate_percent: 2  # Percentage of building volume per hour (0.02/hr for typical building)
+
+# Kalman Filter Algorithm Settings
+kalman_filter:
+  # Learning confidence based on time of day
+  day_confidence_multiplier: 0.5    # Lower confidence during day (more variable conditions)
+  night_confidence_multiplier: 2.0  # Higher confidence at night (stable sealed conditions)
+  
+  # Signal strength thresholds for reliable learning
+  min_indoor_pm25_for_learning: 10.0   # Don't learn below this indoor PM2.5 (μg/m³)
+  min_outdoor_pm25_for_learning: 30.0  # Don't learn below this outdoor PM2.5 (μg/m³)
 
 # Analysis parameters
 analysis:

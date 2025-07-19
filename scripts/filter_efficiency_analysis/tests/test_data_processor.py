@@ -13,7 +13,8 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from utils.data_processor import DataProcessor
-from tests.test_utils import generate_test_dataset, create_test_config, pm25_to_aqi
+from tests.test_utils import create_test_config, pm25_to_aqi
+from utils.test_data_generator import generate_standard_test_dataset
 
 
 class TestAQIConversion:
@@ -254,7 +255,7 @@ class TestDataProcessorIntegration:
     def test_full_pipeline_with_synthetic_data(self):
         """Test complete data processing pipeline with synthetic data."""
         # Generate synthetic test data
-        dataset, true_params = generate_test_dataset(
+        dataset, true_params = generate_standard_test_dataset(
             scenario="good_filter",
             days=7,
             random_seed=42
@@ -312,7 +313,7 @@ class TestDataProcessorIntegration:
         scenarios = ["good_filter", "degraded_filter", "poor_filter"]
         
         for scenario in scenarios:
-            dataset, true_params = generate_test_dataset(
+            dataset, true_params = generate_standard_test_dataset(
                 scenario=scenario,
                 days=5,
                 random_seed=42
@@ -339,6 +340,146 @@ class TestDataProcessorIntegration:
                 assert mean_ratio < 0.7  # Good filter should have low ratio
             elif scenario == "poor_filter":
                 assert mean_ratio > 0.5  # Poor filter should have higher ratio
+
+
+class TestNightTimeFiltering:
+    """Unit tests for night-time filtering logic."""
+    
+    def test_night_time_filtering_basic(self):
+        """Test basic night-time filtering functionality."""
+        processor = DataProcessor(create_test_config())
+        
+        # Create 24-hour test data (one data point per hour)
+        timestamps = pd.date_range('2024-01-01 00:00', periods=24, freq='h')
+        test_data = pd.DataFrame({
+            'timestamp': timestamps,
+            'indoor_pm25': np.random.uniform(10, 20, 24),
+            'outdoor_pm25': np.random.uniform(15, 25, 24),
+            'hour_marker': pd.Series(timestamps).dt.hour
+        })
+        
+        night_data = processor.filter_night_time_data(test_data)
+        
+        # Should keep hours 22, 23, 0, 1, 2, 3, 4, 5, 6, 7, 8 (11 hours total)
+        expected_hours = set([22, 23, 0, 1, 2, 3, 4, 5, 6, 7, 8])
+        actual_hours = set(night_data['timestamp'].dt.hour)
+        
+        assert actual_hours == expected_hours, f"Expected hours {expected_hours}, got {actual_hours}"
+        assert len(night_data) == 11, f"Expected 11 hours, got {len(night_data)}"
+    
+    def test_night_time_filtering_multi_day(self):
+        """Test night-time filtering across multiple days."""
+        processor = DataProcessor(create_test_config())
+        
+        # Create 3-day test data (one data point per hour)
+        timestamps = pd.date_range('2024-01-01 00:00', periods=72, freq='h')
+        test_data = pd.DataFrame({
+            'timestamp': timestamps,
+            'indoor_pm25': np.random.uniform(10, 20, 72),
+            'outdoor_pm25': np.random.uniform(15, 25, 72),
+        })
+        
+        night_data = processor.filter_night_time_data(test_data)
+        
+        # Should keep 11 hours per day × 3 days = 33 hours
+        assert len(night_data) == 33, f"Expected 33 night hours, got {len(night_data)}"
+        
+        # Verify no daytime hours (9-21) are included
+        daytime_hours = set(range(9, 22))
+        actual_hours = set(night_data['timestamp'].dt.hour)
+        invalid_hours = actual_hours.intersection(daytime_hours)
+        
+        assert len(invalid_hours) == 0, f"Found daytime hours in night data: {invalid_hours}"
+    
+    def test_night_time_filtering_edge_cases(self):
+        """Test night-time filtering edge cases."""
+        processor = DataProcessor(create_test_config())
+        
+        # Test with sparse data
+        timestamps = pd.to_datetime(['2024-01-01 06:00', '2024-01-01 14:00', '2024-01-01 23:30'])
+        test_data = pd.DataFrame({
+            'timestamp': timestamps,
+            'indoor_pm25': [10, 15, 12],
+            'outdoor_pm25': [20, 25, 22],
+        })
+        
+        night_data = processor.filter_night_time_data(test_data)
+        
+        # Should keep 06:00 and 23:30, but not 14:00
+        assert len(night_data) == 2
+        kept_hours = set(night_data['timestamp'].dt.hour)
+        assert kept_hours == {6, 23}
+    
+    def test_night_time_filtering_preserves_data_integrity(self):
+        """Test that night-time filtering preserves data integrity."""
+        processor = DataProcessor(create_test_config())
+        
+        # Create test data with unique values for tracking
+        timestamps = pd.date_range('2024-01-01 20:00', periods=12, freq='h')
+        test_data = pd.DataFrame({
+            'timestamp': timestamps,
+            'indoor_pm25': range(100, 112),  # Unique values for tracking
+            'outdoor_pm25': range(200, 212),
+            'hour_marker': pd.Series(timestamps).dt.hour
+        })
+        
+        night_data = processor.filter_night_time_data(test_data)
+        
+        # Verify data integrity - values should match original for kept hours
+        for _, row in night_data.iterrows():
+            original_row = test_data[test_data['timestamp'] == row['timestamp']].iloc[0]
+            assert row['indoor_pm25'] == original_row['indoor_pm25']
+            assert row['outdoor_pm25'] == original_row['outdoor_pm25']
+    
+    def test_night_time_filtering_empty_data(self):
+        """Test night-time filtering with empty or insufficient data."""
+        processor = DataProcessor(create_test_config())
+        
+        # Empty dataframe
+        empty_data = pd.DataFrame({
+            'timestamp': pd.to_datetime([]),
+            'indoor_pm25': [],
+            'outdoor_pm25': []
+        })
+        
+        result = processor.filter_night_time_data(empty_data)
+        assert len(result) == 0
+        
+        # Data with no night-time hours
+        daytime_only = pd.DataFrame({
+            'timestamp': pd.to_datetime(['2024-01-01 10:00', '2024-01-01 15:00']),
+            'indoor_pm25': [10, 15],
+            'outdoor_pm25': [20, 25]
+        })
+        
+        result = processor.filter_night_time_data(daytime_only)
+        assert len(result) == 0
+    
+    def test_night_time_config_customization(self):
+        """Test night-time filtering with custom configuration."""
+        # Create config with different night hours (midnight to 6 AM only)
+        custom_config = create_test_config()
+        custom_config['analysis']['night_start_hour'] = 0
+        custom_config['analysis']['night_end_hour'] = 6
+        
+        processor = DataProcessor(custom_config)
+        
+        # Create 24-hour test data
+        timestamps = pd.date_range('2024-01-01 00:00', periods=24, freq='h')
+        test_data = pd.DataFrame({
+            'timestamp': timestamps,
+            'indoor_pm25': range(24),
+            'outdoor_pm25': range(100, 124)
+        })
+        
+        night_data = processor.filter_night_time_data(test_data)
+        
+        # Should only keep hours 0, 1, 2, 3, 4, 5, 6 (7 hours)
+        expected_hours = set(range(0, 7))
+        actual_hours = set(night_data['timestamp'].dt.hour)
+        
+        assert actual_hours == expected_hours
+        assert len(night_data) == 7
 
 
 if __name__ == "__main__":
