@@ -224,24 +224,22 @@ class FilterEfficiencyAnalyzer:
         # Convert AQI to PM2.5
         df_pm25 = self.data_processor.convert_aqi_columns(df)
 
-        # Filter for night-time data
-        night_data = self.data_processor.filter_night_time_data(df_pm25)
+        # Use ALL data - Kalman filter handles time-based learning internally
+        all_data = df_pm25
 
         min_points = self.config['analysis']['min_data_points']
-        if len(night_data) < min_points:
-            raise ValueError(
-                f"Insufficient night-time data: {len(night_data)} points " f"(minimum required: {min_points})"
-            )
+        if len(all_data) < min_points:
+            raise ValueError(f"Insufficient data: {len(all_data)} points " f"(minimum required: {min_points})")
 
         # Calculate I/O ratio
-        night_data = self.data_processor.calculate_io_ratio(night_data)
+        all_data = self.data_processor.calculate_io_ratio(all_data)
 
         # Detect outliers
-        night_data = self.data_processor.detect_outliers(night_data, ['indoor_pm25', 'outdoor_pm25'])
+        all_data = self.data_processor.detect_outliers(all_data, ['indoor_pm25', 'outdoor_pm25'])
 
         # Remove outliers
-        clean_mask = ~(night_data['indoor_pm25_outlier'] | night_data['outdoor_pm25_outlier'])
-        clean_data = night_data[clean_mask].copy()
+        clean_mask = ~(all_data['indoor_pm25_outlier'] | all_data['outdoor_pm25_outlier'])
+        clean_data = all_data[clean_mask].copy()
 
         if len(clean_data) < 5:
             raise ValueError(f"Insufficient clean data after outlier removal: {len(clean_data)} points")
@@ -250,7 +248,7 @@ class FilterEfficiencyAnalyzer:
         assert isinstance(clean_data, pd.DataFrame), "clean_data must be a DataFrame"
         model_data = self.data_processor.prepare_model_data(clean_data)
 
-        return {'raw_data': df, 'night_data': night_data, 'clean_data': clean_data, 'model_data': model_data}
+        return {'raw_data': df, 'all_data': all_data, 'clean_data': clean_data, 'model_data': model_data}
 
     def _analyze_filter_efficiency(self, processed_data: Dict[str, Any]) -> Dict[str, Any]:
         """Run Kalman filter on processed data and compute metrics."""
@@ -307,7 +305,7 @@ class FilterEfficiencyAnalyzer:
         data_period = {
             'start': clean_data['timestamp'].min(),
             'end': clean_data['timestamp'].max(),
-            'n_points_total': len(processed_data['night_data']),
+            'n_points_total': len(processed_data['all_data']),
             'n_points_clean': len(clean_data),
         }
 
@@ -480,7 +478,10 @@ class FilterEfficiencyAnalyzer:
 
             # Create scenario info structure
             scenario_info = {
-                'description': f"Filter Efficiency Analysis - {analysis_results['analysis_timestamp'].strftime('%Y-%m-%d %H:%M')}",
+                'description': (
+                    f"Filter Efficiency Analysis - "
+                    f"{analysis_results['analysis_timestamp'].strftime('%Y-%m-%d %H:%M')}"
+                ),
                 'filter_efficiency': analysis_results['filter_performance']['current_efficiency'],
                 'infiltration_ach': analysis_results['filter_performance']['infiltration_rate_ach'],
                 'building_volume_m3': (

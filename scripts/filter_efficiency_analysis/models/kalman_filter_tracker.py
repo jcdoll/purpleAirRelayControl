@@ -178,7 +178,11 @@ class KalmanFilterTracker(BaseFilterTracker):
         H = self._calculate_jacobian(outdoor_pm25, dt_hours)
 
         # Innovation covariance with confidence-adjusted measurement noise
-        effective_measurement_noise = self.measurement_noise / confidence_factor  # Lower = higher confidence
+        # Handle zero confidence (no learning) by using very high noise
+        if confidence_factor <= 0:
+            effective_measurement_noise = self.measurement_noise * 1e6  # Very high noise = no learning
+        else:
+            effective_measurement_noise = self.measurement_noise / confidence_factor  # Lower = higher confidence
         S = H * self.covariance * H + effective_measurement_noise
 
         # Kalman gain (scalar)

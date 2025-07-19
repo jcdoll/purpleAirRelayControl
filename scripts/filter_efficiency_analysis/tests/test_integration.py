@@ -152,7 +152,7 @@ def test_kalman_tracker_with_data_pipeline(scenario, true_efficiency, expected_r
         # Prepare model data
         model_data = analyzer.data_processor.prepare_model_data(clean_data)
 
-        return {'raw_data': df, 'night_data': all_data, 'clean_data': clean_data, 'model_data': model_data}
+        return {'raw_data': df, 'all_data': all_data, 'clean_data': clean_data, 'model_data': model_data}
 
     # Monkey patch the method
     analyzer._process_data = _process_data_no_night_filter
@@ -254,7 +254,7 @@ def test_kalman_tracker_no_outlier_removal(scenario, true_efficiency, expected_r
         # Prepare model data
         model_data = analyzer.data_processor.prepare_model_data(clean_data)
 
-        return {'raw_data': df, 'night_data': all_data, 'clean_data': clean_data, 'model_data': model_data}
+        return {'raw_data': df, 'all_data': all_data, 'clean_data': clean_data, 'model_data': model_data}
 
     # Monkey patch the method
     analyzer._process_data = _process_data_no_outliers

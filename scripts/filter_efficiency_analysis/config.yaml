@@ -7,24 +7,30 @@ building:
   ceiling_height_ft: 9      # Average ceiling height in feet
   
   # Building characteristics for infiltration calculation
-  construction_type: tight  # tight, average, or leaky construction
-  age_years: 4             # Building age in years (finished 2020, so ~4 years old)
-  # infiltration_ach: auto-calculated as 0.205 (0.25 * 0.82 age factor)
+  # Somewhat arbitrary normalization so that efficiency is reasonable
+  # If actual infiltration rate > calculated => calculated filter < actual filter
+  construction_type: average  # tight, average, or leaky construction
+  age_years: 4                # Building age in years
   
   # Calculated metrics (auto-calculated if commented out below)
   # volume_m3: 765.0        # Calculated: area × height × 0.0283 m³/ft³
-  # infiltration_ach: ~0.18 # Calculated based on construction_type and age_years
+  # infiltration_ach: 0.18
 
 hvac:
   # HVAC system specifications
   flow_rate_cfm: 1500       # Air flow rate in cubic feet per minute
   
-  # Calculated filtration rate (auto-calculated from above)
+  # ERV (Energy Recovery Ventilator) specifications
+  erv_enabled: true         # Enable ERV airflow calculations
+  erv_flow_rate_cfm: 170    # Example: Lifebreath 170 ERVD rated flow rate is 170 cfm
+  erv_runtime_fraction: 1.0 # Fraction of time ERV runs (0.0-1.0)
+  
+  # Calculated filtration rate (auto-calculated from above if not specified)
   # filtration_rate_m3h: 2550.0  # This will be calculated: CFM × 1.7 m³/h per CFM
   
-  # Natural deposition rate (particle settling/removal)
+  # Natural deposition rate (particle settling/removal independent of filtering)
   # PM2.5 particles settle very slowly - 0.02/hr is typical from literature
-  deposition_rate_percent: 2  # Percentage of building volume per hour (0.02/hr for typical building)
+  deposition_rate_percent: 2
 
 # Kalman Filter Algorithm Settings
 kalman_filter:

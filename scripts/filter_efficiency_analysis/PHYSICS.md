@@ -11,13 +11,14 @@ This document presents the theoretical foundation for estimating HVAC filter eff
 The fundamental equation governing indoor PM2.5 concentration in a well-mixed building:
 
 ```
-V * dC_in/dt = Q_inf * C_out + Q_gen - Q_filt * η * C_in - Q_dep * C_in
+V * dC_in/dt = C_out * (Q_inf + Q_erv) - C_in * (Q_filt * η * C_in + Q_dep) + Q_gen
 ```
 
 **Where:**
 - `C_in`, `C_out`: Indoor/outdoor PM2.5 concentrations (μg/m³)
 - `V`: Building volume (m³)
-- `Q_inf`: Infiltration rate (m³/h) - air leakage from outside
+- `Q_inf`: Natural infiltration rate (m³/h) - building envelope leakage 
+- `Q_erv`: ERV ventilation rate (m³/h) - mechanical outdoor air bypass
 - `Q_filt`: HVAC filtration flow rate (m³/h)
 - `η`: Filter efficiency (0-1) - **primary parameter to estimate**
 - `Q_gen`: Indoor particle generation rate (μg/h)
@@ -26,7 +27,8 @@ V * dC_in/dt = Q_inf * C_out + Q_gen - Q_filt * η * C_in - Q_dep * C_in
 ### Physical Interpretation
 
 **Particle Sources (Inputs):**
-- `Q_inf * C_out`: Outdoor particles entering through building leakage
+- `Q_inf * C_out`: Outdoor particles entering through natural building leakage
+- `Q_erv * C_out`: Outdoor particles entering through ERV mechanical ventilation
 - `Q_gen`: Indoor particle generation (cooking, activity, dust resuspension)
 
 **Particle Sinks (Removal):**
@@ -45,13 +47,21 @@ dC_in/dt ≈ 0
 This simplifies the mass balance to:
 
 ```
-0 = Q_inf * C_out + Q_gen - Q_filt * η * C_in - Q_dep * C_in
+0 = Q_inf * C_out + Q_erv * C_out + Q_gen - Q_filt * η * C_in - Q_dep * C_in
 ```
 
 Rearranging for indoor concentration:
 
 ```
-C_in = (Q_inf * C_out + Q_gen) / (Q_inf + Q_filt * η + Q_dep)
+C_in = (Q_inf * C_out + Q_erv * C_out + Q_gen) / (Q_inf + Q_erv + Q_filt * η + Q_dep)
+```
+
+**Simplified with Total Outdoor Air Infiltration:**
+
+Define total outdoor air infiltration: `Q_total = Q_inf + Q_erv`
+
+```
+C_in = (Q_total * C_out + Q_gen) / (Q_total + Q_filt * η + Q_dep)
 ```
 
 ### Night-Time Conditions
@@ -61,25 +71,92 @@ During sealed night-time periods (typically 10 PM - 8 AM):
 **Simplified Assumptions:**
 - `Q_gen ≈ 0` (minimal indoor particle generation)
 - `Q_inf` is relatively constant (doors/windows closed)
+- `Q_erv` is controlled and consistent (ERV operates at set flow rate)
 - HVAC operation is consistent
 
 **Simplified Model:**
 ```
-C_in = (Q_inf * C_out) / (Q_inf + Q_filt * η + Q_dep)
+C_in = (Q_inf * C_out + Q_erv * C_out) / (Q_inf + Q_erv + Q_filt * η + Q_dep)
 ```
+
+**Or using total outdoor air infiltration:**
+```
+C_in = (Q_total * C_out) / (Q_total + Q_filt * η + Q_dep)
+```
+where `Q_total = Q_inf + Q_erv`
 
 ### Solving for Filter Efficiency
 
 Rearranging the steady-state equation to solve for filter efficiency:
 
 ```
-η = (Q_inf * (C_out - C_in) - Q_dep * C_in) / (Q_filt * C_in)
+η = (Q_inf * (C_out - C_in) + Q_erv * (C_out - C_in) - Q_dep * C_in) / (Q_filt * C_in)
 ```
+
+**Simplified using total outdoor air infiltration:**
+```
+η = (Q_total * (C_out - C_in) - Q_dep * C_in) / (Q_filt * C_in)
+```
+where `Q_total = Q_inf + Q_erv`
 
 **Physical Meaning:**
 - When `C_out > C_in`: Filter is removing particles (positive efficiency)
 - When `C_out ≈ C_in`: Minimal filtration occurring (low efficiency)
 - When `C_out < C_in`: Indoor generation dominates (model invalid)
+
+## ERV (Energy Recovery Ventilator) Considerations
+
+### Physical Understanding
+
+ERVs introduce a controlled mechanical ventilation path that brings outdoor air directly into the building, **bypassing the HVAC filter**. This creates two distinct outdoor air infiltration pathways:
+
+1. **Natural Infiltration (`Q_inf`)**: Uncontrolled air leakage through building envelope (cracks, gaps, etc.)
+2. **ERV Ventilation (`Q_erv`)**: Controlled mechanical ventilation that exchanges indoor and outdoor air
+
+### Mass Balance Impact
+
+ERV significantly affects the mass balance because it:
+
+- **Increases total outdoor air infiltration**: `Q_total = Q_inf + Q_erv`
+- **Bypasses filtration**: ERV air does not pass through the HVAC filter
+- **Operates consistently**: Unlike natural infiltration, ERV flow is controlled and predictable
+
+### ERV Flow Rate Calculation
+
+ERV contribution to infiltration (in ACH):
+
+```
+Q_erv = (CFM_erv × 60 min/hr × runtime_fraction) / building_volume_ft³
+```
+
+**Example: Lifebreath 170 ERVD**
+- Rated flow: 170 CFM
+- Runtime: 90% (0.9 fraction)  
+- Building: 3000 sq ft × 9 ft = 27,000 ft³
+- ERV contribution: `(170 × 60 × 0.9) / 27,000 = 0.34 ACH`
+
+### Filter Efficiency Impact
+
+ERV reduces apparent filter efficiency because:
+
+1. **More unfiltered outdoor air enters**: Higher `Q_total` increases the outdoor particle load
+2. **Filtration effectiveness decreases**: The ratio of filtered to total air decreases
+3. **I/O ratios increase**: More outdoor air leads to higher indoor/outdoor concentration ratios
+
+**Without ERV awareness**, filter efficiency estimates will be:
+- **Underestimated** when ERV is running (more outdoor air than assumed)
+- **Inconsistent** across different ERV operating conditions
+
+### Configuration Requirements
+
+For accurate analysis, ERV parameters must be specified:
+
+```yaml
+hvac:
+  erv_enabled: true
+  erv_flow_rate_cfm: 170    # Manufacturer rating
+  erv_runtime_fraction: 0.9 # Actual operating fraction (0.0-1.0)
+```
 
 ## Mathematical Framework
 
@@ -96,13 +173,20 @@ Where:
 - `w_η[t]`: Process noise (random variations)
 
 **Infiltration Rate Evolution:**
+
+Natural infiltration varies slowly over time due to weather and building changes:
 ```
 λ_inf[t+1] = λ_inf[t] + w_λ[t]
 ```
 
-**Observation Model:**
+ERV infiltration is controlled and constant:
 ```
-C_in[t] = (λ_inf[t] * C_out[t]) / (λ_inf[t] + η[t] * Q_filt + Q_dep) + v[t]
+λ_erv[t] = λ_erv  # Constant based on ERV settings
+```
+
+**Observation Model with ERV:**
+```
+C_in[t] = ((λ_inf[t] + λ_erv) * C_out[t]) / (λ_inf[t] + λ_erv + η[t] * Q_filt + Q_dep) + v[t]
 ```
 
 Where `v[t]` represents measurement noise.
