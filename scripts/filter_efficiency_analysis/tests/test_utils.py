@@ -17,7 +17,12 @@ def create_test_config(
 ) -> Dict:
     """Create a test configuration dictionary."""
     config = {
-        "building": {"area_sq_ft": 3000, "ceiling_height_ft": 9},
+        "building": {
+            "area_sq_ft": 3000, 
+            "ceiling_height_ft": 9,
+            "construction_type": "average",  # Will calculate infiltration_ach = 0.5
+            "age_years": 20  # Will calculate infiltration_ach = 0.5
+        },
         "hvac": {
             "flow_rate_cfm": 1500,
             "deposition_rate_percent": 2,  # Updated to match config.yaml (0.02/hr for PM2.5)

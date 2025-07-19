@@ -18,20 +18,41 @@ from utils.mass_balance import calculate_steady_state_indoor_pm25
 class FilterTestDataGenerator:
     """Canonical test data generator for all filter efficiency tests."""
 
-    def __init__(self, random_seed: int = 42):
+    def __init__(self, random_seed: int = 42, config: Optional[Dict[str, Any]] = None):
         """Initialize with consistent random seed for reproducibility."""
         self.random_seed = random_seed
         np.random.seed(random_seed)
+        
+        # Use provided config or create default
+        if config is None:
+            config = {
+                'building': {
+                    'area_sq_ft': 3000,
+                    'ceiling_height_ft': 9,
+                    'construction_type': 'average',
+                    'age_years': 20,
+                },
+                'hvac': {
+                    'flow_rate_cfm': 1500,
+                    'deposition_rate_percent': 2,
+                }
+            }
+        
+        self.config = config
+        
+        # Calculate building parameters using shared functions
+        from utils.config_helpers import get_building_parameters
+        params = get_building_parameters(config)
 
         # Standard building parameters used across all tests
         self.default_building = {
-            'area_sq_ft': 3000,
-            'ceiling_height_ft': 9,
-            'flow_rate_cfm': 1500,
-            'volume_m3': 765.0,  # 3000 * 9 * 0.0283168
-            'hvac_m3h': 2549.0,  # 1500 * 1.69901
-            'infiltration_ach': 0.5,
-            'deposition_ach': 0.02,
+            'area_sq_ft': config['building']['area_sq_ft'],
+            'ceiling_height_ft': config['building']['ceiling_height_ft'],
+            'flow_rate_cfm': config['hvac']['flow_rate_cfm'],
+            'volume_m3': params['volume_m3'],
+            'hvac_m3h': params['filtration_rate_m3h'],
+            'infiltration_ach': params['infiltration_ach'],  # Now calculated from config
+            'deposition_ach': params['deposition_rate_ach'],
         }
 
     def generate_outdoor_pm25_series(
@@ -410,9 +431,9 @@ class FilterTestDataGenerator:
 
 
 # Convenience functions for direct use
-def create_test_data_generator(random_seed: int = 42) -> FilterTestDataGenerator:
+def create_test_data_generator(random_seed: int = 42, config: Optional[Dict[str, Any]] = None) -> FilterTestDataGenerator:
     """Create a FilterTestDataGenerator instance."""
-    return FilterTestDataGenerator(random_seed)
+    return FilterTestDataGenerator(random_seed, config)
 
 
 def generate_standard_test_dataset(

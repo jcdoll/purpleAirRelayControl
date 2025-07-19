@@ -9,8 +9,9 @@ building:
   # Building characteristics for infiltration calculation
   construction_type: tight  # tight, average, or leaky construction
   age_years: 4             # Building age in years (finished 2020, so ~4 years old)
+  # infiltration_ach: auto-calculated as 0.205 (0.25 * 0.82 age factor)
   
-  # Calculated values (auto-calculated from above)
+  # Calculated metrics (auto-calculated if commented out below)
   # volume_m3: 765.0        # Calculated: area × height × 0.0283 m³/ft³
   # infiltration_ach: ~0.18 # Calculated based on construction_type and age_years
 

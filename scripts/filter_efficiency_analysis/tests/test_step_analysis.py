@@ -21,7 +21,9 @@ def generate_step_test_data(
 ) -> Tuple[List[Dict], Dict[str, Any]]:
     """Generate step test data using the canonical generator."""
 
-    generator = create_test_data_generator(42)
+    # Use test configuration to ensure consistency
+    config = create_test_config()
+    generator = create_test_data_generator(42, config)
 
     # Time setup
     total_hours = hours_per_step * 3  # Three steps: low-high-low
@@ -47,9 +49,8 @@ def generate_step_test_data(
     outdoor_values = np.array(outdoor_data['outdoor_pm25'].tolist())
     sampled_outdoor = np.interp([t.timestamp() for t in time_index], outdoor_timestamps, outdoor_values)
 
-    # Building parameters - consistent with defaults
+    # Building parameters - use generator's calculated values
     building_params = generator.default_building.copy()
-    building_params['infiltration_ach'] = 0.5
 
     # Calculate indoor concentrations with temporal dynamics
     if temporal_dynamics:

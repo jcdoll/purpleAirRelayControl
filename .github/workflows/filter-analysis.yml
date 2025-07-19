@@ -71,7 +71,9 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: filter-analysis-results-${{ github.run_number }}
-        path: scripts/filter_efficiency_analysis/analysis_results.json
+        path: |
+          scripts/filter_efficiency_analysis/analysis_results.json
+          scripts/filter_efficiency_analysis/analysis_visualizations/
         retention-days: 30
         
     - name: Create summary comment (on manual run)
@@ -122,4 +124,8 @@ jobs:
         
         else
           echo "❌ **Analysis results not found**" >> $GITHUB_STEP_SUMMARY
-        fi 
+        fi
+        
+        # Add visualization info
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "📊 **Visualizations:** Charts showing PM2.5 trends, I/O ratios, and filter efficiency evolution are included in the artifacts." >> $GITHUB_STEP_SUMMARY

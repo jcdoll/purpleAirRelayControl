@@ -25,7 +25,7 @@ import logging
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import pandas as pd
 import yaml
@@ -38,6 +38,7 @@ sys.path.append(str(script_dir / 'models'))
 from models.kalman_filter_tracker import KalmanFilterTracker  # noqa: E402
 from utils.data_processor import DataProcessor  # noqa: E402
 from utils.sheets_client import SheetsClient  # noqa: E402
+from utils.visualization import save_test_visualization  # noqa: E402
 
 
 def setup_logging(log_level: str = 'INFO') -> logging.Logger:
@@ -185,8 +186,16 @@ class FilterEfficiencyAnalyzer:
             # Step 6: Generate summary
             summary = self._create_summary(analysis_results)
 
+            # Step 7: Generate visualization
+            visualization_files = self._generate_visualization(processed_data, analysis_results)
+
             self.logger.info("Analysis completed successfully")
-            return {'analysis_results': analysis_results, 'summary': summary, 'success': True}
+            return {
+                'analysis_results': analysis_results, 
+                'summary': summary, 
+                'visualization_files': visualization_files,
+                'success': True
+            }
 
         except Exception as e:
             self.logger.error(f"Analysis failed: {e}")
@@ -442,6 +451,59 @@ class FilterEfficiencyAnalyzer:
 
         return summary
 
+    def _generate_visualization(self, processed_data: Dict[str, Any], analysis_results: Dict[str, Any]) -> List[str]:
+        """Generate visualization charts for the analysis results."""
+        try:
+            visualization_files = []
+            
+            # Prepare data for visualization
+            clean_data = processed_data['clean_data'].copy()
+            
+            # Ensure clean_data has the expected columns
+            if 'indoor_pm25' not in clean_data.columns or 'outdoor_pm25' not in clean_data.columns:
+                self.logger.warning("Missing required columns for visualization")
+                return []
+            
+            # Create model results structure expected by visualization
+            model_results = {
+                'kalman': {
+                    'success': True,
+                    'model': self.tracker,
+                    'stats': self.tracker.get_summary_stats() if hasattr(self.tracker, 'get_summary_stats') else {}
+                }
+            }
+            
+            # Create scenario info structure
+            scenario_info = {
+                'description': f"Filter Efficiency Analysis - {analysis_results['analysis_timestamp'].strftime('%Y-%m-%d %H:%M')}",
+                'filter_efficiency': analysis_results['filter_performance']['current_efficiency'],
+                'infiltration_ach': analysis_results['filter_performance']['infiltration_rate_ach'],
+                'building_volume_m3': self.tracker._calculate_building_volume_m3() if hasattr(self.tracker, '_calculate_building_volume_m3') else 765,
+                'hvac_m3h': self.tracker._calculate_filtration_rate() * self.tracker._calculate_building_volume_m3() if hasattr(self.tracker, '_calculate_building_volume_m3') else 2549
+            }
+            
+            # Generate visualization
+            timestamp_str = analysis_results['analysis_timestamp'].strftime('%Y%m%d_%H%M%S')
+            test_name = f"filter_analysis_{timestamp_str}"
+            
+            # Save visualization
+            saved_files = save_test_visualization(
+                test_name=test_name,
+                df=clean_data,
+                model_results=model_results,
+                scenario_info=scenario_info,
+                output_dir="analysis_visualizations"
+            )
+            
+            visualization_files = [str(f) for f in saved_files]
+            self.logger.info(f"Generated {len(visualization_files)} visualization files: {visualization_files}")
+            
+            return visualization_files
+            
+        except Exception as e:
+            self.logger.warning(f"Failed to generate visualization: {e}")
+            return []
+
 
 def main():
     """Main entry point for the script."""
@@ -504,6 +566,13 @@ def main():
             points_used = summary['data_quality']['points_used']
             time_span = summary['data_quality']['time_span_days']
             print(f"\nData Quality: {points_used} points over {time_span} days")
+            
+            # Show visualization files if generated
+            if 'visualization_files' in results and results['visualization_files']:
+                print(f"\nGenerated Visualizations:")
+                for viz_file in results['visualization_files']:
+                    print(f"  • {viz_file}")
+            
             print("=" * 60)
 
             # Save results to file if requested

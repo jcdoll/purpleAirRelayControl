@@ -160,49 +160,9 @@ class BaseFilterTracker(ABC):
 
     def _estimate_infiltration_rate(self) -> float:
         """Estimate natural air infiltration rate in ACH based on building parameters."""
-        building = self.config.get('building', {})
-
-        # If infiltration_ach is directly provided, use it
-        if 'infiltration_ach' in building:
-            return building['infiltration_ach']
-
-        # Calculate infiltration based on actual building parameters
-        # Get building characteristics
-        construction_type = building.get('construction_type', 'tight').lower()  # Default to tight for modern homes
-        age_years = building.get('age_years', 4)  # Default to recent construction
-        
-        # Base infiltration rates by construction type (ACH natural)
-        # Based on ASHRAE research and LBNL data
-        base_rates = {
-            'tight': 0.25,      # Modern tight construction (post-2000)
-            'average': 0.5,     # Average construction (1980s-2000s) 
-            'leaky': 0.8        # Older leaky construction (pre-1980)
-        }
-        base_rate = base_rates.get(construction_type, 0.25)
-        
-        # Age adjustment factor
-        # For buildings newer than 10 years, apply a "new construction bonus"
-        # For buildings older than 20 years, apply age penalty
-        if age_years <= 10:
-            # Modern construction gets tighter values
-            age_factor = max(0.7, 1.0 - (10 - age_years) * 0.03)  # Up to 30% tighter for new construction
-        elif age_years <= 20:
-            # No age adjustment for 10-20 year old buildings
-            age_factor = 1.0
-        else:
-            # 1% increase per year after 20 years (older buildings get leakier)
-            age_factor = 1.0 + (age_years - 20) * 0.01
-            age_factor = min(2.0, age_factor)  # Cap at 2x base rate
-
-        # Climate adjustment (optional - can be refined later)
-        # Different climates may have different typical construction practices
-        
-        calculated_ach = base_rate * age_factor
-        
-        # Ensure reasonable bounds
-        calculated_ach = max(0.1, min(1.5, calculated_ach))
-        
-        return calculated_ach
+        # Use shared calculation function to ensure consistency
+        from utils.config_helpers import calculate_infiltration_rate
+        return calculate_infiltration_rate(self.config)
 
     def _calculate_building_volume_m3(self) -> float:
         """Calculate building volume in cubic meters from area and height."""
