@@ -131,8 +131,7 @@ def test_kalman_tracker_with_data_pipeline(scenario, true_efficiency, expected_r
     # Use FilterEfficiencyAnalyzer with the SAME config used for data generation
     mock_client = MockSheetsClient(dataset)
 
-    analyzer = FilterEfficiencyAnalyzer(config, dry_run=True)
-    analyzer.sheets_client = mock_client  # type: ignore
+    analyzer = FilterEfficiencyAnalyzer(config, dry_run=True, sheets_client=mock_client)
 
     # Override the _process_data method to skip night-time filtering
     def _process_data_no_night_filter(df):
@@ -233,8 +232,7 @@ def test_kalman_tracker_no_outlier_removal(scenario, true_efficiency, expected_r
     # Use FilterEfficiencyAnalyzer with the SAME config used for data generation
     mock_client = MockSheetsClient(dataset)
 
-    analyzer = FilterEfficiencyAnalyzer(config, dry_run=True)
-    analyzer.sheets_client = mock_client  # type: ignore
+    analyzer = FilterEfficiencyAnalyzer(config, dry_run=True, sheets_client=mock_client)
 
     # Override the _process_data method to skip outlier removal
     def _process_data_no_outliers(df):

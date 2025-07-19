@@ -124,13 +124,14 @@ class FilterEfficiencyAnalyzer:
     Main analyzer that orchestrates the complete filter efficiency analysis.
     """
 
-    def __init__(self, config: Dict[str, Any], dry_run: bool = False):
+    def __init__(self, config: Dict[str, Any], dry_run: bool = False, sheets_client=None):
         """
         Initialize the analyzer.
 
         Args:
             config: Configuration dictionary
             dry_run: If True, don't write results to Google Sheets
+            sheets_client: Optional sheets client (for testing with mocks)
         """
         self.config = config
         self.dry_run = dry_run
@@ -140,13 +141,18 @@ class FilterEfficiencyAnalyzer:
         self.data_processor = DataProcessor(config)
         self.tracker = KalmanFilterTracker(config)
 
-        # Always initialize sheets client to read data (dry-run only affects writing)
-        try:
-            self.sheets_client = SheetsClient(config)
-        except Exception as e:
-            raise RuntimeError(
-                f"Failed to initialize Google Sheets client: {e}. " "Ensure credentials are properly configured."
-            ) from e
+        # Initialize sheets client - use provided one or create new one
+        if sheets_client is not None:
+            self.sheets_client = sheets_client
+            self.logger.info("Using provided sheets client (likely for testing)")
+        else:
+            # Always initialize sheets client to read data (dry-run only affects writing)
+            try:
+                self.sheets_client = SheetsClient(config)
+            except Exception as e:
+                raise RuntimeError(
+                    f"Failed to initialize Google Sheets client: {e}. " "Ensure credentials are properly configured."
+                ) from e
 
         if dry_run:
             self.logger.info("Running in dry-run mode - results will not be written to Google Sheets")
