@@ -20,7 +20,7 @@ def retry_operation(func, max_attempts=3, delay_ms=500, context="operation", *ar
         try:
             if attempt > 0:
                 print(f"  Retry {attempt}/{max_attempts-1} for {context}...")
-                time.sleep_ms(delay_ms * (2 ** (attempt - 1)))  # Exponential backoff
+                time.sleep_ms(delay_ms * (2 ** (attempt - 1)))  # type: ignore
 
             result = func(*args, **kwargs)
             if attempt > 0:

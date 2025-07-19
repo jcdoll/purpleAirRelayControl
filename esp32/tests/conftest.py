@@ -50,8 +50,8 @@ class _MockSPI:
 
 # Build mock machine module
 machine_mock = types.ModuleType("machine")
-setattr(machine_mock, "Pin", _MockPin)
-setattr(machine_mock, "SPI", _MockSPI)
+machine_mock.Pin = _MockPin
+machine_mock.SPI = _MockSPI
 
 # Register immediately so imports during test-module import succeed
 sys.modules["machine"] = machine_mock
@@ -162,11 +162,7 @@ def _fast_sleep(monkeypatch):
 # Ensure basic stub for urequests and mip modules BEFORE any esp32 imports
 if "urequests" not in sys.modules:
     sys.modules["urequests"] = types.ModuleType("urequests")
-    setattr(
-        sys.modules["urequests"],
-        "get",
-        lambda *a, **k: (_FakeResponse(status_code=404)),
-    )
+    sys.modules["urequests"].get = lambda *a, **k: _FakeResponse(status_code=404)
 
 if "mip" not in sys.modules:
     mip_stub = types.ModuleType("mip")
@@ -180,11 +176,11 @@ if "mip" not in sys.modules:
 
 if "ujson" not in sys.modules:
     ujson_stub = types.ModuleType("ujson")
-    setattr(ujson_stub, 'loads', _std_json.loads)
-    setattr(ujson_stub, 'dumps', _std_json.dumps)
-    setattr(ujson_stub, 'dumpsb', lambda obj: _std_json.dumps(obj).encode())
-    setattr(ujson_stub, 'load', _std_json.load)
-    setattr(ujson_stub, 'dump', _std_json.dump)
+    ujson_stub.loads = _std_json.loads
+    ujson_stub.dumps = _std_json.dumps
+    ujson_stub.dumpsb = lambda obj: _std_json.dumps(obj).encode()
+    ujson_stub.load = _std_json.load
+    ujson_stub.dump = _std_json.dump
     sys.modules["ujson"] = ujson_stub
 
 
@@ -225,8 +221,8 @@ class _MockWLAN:
 
 
 network_stub = types.ModuleType("network")
-setattr(network_stub, "WLAN", _MockWLAN)
-setattr(network_stub, "STA_IF", _MockWLAN.STA_IF)
+network_stub.WLAN = _MockWLAN
+network_stub.STA_IF = _MockWLAN.STA_IF
 
 sys.modules["network"] = network_stub
 
@@ -274,14 +270,14 @@ st7789_stub = types.ModuleType("st7789py")
 for attr in dir(_StubST7789):
     if not attr.startswith("__"):
         setattr(st7789_stub, attr, getattr(_StubST7789, attr))
-setattr(st7789_stub, "ST7789", _StubST7789)
+st7789_stub.ST7789 = _StubST7789
 
 sys.modules["st7789py"] = st7789_stub
 
 # Font stub: lib.vga1_8x8.FONT (768 zeros)
 lib_stub = types.ModuleType("lib")
 font_mod = types.ModuleType("vga1_8x8")
-setattr(font_mod, "FONT", [0] * (96 * 8))
+font_mod.FONT = [0] * (96 * 8)
 lib_stub.vga1_8x8 = font_mod  # type: ignore[attr-defined]
 sys.modules["lib"] = lib_stub
 sys.modules["lib.vga1_8x8"] = font_mod
@@ -291,6 +287,6 @@ try:
     import config as _cfg
 
     if not hasattr(_cfg, "PURPLE_AIR_API_KEY"):
-        setattr(_cfg, "PURPLE_AIR_API_KEY", "")
+        _cfg.PURPLE_AIR_API_KEY = ""
 except ImportError:
     pass

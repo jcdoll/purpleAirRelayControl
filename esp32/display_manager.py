@@ -6,13 +6,17 @@ import gc
 import time
 
 import config
-from machine import SPI, Pin
+
+# Hardware tests require MicroPython modules that are not present on the host.
+# We use '# type: ignore' to suppress the resulting linting errors.
+from machine import SPI, Pin  # type: ignore
+
 from utils.aqi_colors import get_aqi_color_rgb
 from utils.error_handling import handle_hardware_error, print_exception
 
 # Import display driver and font
 try:
-    import st7789py as st7789
+    import st7789py as st7789  # type: ignore
 
     DISPLAY_AVAILABLE = True
 except ImportError:
@@ -20,7 +24,7 @@ except ImportError:
     DISPLAY_AVAILABLE = False
 
 try:
-    import lib.vga1_8x8 as font8x8
+    import lib.vga1_8x8 as font8x8  # type: ignore
 
     FONT_AVAILABLE = True
 except ImportError:
@@ -114,7 +118,7 @@ class DisplayManager:
 
                 # Only create buffer if we have enough memory
                 gc.collect()
-                if gc.mem_free() > buffer_size + 50000:  # Leave 50KB safety margin
+                if gc.mem_free() > buffer_size + 50000:  # Leave 50KB safety margin  # type: ignore
                     self.frame_buffer = bytearray(buffer_size)
                     print(f"Display Manager: Frame buffer created ({buffer_size} bytes)")
                 else:
@@ -151,7 +155,7 @@ class DisplayManager:
 
         try:
             gc.collect()
-            free_mem = gc.mem_free()
+            free_mem = gc.mem_free()  # type: ignore
             if free_mem < 20000:  # Less than 20KB free
                 print(f"WARNING: Low memory: {free_mem/1024:.1f}KB free")
         except Exception:
@@ -356,6 +360,9 @@ class DisplayManager:
 
     def _update_display_direct(self, outdoor_aqi, indoor_aqi, status):
         """FALLBACK: Direct display update (will cause flashing)"""
+        if not self.display:
+            return
+
         try:
             self.display.fill(st7789.BLACK)
 

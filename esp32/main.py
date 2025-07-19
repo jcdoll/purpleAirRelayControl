@@ -8,14 +8,15 @@ from google_logger import GoogleFormsLogger
 from led_manager import LEDManager
 from machine import WDT
 from purple_air import PurpleAirClient
+from ventilation import VentilationController
+from wifi_manager import WiFiManager
+
 from utils.status_display import (
     print_sensor_config,
     print_sensor_countdown_timers,
     print_sensor_status,
     print_startup_banner,
 )
-from ventilation import VentilationController
-from wifi_manager import WiFiManager
 
 # Initialize watchdog timer if enabled
 if config.WATCHDOG_TIMEOUT > 0:

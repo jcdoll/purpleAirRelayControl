@@ -3,6 +3,7 @@
 
 import config
 from machine import Pin
+
 from utils.error_handling import handle_hardware_error, print_exception
 
 # NeoPixel for status LED

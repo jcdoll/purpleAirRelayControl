@@ -1,6 +1,9 @@
 # Common error handling utilities for ESP32 MicroPython
 # Standardizes error handling patterns used throughout the application
 
+# Print full stack trace (MicroPython version)
+import sys  # type: ignore
+
 
 def print_exception(e, context=""):
     """
@@ -14,10 +17,7 @@ def print_exception(e, context=""):
         error_msg = f"{context} - {error_msg}"
     print(error_msg)
 
-    # Print full stack trace (MicroPython version)
-    import sys
-
-    sys.print_exception(e)
+    sys.print_exception(e)  # type: ignore
 
 
 def safe_execute(func, *args, context="", default_return=None, **kwargs):

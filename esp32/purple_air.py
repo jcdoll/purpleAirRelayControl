@@ -1,11 +1,13 @@
+# Hardware tests require MicroPython modules that are not present on the host.
+# We use '# type: ignore' to suppress the resulting linting errors.
 try:
-    import urequests as requests
+    import urequests as requests  # type: ignore
 except ImportError:
     print("ERROR: urequests module not found! Installing...")
-    import mip
+    import mip  # type: ignore
 
     mip.install('urequests')
-    import urequests as requests
+    import urequests as requests  # type: ignore
 
 import time
 

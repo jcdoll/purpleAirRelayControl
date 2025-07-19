@@ -82,8 +82,8 @@ def print_system_info(wifi_manager=None, memory_info=True):
             import gc
 
             gc.collect()
-            free_mem = gc.mem_free()
-            used_mem = gc.mem_alloc()
+            free_mem = gc.mem_free()  # type: ignore
+            used_mem = gc.mem_alloc()  # type: ignore
             print(f"  Memory: Free={free_mem/1024:.1f}KB, Used={used_mem/1024:.1f}KB")
         except Exception:
             print("  Memory: Information unavailable")
