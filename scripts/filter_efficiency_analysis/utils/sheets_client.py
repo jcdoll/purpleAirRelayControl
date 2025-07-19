@@ -87,12 +87,12 @@ class SheetsClient:
             self.logger.error(f"Failed to initialize Google Sheets service: {e}")
             raise
 
-    def read_sensor_data(self, days_back: int = 7, sheet_name: Optional[str] = None) -> pd.DataFrame:
+    def read_sensor_data(self, days_back: int = 0, sheet_name: Optional[str] = None) -> pd.DataFrame:
         """
         Read sensor data from Google Sheets.
 
         Args:
-            days_back: Number of days of historical data to read
+            days_back: Number of days of historical data to read (0 = all available data)
             sheet_name: Sheet name (uses config default if None)
 
         Returns:
@@ -106,7 +106,11 @@ class SheetsClient:
 
         # Calculate date range
         end_date = datetime.now()
-        start_date = end_date - timedelta(days=days_back)
+        if days_back <= 0:
+            # Read all available data - use a very old start date
+            start_date = datetime(2020, 1, 1)  # Far enough back to capture all sensor data
+        else:
+            start_date = end_date - timedelta(days=days_back)
 
         try:
             # Ensure service is initialized

@@ -55,8 +55,8 @@ class FilterVisualization:
         elif total_hours <= 168:  # Less than 1 week - show days
             ax.xaxis.set_major_formatter(mdates.DateFormatter('%m/%d'))
             ax.xaxis.set_major_locator(mdates.DayLocator(interval=1))
-        else:  # More than 1 week - show dates with intervals
-            ax.xaxis.set_major_formatter(mdates.DateFormatter('%m/%d'))
+        else:  # More than 1 week - show dates with year for clarity
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%m/%d/%y'))
             ax.xaxis.set_major_locator(mdates.DayLocator(interval=max(1, int(total_hours / (24 * 5)))))
 
         plt.setp(ax.xaxis.get_majorticklabels(), rotation=45)

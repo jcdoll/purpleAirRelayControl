@@ -72,8 +72,8 @@ class FilterTestDataGenerator:
         Returns:
             DataFrame with timestamp and outdoor_pm25 columns
         """
-        # Create hourly time series
-        times = pd.date_range(start_date, end_date, freq='h')
+        # Create 5-minute interval time series (realistic sensor frequency)
+        times = pd.date_range(start_date, end_date, freq='5min')
         len(times)
 
         if pattern == "realistic":
@@ -308,8 +308,11 @@ class FilterTestDataGenerator:
             Tuple of (dataset DataFrame, true parameters dict)
         """
         if start_date is None:
-            start_date = datetime(2024, 1, 1)
-        end_date = start_date + timedelta(days=days)
+            # Use recent dates for realistic mock data (ending today)
+            end_date = datetime.now().replace(hour=23, minute=59, second=59, microsecond=0)
+            start_date = end_date - timedelta(days=days)
+        else:
+            end_date = start_date + timedelta(days=days)
 
         if building_params is None:
             building_params = self.default_building.copy()

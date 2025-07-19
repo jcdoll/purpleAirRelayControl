@@ -8,9 +8,9 @@ on:
   workflow_dispatch:      # Allow manual triggering
     inputs:
       days_back:
-        description: 'Number of days of data to analyze'
+        description: 'Number of days of data to analyze (0 = all available data)'
         required: false
-        default: '7'
+        default: '0'
         type: string
       dry_run:
         description: 'Run in dry-run mode (no write to sheets)'
@@ -53,7 +53,7 @@ jobs:
         cd scripts/filter_efficiency_analysis
         
         # Set parameters
-        DAYS_BACK="${{ github.event.inputs.days_back || '7' }}"
+        DAYS_BACK="${{ github.event.inputs.days_back || '0' }}"
         DRY_RUN_FLAG=""
         if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
           DRY_RUN_FLAG="--dry-run"

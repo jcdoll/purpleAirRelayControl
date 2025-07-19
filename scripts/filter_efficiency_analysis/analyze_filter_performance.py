@@ -9,7 +9,7 @@ Usage:
     python analyze_filter_performance.py [--config CONFIG_FILE] [--days DAYS] [--dry-run]
 
 Examples:
-    # Run with default config and 7 days of data
+    # Run with default config and all available data
     python analyze_filter_performance.py
 
     # Run with custom config and 14 days of data
@@ -146,17 +146,20 @@ class FilterEfficiencyAnalyzer:
             self.sheets_client = None
             self.logger.info("Running in dry-run mode - results will not be written to Google Sheets")
 
-    def run_analysis(self, days_back: int = 7) -> Dict[str, Any]:
+    def run_analysis(self, days_back: int = 0) -> Dict[str, Any]:
         """
         Run the complete filter efficiency analysis.
 
         Args:
-            days_back: Number of days of historical data to analyze
+            days_back: Number of days of historical data to analyze (0 = all available data)
 
         Returns:
             Analysis results dictionary
         """
-        self.logger.info(f"Starting filter efficiency analysis for last {days_back} days")
+        if days_back <= 0:
+            self.logger.info("Starting filter efficiency analysis for all available data")
+        else:
+            self.logger.info(f"Starting filter efficiency analysis for last {days_back} days")
 
         try:
             # Step 1: Load data from Google Sheets
@@ -210,7 +213,9 @@ class FilterEfficiencyAnalyzer:
             # Fallback to mock data only if no sheets client
             from utils.test_data_generator import generate_standard_test_dataset
 
-            dataset, _ = generate_standard_test_dataset(scenario="good_filter", days=days_back, random_seed=42)
+            # For mock data, use reasonable default if all data requested
+            mock_days = days_back if days_back > 0 else 14  # Default to 14 days for mock data
+            dataset, _ = generate_standard_test_dataset(scenario="good_filter", days=mock_days, random_seed=42)
             self.logger.info(f"Created fallback mock data with {len(dataset)} points")
             return dataset
 
@@ -519,7 +524,11 @@ def main():
     parser = argparse.ArgumentParser(description='Analyze HVAC filter efficiency from indoor/outdoor PM2.5 data')
     parser.add_argument('--config', '-c', default='config.yaml', help='Configuration file path (default: config.yaml)')
     parser.add_argument(
-        '--days', '-d', type=int, default=7, help='Number of days of historical data to analyze (default: 7)'
+        '--days',
+        '-d',
+        type=int,
+        default=0,
+        help='Number of days of historical data to analyze (0 = all available data, default: 0)',
     )
     parser.add_argument('--dry-run', action='store_true', help='Run analysis without writing results to Google Sheets')
     parser.add_argument(
