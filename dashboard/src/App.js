@@ -218,28 +218,7 @@ function App() {
     });
   }, [data, state.dateRange, state.dateRangeMode, state.customStartDate, state.customEndDate]);
 
-  // Filter efficiency data based on date range
-  const filteredFilterData = useMemo(() => {
-    if (!filterData || filterData.length === 0) return [];
-    
-    const now = new Date();
-    let startDate;
-    
-    if (state.dateRangeMode === 'custom') {
-      startDate = state.customStartDate ? new Date(state.customStartDate) : new Date(now.getTime() - (state.dateRange * TIME_CONSTANTS.MS_PER_DAY));
-    } else {
-      startDate = new Date(now.getTime() - (state.dateRange * TIME_CONSTANTS.MS_PER_DAY));
-      startDate.setHours(0, 0, 0, 0);
-    }
-    
-    const endDate = state.dateRangeMode === 'custom' && state.customEndDate ? 
-      new Date(state.customEndDate) : now;
-    
-    return filterData.filter(item => {
-      const itemDate = item.timestamp;
-      return itemDate >= startDate && itemDate <= endDate;
-    });
-  }, [filterData, state.dateRange, state.dateRangeMode, state.customStartDate, state.customEndDate]);
+
 
   // Generate time range description
   const timeRangeDescription = useMemo(() => {

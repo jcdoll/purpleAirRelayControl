@@ -1,6 +1,6 @@
 import React from 'react';
 import Chart from 'react-apexcharts';
-import { getAnnualHeatmapOptions, createAnnualHeatmapTooltip } from '../../utils/chartConfigUtils';
+import { getAnnualHeatmapOptions } from '../../utils/chartConfigUtils';
 import { CHART_CONSTANTS, FILTER_EFFICIENCY_COLORS } from '../../constants/app';
 import ColorLegend from '../UI/ColorLegend';
 import chartStyles from './Chart.module.css';

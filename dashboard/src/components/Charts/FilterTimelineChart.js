@@ -1,6 +1,6 @@
 import React from 'react';
 import Chart from 'react-apexcharts';
-import { getLineChartOptions, getXAxisConfig, getYAxisConfig, TOOLTIP_FORMATTERS, ANIMATION_DISABLED, TOOLBAR_DISABLED } from '../../utils/chartConfigUtils';
+// All chart configuration is defined inline for this component
 import { CHART_CONSTANTS } from '../../constants/app';
 import styles from './Chart.module.css';
 
