@@ -68,7 +68,7 @@ jobs:
           
     - name: Upload analysis results
       if: always()  # Upload results even if analysis fails
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: filter-analysis-results-${{ github.run_number }}
         path: scripts/filter_efficiency_analysis/analysis_results.json
