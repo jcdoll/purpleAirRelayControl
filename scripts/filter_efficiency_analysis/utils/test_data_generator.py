@@ -22,7 +22,7 @@ class FilterTestDataGenerator:
         """Initialize with consistent random seed for reproducibility."""
         self.random_seed = random_seed
         np.random.seed(random_seed)
-        
+
         # Use provided config or create default
         if config is None:
             config = {
@@ -35,13 +35,14 @@ class FilterTestDataGenerator:
                 'hvac': {
                     'flow_rate_cfm': 1500,
                     'deposition_rate_percent': 2,
-                }
+                },
             }
-        
+
         self.config = config
-        
+
         # Calculate building parameters using shared functions
         from utils.config_helpers import get_building_parameters
+
         params = get_building_parameters(config)
 
         # Standard building parameters used across all tests
@@ -377,8 +378,11 @@ class FilterTestDataGenerator:
         if 'filter_efficiency' in building_params:
             params['filter_efficiency'] = building_params['filter_efficiency']
 
-        # Update building parameters
-        building_params['infiltration_ach'] = params['infiltration_ach']
+        # For scenarios, allow scenario-specific infiltration rates to override config
+        # This preserves scenario testing while maintaining config consistency for normal use
+        if scenario in scenarios and 'infiltration_ach' in params:
+            building_params['infiltration_ach'] = params['infiltration_ach']
+        # Otherwise, building_params contains the correctly calculated infiltration_ach from config
 
         # Generate outdoor data
         outdoor_data = self.generate_outdoor_pm25_series(
@@ -431,14 +435,16 @@ class FilterTestDataGenerator:
 
 
 # Convenience functions for direct use
-def create_test_data_generator(random_seed: int = 42, config: Optional[Dict[str, Any]] = None) -> FilterTestDataGenerator:
+def create_test_data_generator(
+    random_seed: int = 42, config: Optional[Dict[str, Any]] = None
+) -> FilterTestDataGenerator:
     """Create a FilterTestDataGenerator instance."""
     return FilterTestDataGenerator(random_seed, config)
 
 
 def generate_standard_test_dataset(
-    scenario: str, days: int = 14, random_seed: int = 42
+    scenario: str, days: int = 14, random_seed: int = 42, config: Optional[Dict[str, Any]] = None
 ) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """Generate a standard test dataset using the canonical generator."""
-    generator = FilterTestDataGenerator(random_seed)
+    generator = FilterTestDataGenerator(random_seed, config)
     return generator.generate_complete_dataset(scenario, days)

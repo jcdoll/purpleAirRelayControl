@@ -63,17 +63,20 @@ class FilterVisualization:
 
     def _calculate_expected_io_ratio(self, filter_efficiency: float, scenario_info: Dict[str, Any]) -> float:
         """Calculate expected I/O ratio using actual building parameters."""
-        # Default building parameters (from test_data_generator defaults)
-        infiltration_ach = 0.5  # Default
-        hvac_m3h = 2549.0  # 1500 CFM converted
-        volume_m3 = 765.0  # 3000 sq ft * 9 ft
-        deposition_ach = 0.02  # 2% per hour for PM2.5
-
-        # Override with scenario-specific values if available
+        # Use scenario-provided values if available, otherwise use defaults consistent with shared config
         if 'infiltration_ach' in scenario_info:
             infiltration_ach = scenario_info['infiltration_ach']
         elif 'infiltration_m3h' in scenario_info:
+            volume_m3 = scenario_info.get('building_volume_m3', 765.0)
             infiltration_ach = scenario_info['infiltration_m3h'] / volume_m3
+        else:
+            # Default building parameters consistent with shared config calculations
+            # For 'average' construction, 20 years old = 0.5 ACH
+            infiltration_ach = 0.5
+
+        hvac_m3h = scenario_info.get('hvac_m3h', 2549.0)  # 1500 CFM converted
+        volume_m3 = scenario_info.get('building_volume_m3', 765.0)  # 3000 sq ft * 9 ft
+        deposition_ach = 0.02  # 2% per hour for PM2.5
 
         if 'hvac_m3h' in scenario_info:
             hvac_m3h = scenario_info['hvac_m3h']

@@ -311,10 +311,15 @@ class TestDataProcessorIntegration:
         """Test data processing with different filter scenarios."""
         scenarios = ["good_filter", "degraded_filter", "poor_filter"]
 
-        for scenario in scenarios:
-            dataset, true_params = generate_standard_test_dataset(scenario=scenario, days=5, random_seed=42)
+        # Use consistent config for both data generation and processing
+        config = create_test_config()
 
-            processor = DataProcessor(create_test_config())
+        for scenario in scenarios:
+            dataset, true_params = generate_standard_test_dataset(
+                scenario=scenario, days=5, random_seed=42, config=config
+            )
+
+            processor = DataProcessor(config)
 
             # Process the data
             processed_data = processor.convert_aqi_columns(dataset, 'indoor_aqi', 'outdoor_aqi')

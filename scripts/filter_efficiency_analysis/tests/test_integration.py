@@ -37,17 +37,21 @@ class MockSheetsClient:
 def test_kalman_tracker_raw_data(scenario, true_efficiency, expected_range):
     """Test KalmanFilterTracker directly with raw data (no night-time filtering)."""
 
-    # Generate test data
-    generator = create_test_data_generator(42)
+    # Create config and generator for custom scenario
+    config = create_test_config()
+    generator = create_test_data_generator(42, config)
+
+    # Create custom building params with the desired filter efficiency
     building_params = generator.default_building.copy()
     building_params['filter_efficiency'] = true_efficiency
 
+    # Generate data with custom parameters, not pre-defined scenarios
+    # This ensures the Kalman filter gets data consistent with its config
     dataset, true_params = generator.generate_complete_dataset(
-        scenario=scenario, days=14, building_params=building_params
+        scenario="custom", days=14, building_params=building_params
     )
 
-    # Test Kalman filter directly with raw data (bypass data processing pipeline)
-    config = create_test_config(building={'infiltration_ach': true_params['infiltration_ach']})
+    # Test Kalman filter with the SAME config used for data generation
     tracker = KalmanFilterTracker(config)
 
     # Feed all data points directly to tracker
@@ -110,17 +114,21 @@ def test_kalman_tracker_raw_data(scenario, true_efficiency, expected_range):
 def test_kalman_tracker_with_data_pipeline(scenario, true_efficiency, expected_range):
     """Test KalmanFilterTracker through the full data processing pipeline."""
 
-    # Generate test data
-    generator = create_test_data_generator(42)
+    # Create config and generator for custom scenario
+    config = create_test_config()
+    generator = create_test_data_generator(42, config)
+
+    # Create custom building params with the desired filter efficiency
     building_params = generator.default_building.copy()
     building_params['filter_efficiency'] = true_efficiency
 
+    # Generate data with custom parameters, not pre-defined scenarios
+    # This ensures the Kalman filter gets data consistent with its config
     dataset, true_params = generator.generate_complete_dataset(
-        scenario=scenario, days=14, building_params=building_params
+        scenario="custom", days=14, building_params=building_params
     )
 
-    # Use FilterEfficiencyAnalyzer but bypass night-time filtering
-    config = create_test_config(building={'infiltration_ach': true_params['infiltration_ach']})
+    # Use FilterEfficiencyAnalyzer with the SAME config used for data generation
     mock_client = MockSheetsClient(dataset)
 
     analyzer = FilterEfficiencyAnalyzer(config, dry_run=True)
@@ -208,17 +216,21 @@ def test_kalman_tracker_with_data_pipeline(scenario, true_efficiency, expected_r
 def test_kalman_tracker_no_outlier_removal(scenario, true_efficiency, expected_range):
     """Test KalmanFilterTracker through pipeline but skip outlier removal."""
 
-    # Generate test data
-    generator = create_test_data_generator(42)
+    # Create config and generator for custom scenario
+    config = create_test_config()
+    generator = create_test_data_generator(42, config)
+
+    # Create custom building params with the desired filter efficiency
     building_params = generator.default_building.copy()
     building_params['filter_efficiency'] = true_efficiency
 
+    # Generate data with custom parameters, not pre-defined scenarios
+    # This ensures the Kalman filter gets data consistent with its config
     dataset, true_params = generator.generate_complete_dataset(
-        scenario=scenario, days=14, building_params=building_params
+        scenario="custom", days=14, building_params=building_params
     )
 
-    # Use FilterEfficiencyAnalyzer but bypass outlier removal
-    config = create_test_config(building={'infiltration_ach': true_params['infiltration_ach']})
+    # Use FilterEfficiencyAnalyzer with the SAME config used for data generation
     mock_client = MockSheetsClient(dataset)
 
     analyzer = FilterEfficiencyAnalyzer(config, dry_run=True)

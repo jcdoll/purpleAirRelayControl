@@ -162,33 +162,34 @@ class BaseFilterTracker(ABC):
         """Estimate natural air infiltration rate in ACH based on building parameters."""
         # Use shared calculation function to ensure consistency
         from utils.config_helpers import calculate_infiltration_rate
+
         return calculate_infiltration_rate(self.config)
 
     def _calculate_building_volume_m3(self) -> float:
         """Calculate building volume in cubic meters from area and height."""
         building = self.config.get('building', {})
-        
+
         # Get area in sq ft and height in ft
         area_sq_ft = building.get('area_sq_ft', 0)
         height_ft = building.get('ceiling_height_ft', 0)
-        
+
         if area_sq_ft <= 0 or height_ft <= 0:
             # Fallback calculation using legacy method
             return self._calculate_building_volume() * 0.0283  # ft³ to m³
-        
+
         # Calculate volume in cubic feet
         volume_ft3 = area_sq_ft * height_ft
-        
+
         # Convert to cubic meters (1 ft³ = 0.0283168 m³)
         volume_m3 = volume_ft3 * 0.0283168
-        
+
         return volume_m3
 
     def _calculate_infiltration_rate_m3h(self) -> float:
         """Calculate infiltration rate in m³/h from ACH and building volume."""
         infiltration_ach = self._estimate_infiltration_rate()
         volume_m3 = self._calculate_building_volume_m3()
-        
+
         # ACH × Volume = m³/h
         return infiltration_ach * volume_m3
 
