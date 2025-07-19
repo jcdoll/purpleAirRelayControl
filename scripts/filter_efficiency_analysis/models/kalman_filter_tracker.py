@@ -130,6 +130,7 @@ class KalmanFilterTracker(BaseFilterTracker):
             {
                 'timestamp': timestamp,
                 'efficiency': self.efficiency,
+                'efficiency_uncertainty': np.sqrt(self.covariance) * 100,  # Store uncertainty as percentage
                 'leak_ach': self.leak_ach,
                 'total_removal_ach': self.total_removal_ach,
                 'predicted_indoor': predicted_indoor,

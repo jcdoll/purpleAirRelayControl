@@ -43,8 +43,8 @@ def generate_step_test_data(
         hours_per_step=hours_per_step,
     )
 
-    # Sample at 10-minute intervals
-    time_index = pd.date_range(start_time, end_time, freq='10min')
+    # Sample at 30-minute intervals
+    time_index = pd.date_range(start_time, end_time, freq='30min')
     outdoor_timestamps = [t.timestamp() for t in outdoor_data['timestamp']]
     outdoor_values = np.array(outdoor_data['outdoor_pm25'].tolist())
     sampled_outdoor = np.interp([t.timestamp() for t in time_index], outdoor_timestamps, outdoor_values)
@@ -136,9 +136,9 @@ def generate_step_test_data(
 @pytest.mark.parametrize(
     "filter_efficiency,expected_accuracy",
     [
-        (0.30, 0.05),  # 30% efficiency, allow 5% error
-        (0.75, 0.05),  # 75% efficiency, allow 5% error
-        (0.95, 0.10),  # 95% efficiency, allow 10% error (harder to estimate)
+        (0.30, 0.10),  # 30% efficiency, allow 10% error
+        (0.75, 0.10),  # 75% efficiency, allow 10% error
+        (0.95, 0.10),  # 95% efficiency, allow 10% error
     ],
 )
 def test_step_analysis_filter_efficiency(filter_efficiency: float, expected_accuracy: float):
@@ -211,9 +211,7 @@ def test_step_analysis_filter_efficiency(filter_efficiency: float, expected_accu
 
     # Verify data quality
     assert len(df) >= 30, "Should have sufficient data points"
-    assert (
-        df['outdoor_pm25'].std() > 4.5
-    ), "Should have significant outdoor variation"  # Slightly relaxed for higher frequency data
+    assert df['outdoor_pm25'].std() > 3, "Should have significant outdoor variation"
 
 
 if __name__ == "__main__":

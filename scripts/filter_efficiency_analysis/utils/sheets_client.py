@@ -316,8 +316,10 @@ class SheetsClient:
         time_series_rows = []
 
         for record in state_history:
-            # Calculate efficiency uncertainty from tracker covariance
-            if hasattr(tracker, 'covariance'):
+            # Get efficiency uncertainty from historical record (if available) or current tracker
+            if 'efficiency_uncertainty' in record:
+                efficiency_uncertainty = float(record['efficiency_uncertainty'])
+            elif hasattr(tracker, 'covariance'):
                 efficiency_uncertainty = float(np.sqrt(tracker.covariance) * 100)  # Convert to percentage
             else:
                 efficiency_uncertainty = ''
