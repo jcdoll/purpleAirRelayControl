@@ -2,10 +2,10 @@ import React from 'react';
 import styles from './ColorLegend.module.css';
 import { AQI_LEGEND_ITEMS } from '../../constants/app';
 
-const ColorLegend = ({ includeNoData = true }) => {
-  const legendItems = includeNoData 
-    ? AQI_LEGEND_ITEMS 
-    : AQI_LEGEND_ITEMS.slice(1); // Skip "No Data" item
+const ColorLegend = ({ items, includeNoData = true }) => {
+  const legendItems = items 
+    ? items 
+    : (includeNoData ? AQI_LEGEND_ITEMS : AQI_LEGEND_ITEMS.slice(1)); // Use provided items or fall back to AQI items
 
   return (
     <div className={styles.colorLegend}>
