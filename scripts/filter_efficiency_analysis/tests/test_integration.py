@@ -2,6 +2,7 @@
 Integration tests for the KalmanFilterTracker using the analysis pipeline.
 """
 
+import os
 import pytest
 import pandas as pd
 import numpy as np
@@ -63,26 +64,27 @@ def test_kalman_tracker_raw_data(scenario, true_efficiency, expected_range):
     # Get results
     estimated_efficiency = tracker.get_current_efficiency()
     
-    # Create automatic visualization for debugging
-    test_name = f"raw_{scenario}_eff_{true_efficiency:.0%}"
-    scenario_info = {
-        'name': scenario,
-        'filter_efficiency': true_efficiency,
-        'description': f'Raw Algorithm Test: {scenario} (True: {true_efficiency:.0%})'
-    }
-    model_results = {'kalman': {'model': tracker, 'success': True}}
-    
-    try:
-        save_test_visualization(
-            test_name=test_name,
-            df=dataset,
-            model_results=model_results,
-            scenario_info=scenario_info,
-            output_dir="test_debug_output"
-        )
-        print(f"  Debug visualization saved for {test_name}")
-    except Exception as e:
-        print(f"  Warning: Could not save visualization for {test_name}: {e}")
+    # Create automatic visualization for debugging (skip in CI)
+    if not os.environ.get('CI'):
+        test_name = f"raw_{scenario}_eff_{true_efficiency:.0%}"
+        scenario_info = {
+            'name': scenario,
+            'filter_efficiency': true_efficiency,
+            'description': f'Raw Algorithm Test: {scenario} (True: {true_efficiency:.0%})'
+        }
+        model_results = {'kalman': {'model': tracker, 'success': True}}
+        
+        try:
+            save_test_visualization(
+                test_name=test_name,
+                df=dataset,
+                model_results=model_results,
+                scenario_info=scenario_info,
+                output_dir="test_debug_output"
+            )
+            print(f"  Debug visualization saved for {test_name}")
+        except Exception as e:
+            print(f"  Warning: Could not save visualization for {test_name}: {e}")
     
     assert estimated_efficiency is not None
     assert expected_range[0] <= estimated_efficiency <= expected_range[1]
@@ -254,38 +256,39 @@ def test_kalman_tracker_no_outlier_removal(scenario, true_efficiency, expected_r
 
     results = analyzer.run_analysis(days_back=14)
 
-    # Create automatic visualization for debugging
-    test_name = f"no_outliers_{scenario}_eff_{true_efficiency:.0%}"
-    scenario_info = {
-        'name': scenario,
-        'filter_efficiency': true_efficiency,
-        'description': f'No Outlier Removal Test: {scenario} (True: {true_efficiency:.0%})'
-    }
-    
-    # Extract estimated efficiency for visualization
-    estimated_efficiency = None
-    if results['success']:
-        estimated_efficiency = results['analysis_results']['filter_efficiency']
-    
-    model_results = {
-        'kalman': {
-            'model': analyzer.tracker,
-            'success': results['success'],
-            'estimated_efficiency': estimated_efficiency
+    # Create automatic visualization for debugging (skip in CI)
+    if not os.environ.get('CI'):
+        test_name = f"no_outliers_{scenario}_eff_{true_efficiency:.0%}"
+        scenario_info = {
+            'name': scenario,
+            'filter_efficiency': true_efficiency,
+            'description': f'No Outlier Removal Test: {scenario} (True: {true_efficiency:.0%})'
         }
-    }
-    
-    try:
-        save_test_visualization(
-            test_name=test_name,
-            df=dataset,
-            model_results=model_results,
-            scenario_info=scenario_info,
-            output_dir="test_debug_output"
-        )
-        print(f"  Debug visualization saved for {test_name}")
-    except Exception as e:
-        print(f"  Warning: Could not save visualization for {test_name}: {e}")
+        
+        # Extract estimated efficiency for visualization
+        estimated_efficiency = None
+        if results['success']:
+            estimated_efficiency = results['analysis_results']['filter_efficiency']
+        
+        model_results = {
+            'kalman': {
+                'model': analyzer.tracker,
+                'success': results['success'],
+                'estimated_efficiency': estimated_efficiency
+            }
+        }
+        
+        try:
+            save_test_visualization(
+                test_name=test_name,
+                df=dataset,
+                model_results=model_results,
+                scenario_info=scenario_info,
+                output_dir="test_debug_output"
+            )
+            print(f"  Debug visualization saved for {test_name}")
+        except Exception as e:
+            print(f"  Warning: Could not save visualization for {test_name}: {e}")
 
     assert results['success']
     analysis = results['analysis_results']

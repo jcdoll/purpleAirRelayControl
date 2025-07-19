@@ -46,25 +46,12 @@ jobs:
         pip install pytest pytest-cov
         pip install -r requirements.txt
     
-    - name: Run unit tests
-      run: |
-        cd scripts/filter_efficiency_analysis
-        python -m pytest tests/test_data_processor.py -v --tb=short
-    
-    - name: Run model tests
-      run: |
-        cd scripts/filter_efficiency_analysis
-        python -m pytest tests/test_night_calibration.py -v --tb=short
-    
-    - name: Run integration tests
-      run: |
-        cd scripts/filter_efficiency_analysis
-        python -m pytest tests/test_integration.py -v --tb=short
-    
     - name: Run all tests with coverage
+      env:
+        CI: true
       run: |
         cd scripts/filter_efficiency_analysis
-        python -m pytest tests/ --cov=utils --cov=models --cov-report=xml --cov-report=term-missing
+        python -m pytest tests/ -v --cov=utils --cov=models --cov-report=xml --cov-report=term-missing
     
     - name: Upload coverage to Codecov
       if: matrix.python-version == '3.11'
@@ -102,9 +89,9 @@ jobs:
         python -c "
         # Test that all modules can be imported
         from utils.data_processor import DataProcessor
-        from models.night_calibration import NightTimeCalibration
+        from models.kalman_filter_tracker import KalmanFilterTracker
         from utils.sheets_client import SheetsClient
-        from tests.test_utils import generate_test_dataset, create_test_config
+        from tests.test_utils import create_test_config
         print('All modules import successfully')
         "
     

@@ -21,3 +21,4 @@ dashboard/yarn-error.log*
 .pytest_cache/
 *.pyc
 __pycache__/
+*.png

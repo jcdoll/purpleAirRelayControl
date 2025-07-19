@@ -21,6 +21,7 @@ MANDATORY: Before ANY response, read the .cursorrules files completely. NO EXCEP
 - Do not use excessive bold in markdown documents. Only use font styling selectively.
 - Do not suggest changes and ask the user to apply them. Apply them yourself.
 - Always apply your own patch to the code. Do not send the code to the user and ask them to patch.
+- If the user has approved a change go ahead and apply it. Do not continue to ask the user for approval.
 
 # Hardware and Deployment Safety
 - NEVER perform hardware operations (flash, erase, etc.) without first asking about current device state and confirming the plan with the user.

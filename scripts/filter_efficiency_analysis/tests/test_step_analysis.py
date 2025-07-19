@@ -5,6 +5,7 @@ These tests validate filter efficiency estimation using clean, controlled
 step changes in outdoor PM2.5 levels.
 """
 
+import os
 import pytest
 import numpy as np
 import pandas as pd
@@ -194,15 +195,16 @@ def test_step_analysis_filter_efficiency(filter_efficiency: float, expected_accu
     print(f"  Confidence: {confidence:.2f}")
     print(f"  Uncertainty: {summary.get('efficiency_uncertainty', 'N/A')}")
     
-    # Create visualization
-    save_test_visualization(
-        test_name=f"step_test_eff_{filter_efficiency:.0%}",
-        df=df,
-        model_results={'kalman': {'model': tracker, 'success': True, 'stats': summary}},
-        scenario_info=scenario_info,
-        output_dir="test_debug_output"
-    )
-    print(f"  Debug visualization saved for step_test_eff_{filter_efficiency:.0%}")
+    # Create visualization (skip in CI)
+    if not os.environ.get('CI'):
+        save_test_visualization(
+            test_name=f"step_test_eff_{filter_efficiency:.0%}",
+            df=df,
+            model_results={'kalman': {'model': tracker, 'success': True, 'stats': summary}},
+            scenario_info=scenario_info,
+            output_dir="test_debug_output"
+        )
+        print(f"  Debug visualization saved for step_test_eff_{filter_efficiency:.0%}")
     
     # Assertions
     assert estimation_error <= expected_accuracy, (

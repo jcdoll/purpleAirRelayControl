@@ -6,6 +6,7 @@ This module provides a common testing framework that can evaluate and compare
 different filter tracking approaches using the canonical test data generator.
 """
 
+import os
 import sys
 import numpy as np
 import pandas as pd
@@ -195,7 +196,7 @@ class UnifiedTester:
             if result.get('success', False)
         }
         
-        if successful_models:
+        if successful_models and not os.environ.get('CI'):
             try:
                 output_file = save_test_visualization(
                     test_name=scenario_name,
