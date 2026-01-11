@@ -373,7 +373,7 @@ void logToGoogleForm(int currentOutdoorAqi, int currentIndoorAqi, SwitchState cu
   String tempSwitchStateStr = getSwitchStateString(currentSwitchState);
   snprintf(switchStateBuffer, sizeof(switchStateBuffer), "%s", tempSwitchStateStr.c_str());
   
-  char ventilationStateBuffer[4]; 
+  char ventilationStateBuffer[5]; 
   strncpy(ventilationStateBuffer, isVentilating ? "ON" : "OFF", sizeof(ventilationStateBuffer) -1);
   ventilationStateBuffer[sizeof(ventilationStateBuffer) - 1] = '\\0';
 
@@ -400,8 +400,10 @@ void logToGoogleForm(int currentOutdoorAqi, int currentIndoorAqi, SwitchState cu
 
   if (pingResult >= 0) {
     Serial.print(F("Google Forms: Ping successful. RTT: ")); Serial.print(pingResult); Serial.println(F(" ms"));
+    wdt_reset(); // Reset watchdog after successful ping
     if (googleFormsClient.connect(googleDocsHost, HTTPS_PORT)) {
       Serial.println("Google Forms: Connected to docs.google.com");
+      wdt_reset(); // Reset watchdog after successful connection
     
     char getRequestBuffer[sizeof(urlBuffer) + 30]; 
     snprintf(getRequestBuffer, sizeof(getRequestBuffer), "GET %s HTTP/1.1", urlBuffer);
@@ -427,7 +429,8 @@ void logToGoogleForm(int currentOutdoorAqi, int currentIndoorAqi, SwitchState cu
       String statusLine = googleFormsClient.readStringUntil('\n'); 
       statusLine.trim(); 
       Serial.print("<<< Google Forms Status: ");
-      Serial.println(statusLine); 
+      Serial.println(statusLine);
+      wdt_reset(); // Reset watchdog after reading response 
 
       // Consume any remaining data from the client to clear the buffer
       unsigned long flushTimeout = millis();

@@ -87,6 +87,6 @@ esp32/
 - Hardware Problems: See [docs/hardware.md Troubleshooting](docs/hardware.md#common-hardware-issues)  
 - Development Questions: Review [docs/development.md](docs/development.md)
 
-## License
+## Power
 
-See [LICENSE](../LICENSE) file for license information.
+https://www.smart-things.com/en/product/scharge-acdc-24v-5v-3a-converter

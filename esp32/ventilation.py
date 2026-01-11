@@ -6,9 +6,9 @@ from machine import Pin
 
 class VentilationController:
     def __init__(self):
-        # Initialize relay pins
-        self.relay1 = Pin(config.RELAY1_PIN, Pin.OUT)
-        self.relay2 = Pin(config.RELAY2_PIN, Pin.OUT)
+        # Initialize single relay pin for Adafruit Power Relay FeatherWing
+        self.relay = Pin(config.RELAY_PIN, Pin.OUT)
+        self.relay.value(0)  # Ensure relay starts OFF
 
         # State tracking
         self.ventilation_enabled = config.DEFAULT_STATE
@@ -16,6 +16,7 @@ class VentilationController:
         self.mode_order = ["OFF", "ON", "PURPLEAIR"]  # Toggle order for D1
         self.reason = "Startup"
         self.last_log_time = 0
+        self.last_auto_change = 0  # Track automatic changes for timing protection
         self.state_changed = True
 
         # Button interrupt handling
@@ -34,7 +35,7 @@ class VentilationController:
         self.button_d2.irq(trigger=Pin.IRQ_RISING, handler=self._button2_interrupt)  # Rising edge (press)
 
         # Set initial relay state
-        self._set_relays(self.ventilation_enabled)
+        self._set_relays(self.ventilation_enabled, is_manual=True)
         print("VentilationController initialized with interrupt-driven buttons")
 
     def _button0_interrupt(self, pin):
@@ -58,11 +59,25 @@ class VentilationController:
             self.button_flags[2] = True
             self.last_interrupt_time[2] = current_time
 
-    def _set_relays(self, state):
-        """Set both relays to the same state (redundancy)"""
-        self.relay1.value(1 if state else 0)
-        self.relay2.value(1 if state else 0)
+    def _set_relays(self, state, is_manual=False):
+        """Set relay state with timing protection for automatic changes only"""
+        # If automatic change, enforce minimum interval to prevent short cycling
+        if not is_manual:
+            current_time = time.time()
+            if (current_time - self.last_auto_change) < config.RELAY_MIN_AUTO_SWITCH_INTERVAL:
+                print(f"Auto relay change blocked - {config.RELAY_MIN_AUTO_SWITCH_INTERVAL - (current_time - self.last_auto_change):.0f}s remaining")
+                return False
+            self.last_auto_change = current_time
+            
+        # Set relay state
+        self.relay.value(1 if state else 0)
         self.ventilation_enabled = state
+        
+        # Log the change
+        state_text = "ON" if state else "OFF"
+        change_type = "Manual" if is_manual else "Auto"
+        print(f"{change_type} relay change: {state_text}")
+        return True
 
     def read_switch_mode(self):
         """Check for button presses via interrupt flags and handle mode changes"""
@@ -78,11 +93,13 @@ class VentilationController:
                     self.switch_mode = self.mode_order[next_index]
                     print(f"D1 pressed: Mode changed to {self.switch_mode}")
 
-                elif i == 0:  # D0 pressed - available for other functions
+                elif i == 0:  # D0 pressed - available for future functions
                     print("D0 pressed: Available for future functions")
 
-                elif i == 2:  # D2 pressed - available for other functions
-                    print("D2 pressed: Available for future functions")
+                elif i == 2:  # D2 pressed - toggle Google Sheets logging
+                    config.GOOGLE_FORMS_ENABLED = not config.GOOGLE_FORMS_ENABLED
+                    status = "enabled" if config.GOOGLE_FORMS_ENABLED else "disabled"
+                    print(f"D2 pressed: Google Sheets logging {status}")
 
         return self.switch_mode
 
@@ -96,10 +113,10 @@ class VentilationController:
 
         # Handle switch modes
         if self.switch_mode == "OFF":
-            self._set_relays(False)
+            self._set_relays(False, is_manual=True)
             self.reason = "Manual OFF"
         elif self.switch_mode == "ON":
-            self._set_relays(True)
+            self._set_relays(True, is_manual=True)
             self.reason = "Manual ON"
         elif self.switch_mode == "PURPLEAIR":
             # Automatic control based on AQI
@@ -109,15 +126,15 @@ class VentilationController:
             elif self.ventilation_enabled:
                 # Currently ventilating - check if we should stop
                 if outdoor_aqi >= config.AQI_DISABLE_THRESHOLD:
-                    self._set_relays(False)
-                    self.reason = f"AQI too high ({int(outdoor_aqi)})"
+                    if self._set_relays(False, is_manual=False):
+                        self.reason = f"AQI too high ({int(outdoor_aqi)})"
                 else:
                     self.reason = f"AQI acceptable ({int(outdoor_aqi)})"
             else:
                 # Not ventilating - check if we should start
                 if outdoor_aqi <= config.AQI_ENABLE_THRESHOLD:
-                    self._set_relays(True)
-                    self.reason = f"AQI good ({int(outdoor_aqi)})"
+                    if self._set_relays(True, is_manual=False):
+                        self.reason = f"AQI good ({int(outdoor_aqi)})"
                 else:
                     self.reason = f"AQI too high ({int(outdoor_aqi)})"
 

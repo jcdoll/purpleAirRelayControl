@@ -50,10 +50,11 @@ API_MAX_AGE = 3600  # Maximum age for API data in seconds
 AQI_ENABLE_THRESHOLD = 120  # Enable ventilation below this AQI
 AQI_DISABLE_THRESHOLD = 130  # Disable ventilation above this AQI
 DEFAULT_STATE = False  # Default relay state on startup
+RELAY_MIN_AUTO_SWITCH_INTERVAL = 120  # 2 minutes between automatic state changes
 
 # Hardware Pins (ESP32-S3 Reverse TFT Feather)
-RELAY1_PIN = 5
-RELAY2_PIN = 6
+# Adafruit Power Relay FeatherWing on A0 (GPIO 8)
+RELAY_PIN = 8
 SWITCH_PIN = 9
 BUTTON_D0 = 0  # BOOT button (pulled HIGH, active LOW)
 BUTTON_D1 = 1  # Pulled LOW, active HIGH

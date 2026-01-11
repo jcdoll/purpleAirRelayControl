@@ -250,39 +250,34 @@ class DisplayManager:
             indoor_x = 180 - (indoor_width // 2)
             self._draw_text_to_buffer(indoor_text, indoor_x, aqi_y, 4, indoor_color)
 
-            # Status indicators (2x scale) - bottom corners
+            # Status line at bottom (y=110) - M:/V:/L: layout
             status_y = 110
 
-            # SW state (bottom left)
-            self._draw_text_to_buffer("SW:", 10, status_y, 2, st7789.WHITE)
-
-            # Map mode to display text
+            # Mode indicator (left side)
             if status['mode'] == 'PURPLEAIR':
-                mode_text = "AUTO"
-                mode_color = st7789.WHITE
+                mode_text = "M:PA"
             elif status['mode'] == 'ON':
-                mode_text = "ON"
-                mode_color = st7789.GREEN
-            elif status['mode'] == 'OFF':
-                mode_text = "OFF"
-                mode_color = st7789.RED
+                mode_text = "M:ON"  
             else:
-                mode_text = status['mode']
-                mode_color = st7789.WHITE
+                mode_text = "M:OFF"
+            mode_color = st7789.WHITE
+            self._draw_text_to_buffer(mode_text, 10, status_y, 2, mode_color)
 
-            self._draw_text_to_buffer(mode_text, 58, status_y, 2, mode_color)
-
-            # V state (bottom right)
-            vent_state = "ON" if status['enabled'] else "OFF"
+            # Ventilation state (center)
+            vent_text = "V:ON" if status['enabled'] else "V:OFF"
             vent_color = st7789.GREEN if status['enabled'] else st7789.RED
+            # Center position around x=120 (middle of 240 width display)
+            v_width = len(vent_text) * 16  # 2x scale
+            v_x = 120 - (v_width // 2)
+            self._draw_text_to_buffer(vent_text, v_x, status_y, 2, vent_color)
 
-            # Right align
-            total_text = f"V:{vent_state}"
-            total_width = len(total_text) * 16  # 2x scale = 16px per char
-            v_x = 230 - total_width
-
-            self._draw_text_to_buffer("V:", v_x, status_y, 2, st7789.WHITE)
-            self._draw_text_to_buffer(vent_state, v_x + 32, status_y, 2, vent_color)
+            # Logging status (right side)
+            log_text = "L:ON" if config.GOOGLE_FORMS_ENABLED else "L:OFF"
+            log_color = st7789.CYAN if config.GOOGLE_FORMS_ENABLED else st7789.color565(128, 128, 128)  # Gray when off
+            # Right align - 240 width, 2x scale chars are 16px wide
+            log_width = len(log_text) * 16
+            log_x = 240 - log_width - 10  # 10px margin from right
+            self._draw_text_to_buffer(log_text, log_x, status_y, 2, log_color)
 
             # Update display from buffer - SINGLE OPERATION, NO FLASHING
             self._flush_buffer()
@@ -380,13 +375,23 @@ class DisplayManager:
             self.display.text(font8x8, outdoor_text, 20, 40, outdoor_color)
             self.display.text(font8x8, indoor_text, 120, 40, indoor_color)
 
-            # Status
-            mode_text = f"Mode: {status['mode']}"
-            vent_text = "ON" if status['enabled'] else "OFF"
+            # Status (fallback direct mode)
+            if status['mode'] == 'PURPLEAIR':
+                mode_text = "M:PA"
+            elif status['mode'] == 'ON':
+                mode_text = "M:ON"
+            else:
+                mode_text = "M:OFF"
+            
+            vent_text = "V:ON" if status['enabled'] else "V:OFF"
             vent_color = st7789.GREEN if status['enabled'] else st7789.RED
+            
+            log_text = "L:ON" if config.GOOGLE_FORMS_ENABLED else "L:OFF"
+            log_color = st7789.CYAN if config.GOOGLE_FORMS_ENABLED else st7789.color565(128, 128, 128)
 
             self.display.text(font8x8, mode_text, 5, 100, st7789.WHITE)
-            self.display.text(font8x8, vent_text, 120, 100, vent_color)
+            self.display.text(font8x8, vent_text, 80, 100, vent_color)
+            self.display.text(font8x8, log_text, 150, 100, log_color)
 
         except Exception as e:
             handle_hardware_error(e, "direct display update")

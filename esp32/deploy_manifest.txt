@@ -8,7 +8,7 @@ lib/vga1_8x8.py
 boot.py
 main.py
 config.py
-secrets.py  # Optional – will be skipped if missing
+secrets.py
 wifi_manager.py
 purple_air.py
 ventilation.py
