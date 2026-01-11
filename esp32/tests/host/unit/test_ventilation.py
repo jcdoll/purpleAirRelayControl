@@ -30,7 +30,18 @@ def test_manual_off_on_cycle():
     assert controller.switch_mode == "PURPLEAIR"
 
 
-def test_purpleair_control_logic():
+def test_purpleair_control_logic(monkeypatch):
+    # Mock time.time() to simulate time passing and bypass timing protection
+    # Start at 200s so first auto change is allowed (last_auto_change starts at 0)
+    import time
+
+    fake_time = [200]
+
+    def mock_time():
+        return fake_time[0]
+
+    monkeypatch.setattr(time, "time", mock_time)
+
     controller = ventilation.VentilationController()
     # Ensure mode is PURPLEAIR
     controller.switch_mode = "PURPLEAIR"
@@ -38,6 +49,9 @@ def test_purpleair_control_logic():
     # AQI good -> should enable
     controller.update(outdoor_aqi=50)
     assert controller.ventilation_enabled is True
+
+    # Advance time past RELAY_MIN_AUTO_SWITCH_INTERVAL (120s)
+    fake_time[0] = 400
 
     # AQI too high -> should disable
     controller.update(outdoor_aqi=150)
