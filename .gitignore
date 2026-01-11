@@ -22,3 +22,8 @@ dashboard/yarn-error.log*
 *.pyc
 __pycache__/
 *.png
+
+# Virtual environments
+venv/
+.venv/
+**/site-packages/
