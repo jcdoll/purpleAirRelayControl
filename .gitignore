@@ -1,6 +1,7 @@
 # Case
 shelf.stl
 box.stl
+plate.stl
 
 # Arduino
 arduino_secrets.h
