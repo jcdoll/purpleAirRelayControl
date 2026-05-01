@@ -79,6 +79,13 @@ class VentilationController:
         print(f"{change_type} relay change: {state_text}")
         return True
 
+    def set_mode(self, mode):
+        # Programmatically change mode (used by remote/MQTT). Same effect as a D1 button press.
+        if mode in self.mode_order and mode != self.switch_mode:
+            self.switch_mode = mode
+            self.state_changed = True
+            print(f"Remote: mode changed to {mode}")
+
     def read_switch_mode(self):
         """Check for button presses via interrupt flags and handle mode changes"""
         # Check interrupt flags and process button presses

@@ -84,3 +84,30 @@ python analyze_filter_performance.py --dry-run
 ## Verification
 
 Run the relevant tests/build for the component you changed. If hardware, Arduino IDE, or live Google integration is required and you cannot run it, say exactly what was not verified.
+
+## ESP32 Debugging
+
+Deploy on Windows (cp1252 chokes on the unicode check marks):
+
+```powershell
+$env:PYTHONIOENCODING="utf-8"; python deploy.py
+```
+
+`mpremote ... exec` aborts `main.py` and leaves the REPL idle. After any probe, restart the loop with `mpremote connect auto soft-reset` (or physical reset). Display showing `Shutting down...` = same thing, same fix.
+
+Multi-line probes: put them in `probe_*.py` and `mpremote connect auto run probe_xxx.py`. Verify a deploy with `mpremote connect auto ls`.
+
+WiFi peripheral can wedge after interrupted `exec`s: `scan()` returns 0 APs, `status()` stays at 1001, or `connect()` raises `OSError: Wifi Internal Error`. Hard-cycle the radio:
+
+```python
+sta = network.WLAN(network.STA_IF)
+try: sta.disconnect()
+except: pass
+sta.active(False); time.sleep(3); sta.active(True); time.sleep(2)
+```
+
+WiFi status codes: 1000 idle, 1001 connecting (stuck = AP not responding), 1010 got IP, 201 no AP found, 202 wrong password. RSSI: > -65 solid, -65 to -80 flaky, < -80 expect drops. ESP32 is 2.4 GHz only -- prefer the `-2g` SSID if the router exposes one.
+
+Inspect `secrets.py` without disclosing values -- print only length / first / last char.
+
+HA entities going `unavailable` = LWT fired (broker lost the ESP32). `MQTTManager` retries every `RECONNECT_INTERVAL_S` (30 s). Frequent flapping = WiFi, not MQTT.

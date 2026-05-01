@@ -20,6 +20,10 @@ if _secrets is not None:
     GOOGLE_FORMS_ENABLED = getattr(_secrets, "GOOGLE_FORMS_ENABLED", False)
     LOCAL_OUTDOOR_SENSOR_IPS = getattr(_secrets, "LOCAL_OUTDOOR_SENSOR_IPS", [])
     LOCAL_INDOOR_SENSOR_IPS = getattr(_secrets, "LOCAL_INDOOR_SENSOR_IPS", [])
+    MQTT_BROKER = getattr(_secrets, "MQTT_BROKER", "")
+    MQTT_PORT = getattr(_secrets, "MQTT_PORT", 1883)
+    MQTT_USER = getattr(_secrets, "MQTT_USER", "")
+    MQTT_PASSWORD = getattr(_secrets, "MQTT_PASSWORD", "")
 else:
     print("ERROR: secrets.py not found!")
     print("Copy secrets_template.py to secrets.py and add your credentials")
@@ -33,6 +37,10 @@ else:
     GOOGLE_FORMS_ENABLED = False
     LOCAL_OUTDOOR_SENSOR_IPS = []
     LOCAL_INDOOR_SENSOR_IPS = []
+    MQTT_BROKER = ""
+    MQTT_PORT = 1883
+    MQTT_USER = ""
+    MQTT_PASSWORD = ""
 
 # Non-secret configuration
 WIFI_TIMEOUT = 30  # seconds

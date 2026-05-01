@@ -12,6 +12,7 @@ secrets.py
 wifi_manager.py
 purple_air.py
 ventilation.py
+mqtt_client.py
 display_manager.py
 led_manager.py
 google_logger.py

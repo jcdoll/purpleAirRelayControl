@@ -14,6 +14,7 @@ This directory contains comprehensive documentation for the ESP32-S3 Reverse TFT
 - [setup.md](setup.md) - MicroPython installation, bootloader setup, testing, and project deployment
 - [hardware.md](hardware.md) - Hardware specifications, pin assignments, and troubleshooting
 - [development.md](development.md) - Development rules, workflow, and coding guidelines
+- [home_assistant.md](home_assistant.md) - Optional remote control via Mosquitto + Home Assistant MQTT
 
 ### Reference Materials
 - [reference/mpremote.md](reference/mpremote.md) - mpremote command reference

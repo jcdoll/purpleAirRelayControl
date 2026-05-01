@@ -7,6 +7,7 @@ from display_manager import DisplayManager
 from google_logger import GoogleFormsLogger
 from led_manager import LEDManager
 from machine import WDT
+from mqtt_client import MQTTManager
 from purple_air import PurpleAirClient
 from ventilation import VentilationController
 from wifi_manager import WiFiManager
@@ -84,6 +85,11 @@ def main():
     # Initialize all components
     display, led, wifi, purple_air, ventilation, logger = initialize_components()
 
+    # MQTT for Home Assistant remote control (best-effort, never blocks main loop)
+    mqtt = MQTTManager(command_callback=ventilation.set_mode)
+    if mqtt.is_enabled():
+        mqtt.connect()
+
     # State tracking for event-based logging
     error_count = 0
     last_memory_check = 0
@@ -160,6 +166,19 @@ def main():
 
             if mode_changed:
                 print_sensor_status(outdoor_aqi, indoor_aqi, ventilation.get_status(), "Mode changed")
+
+            # Publish state to MQTT on any change
+            if sensor_data_changed or vent_state_changed or mode_changed:
+                mqtt.publish_state(
+                    current_status['mode'],
+                    current_status['enabled'],
+                    outdoor_aqi,
+                    indoor_aqi,
+                    current_status['reason'],
+                )
+
+            # Service MQTT (process incoming commands, reconnect if needed)
+            mqtt.check_messages()
 
             # Update display
             display.update_display(outdoor_aqi, indoor_aqi, ventilation, wifi)

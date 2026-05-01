@@ -40,6 +40,7 @@ All documentation is organized in the [`docs/`](docs/) directory:
 - [Setup Guide](docs/setup.md) - MicroPython installation, bootloader setup, and project deployment
 - [Hardware Documentation](docs/hardware.md) - Complete pin assignments and troubleshooting
 - [Development Guidelines](docs/development.md) - Critical rules, workflow, and best practices
+- [Home Assistant Integration](docs/home_assistant.md) - Optional MQTT remote control via Mosquitto + HA
 - [Reference Materials](docs/reference/) - Command references and technical details
 
 ## Getting Started

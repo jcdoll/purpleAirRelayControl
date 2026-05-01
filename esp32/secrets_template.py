@@ -20,3 +20,10 @@ LOCAL_INDOOR_SENSOR_IPS = []  # e.g., ["192.168.1.102"]
 # Google Forms (optional)
 GOOGLE_FORMS_URL = ""  # Your Google Forms submission URL
 GOOGLE_FORMS_ENABLED = False
+
+# MQTT / Home Assistant (optional)
+# Leave MQTT_BROKER blank to disable. See esp32/docs/home_assistant.md.
+MQTT_BROKER = ""        # Broker host or IP, e.g. "192.168.1.10"
+MQTT_PORT = 1883
+MQTT_USER = ""          # Blank for anonymous
+MQTT_PASSWORD = ""      # Blank for anonymous
