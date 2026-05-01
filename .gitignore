@@ -1,7 +1,8 @@
 # Case
-shelf.stl
-box.stl
-plate.stl
+*.stl
+
+# Claude Code local settings
+.claude/
 
 # Arduino
 arduino_secrets.h
