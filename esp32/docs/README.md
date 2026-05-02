@@ -13,6 +13,7 @@ This directory contains comprehensive documentation for the ESP32-S3 Reverse TFT
 ### Core Documentation
 - [setup.md](setup.md) - MicroPython installation, bootloader setup, testing, and project deployment
 - [hardware.md](hardware.md) - Hardware specifications, pin assignments, and troubleshooting
+- [wiring.md](wiring.md) - 24 VAC + relay wiring to the ventilation controller (Honeywell W8150A1001 reference)
 - [development.md](development.md) - Development rules, workflow, and coding guidelines
 - [home_assistant.md](home_assistant.md) - Optional remote control via Mosquitto + Home Assistant MQTT
 

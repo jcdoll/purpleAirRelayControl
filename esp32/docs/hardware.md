@@ -38,9 +38,9 @@ NOTE: All pin assignments are defined in `config.py`. This documentation shows t
 ### Project-Specific Pins
 ```python
 # From config.py:
-RELAY1_PIN = 5      # Primary ventilation relay
-RELAY2_PIN = 6      # Secondary ventilation relay
-SWITCH_PIN = 9      # Manual switch input
+RELAY_PIN  = 18     # Adafruit Power Relay FeatherWing, A0 jumper bridged
+                    # (A0 = GPIO 18 on the Reverse TFT Feather; A5 = GPIO 8)
+SWITCH_PIN = 9      # Manual switch input (legacy)
 ```
 
 ### TFT Display (ST7789)

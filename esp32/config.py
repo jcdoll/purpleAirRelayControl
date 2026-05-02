@@ -61,8 +61,11 @@ DEFAULT_STATE = False  # Default relay state on startup
 RELAY_MIN_AUTO_SWITCH_INTERVAL = 120  # 2 minutes between automatic state changes
 
 # Hardware Pins (ESP32-S3 Reverse TFT Feather)
-# Adafruit Power Relay FeatherWing on A0 (GPIO 8)
-RELAY_PIN = 8
+# Adafruit Power Relay FeatherWing on A0 (GPIO 18 on this board)
+# Note: A0 != GPIO 8 on the Reverse TFT Feather. A0=GPIO18, A1=17, A2=16,
+# A3=15, A4=14, A5=GPIO8. If you bridge a different solder jumper on the
+# wing, change RELAY_PIN to match.
+RELAY_PIN = 18
 SWITCH_PIN = 9
 BUTTON_D0 = 0  # BOOT button (pulled HIGH, active LOW)
 BUTTON_D1 = 1  # Pulled LOW, active HIGH
