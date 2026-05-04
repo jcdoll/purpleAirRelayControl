@@ -1,10 +1,10 @@
 # MQTT client for Home Assistant integration
 #
-# Best-effort, non-blocking. Publishes state on demand, listens for mode commands,
+# Best-effort, non-blocking. Publishes state on demand, listens for commands,
 # auto-reconnects on failure. Failures never propagate -- the main control loop
 # always runs whether or not the broker is reachable.
 #
-# See esp32/docs/home_assistant.md for setup.
+# See esp32/docs/home_assistant.md for setup + usage.
 
 import json
 import time
@@ -15,18 +15,28 @@ from umqtt.simple import MQTTClient
 DEVICE_ID = "purpleair_relay"
 DEVICE_NAME = "PurpleAir Relay"
 DISCOVERY_PREFIX = "homeassistant"
+
 STATE_TOPIC = "purpleair/state"
-COMMAND_TOPIC = "purpleair/mode/set"
 AVAILABILITY_TOPIC = "purpleair/availability"
+
+CMD_MODE_TOPIC      = "purpleair/mode/set"
+CMD_REFRESH_TOPIC   = "purpleair/refresh/press"
+CMD_THR_ENABLE_TOPIC  = "purpleair/threshold_enable/set"
+CMD_THR_DISABLE_TOPIC = "purpleair/threshold_disable/set"
 
 VALID_MODES = ("OFF", "ON", "PURPLEAIR")
 RECONNECT_INTERVAL_S = 30
 
 
 class MQTTManager:
-    def __init__(self, command_callback=None):
-        # command_callback(mode: str) is invoked when a valid mode arrives on COMMAND_TOPIC.
-        self.command_callback = command_callback
+    def __init__(self, mode_callback=None, threshold_callback=None, refresh_callback=None):
+        # Callbacks (all optional):
+        #   mode_callback(mode_str)             -- new mode requested
+        #   threshold_callback(name, int_value) -- threshold change requested
+        #   refresh_callback()                  -- force-refresh button pressed
+        self.mode_callback = mode_callback
+        self.threshold_callback = threshold_callback
+        self.refresh_callback = refresh_callback
         self.client = None
         self.connected = False
         self.last_connect_attempt = 0
@@ -50,13 +60,22 @@ class MQTTManager:
         try:
             topic_str = topic.decode() if isinstance(topic, (bytes, bytearray)) else topic
             msg_str = msg.decode() if isinstance(msg, (bytes, bytearray)) else msg
-            msg_str = msg_str.strip().upper()
-            if topic_str == COMMAND_TOPIC and msg_str in VALID_MODES:
-                if self.command_callback:
-                    self.command_callback(msg_str)
-                    print(f"MQTT command received: mode -> {msg_str}")
+            msg_str = msg_str.strip()
+
+            if topic_str == CMD_MODE_TOPIC:
+                mode = msg_str.upper()
+                if mode in VALID_MODES and self.mode_callback:
+                    self.mode_callback(mode)
+                    print(f"MQTT cmd: mode -> {mode}")
+            elif topic_str == CMD_THR_ENABLE_TOPIC and self.threshold_callback:
+                self.threshold_callback("AQI_ENABLE_THRESHOLD", int(float(msg_str)))
+            elif topic_str == CMD_THR_DISABLE_TOPIC and self.threshold_callback:
+                self.threshold_callback("AQI_DISABLE_THRESHOLD", int(float(msg_str)))
+            elif topic_str == CMD_REFRESH_TOPIC and self.refresh_callback:
+                self.refresh_callback()
+                print("MQTT cmd: refresh")
             else:
-                print(f"MQTT message ignored: topic={topic_str} msg={msg_str}")
+                print(f"MQTT msg ignored: topic={topic_str} msg={msg_str}")
         except Exception as e:
             print(f"MQTT message handler error: {type(e).__name__}: {e}")
 
@@ -68,7 +87,9 @@ class MQTTManager:
             self.client.set_last_will(AVAILABILITY_TOPIC, b"offline", retain=True, qos=0)
             self.client.set_callback(self._on_message)
             self.client.connect()
-            self.client.subscribe(COMMAND_TOPIC)
+            for topic in (CMD_MODE_TOPIC, CMD_THR_ENABLE_TOPIC,
+                          CMD_THR_DISABLE_TOPIC, CMD_REFRESH_TOPIC):
+                self.client.subscribe(topic)
             self.client.publish(AVAILABILITY_TOPIC, b"online", retain=True, qos=0)
             self.connected = True
             print(f"MQTT connected to {config.MQTT_BROKER}:{getattr(config, 'MQTT_PORT', 1883)}")
@@ -81,8 +102,6 @@ class MQTTManager:
             return False
 
     def _publish_discovery(self):
-        # Home Assistant MQTT discovery payloads. Retained so HA picks them up
-        # whenever it (re)connects to the broker.
         device = {
             "identifiers": [DEVICE_ID],
             "name": DEVICE_NAME,
@@ -95,8 +114,9 @@ class MQTTManager:
                 "unique_id": DEVICE_ID + "_mode",
                 "state_topic": STATE_TOPIC,
                 "value_template": "{{ value_json.mode }}",
-                "command_topic": COMMAND_TOPIC,
+                "command_topic": CMD_MODE_TOPIC,
                 "options": list(VALID_MODES),
+                "icon": "mdi:fan",
                 "availability_topic": AVAILABILITY_TOPIC,
                 "device": device,
             }),
@@ -117,6 +137,9 @@ class MQTTManager:
                 "state_topic": STATE_TOPIC,
                 "value_template": "{{ value_json.outdoor_aqi }}",
                 "state_class": "measurement",
+                "device_class": "aqi",
+                "unit_of_measurement": "AQI",
+                "icon": "mdi:weather-windy",
                 "availability_topic": AVAILABILITY_TOPIC,
                 "device": device,
             }),
@@ -126,6 +149,9 @@ class MQTTManager:
                 "state_topic": STATE_TOPIC,
                 "value_template": "{{ value_json.indoor_aqi }}",
                 "state_class": "measurement",
+                "device_class": "aqi",
+                "unit_of_measurement": "AQI",
+                "icon": "mdi:home-thermometer",
                 "availability_topic": AVAILABILITY_TOPIC,
                 "device": device,
             }),
@@ -134,6 +160,60 @@ class MQTTManager:
                 "unique_id": DEVICE_ID + "_reason",
                 "state_topic": STATE_TOPIC,
                 "value_template": "{{ value_json.reason }}",
+                "icon": "mdi:information-outline",
+                "availability_topic": AVAILABILITY_TOPIC,
+                "device": device,
+            }),
+            ("sensor", "last_update", {
+                "name": "Last AQI Update",
+                "unique_id": DEVICE_ID + "_last_update",
+                "state_topic": STATE_TOPIC,
+                "value_template": "{{ value_json.last_update }}",
+                "device_class": "timestamp",
+                "entity_category": "diagnostic",
+                "availability_topic": AVAILABILITY_TOPIC,
+                "device": device,
+            }),
+            ("number", "threshold_enable", {
+                "name": "AQI Enable Threshold",
+                "unique_id": DEVICE_ID + "_threshold_enable",
+                "state_topic": STATE_TOPIC,
+                "value_template": "{{ value_json.aqi_enable_threshold }}",
+                "command_topic": CMD_THR_ENABLE_TOPIC,
+                "min": 0,
+                "max": 500,
+                "step": 5,
+                "mode": "slider",
+                "device_class": "aqi",
+                "unit_of_measurement": "AQI",
+                "icon": "mdi:fan-plus",
+                "entity_category": "config",
+                "availability_topic": AVAILABILITY_TOPIC,
+                "device": device,
+            }),
+            ("number", "threshold_disable", {
+                "name": "AQI Disable Threshold",
+                "unique_id": DEVICE_ID + "_threshold_disable",
+                "state_topic": STATE_TOPIC,
+                "value_template": "{{ value_json.aqi_disable_threshold }}",
+                "command_topic": CMD_THR_DISABLE_TOPIC,
+                "min": 0,
+                "max": 500,
+                "step": 5,
+                "mode": "slider",
+                "device_class": "aqi",
+                "unit_of_measurement": "AQI",
+                "icon": "mdi:fan-off",
+                "entity_category": "config",
+                "availability_topic": AVAILABILITY_TOPIC,
+                "device": device,
+            }),
+            ("button", "refresh", {
+                "name": "Refresh AQI",
+                "unique_id": DEVICE_ID + "_refresh",
+                "command_topic": CMD_REFRESH_TOPIC,
+                "icon": "mdi:refresh",
+                "entity_category": "config",
                 "availability_topic": AVAILABILITY_TOPIC,
                 "device": device,
             }),
@@ -148,7 +228,9 @@ class MQTTManager:
                 return
         print("MQTT discovery published")
 
-    def publish_state(self, mode, vent_enabled, outdoor_aqi, indoor_aqi, reason):
+    def publish_state(self, mode, vent_enabled, outdoor_aqi, indoor_aqi, reason,
+                      aqi_enable_threshold=None, aqi_disable_threshold=None,
+                      last_update=None):
         if not self.connected:
             return
         payload = {
@@ -157,6 +239,9 @@ class MQTTManager:
             "outdoor_aqi": int(outdoor_aqi) if outdoor_aqi is not None and outdoor_aqi >= 0 else None,
             "indoor_aqi": int(indoor_aqi) if indoor_aqi is not None and indoor_aqi >= 0 else None,
             "reason": reason,
+            "aqi_enable_threshold": aqi_enable_threshold,
+            "aqi_disable_threshold": aqi_disable_threshold,
+            "last_update": last_update,
         }
         try:
             self.client.publish(STATE_TOPIC, json.dumps(payload).encode(), retain=True, qos=0)
@@ -165,7 +250,6 @@ class MQTTManager:
             self.connected = False
 
     def check_messages(self):
-        # Call from main loop. Non-blocking. Handles reconnect attempts.
         if not self.is_enabled():
             return
         if not self.connected:

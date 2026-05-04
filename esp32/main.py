@@ -3,6 +3,7 @@ import time
 
 import config
 import machine
+import settings
 from display_manager import DisplayManager
 from google_logger import GoogleFormsLogger
 from led_manager import LEDManager
@@ -19,6 +20,24 @@ from utils.status_display import (
     print_startup_banner,
 )
 
+
+def iso_utc_now():
+    # ISO 8601 UTC timestamp -- HA timestamp-class sensors expect this format.
+    # Returns None if the system clock is unset (NTP not synced yet).
+    t = time.gmtime()
+    if t[0] < 2024:
+        return None
+    return f"{t[0]:04d}-{t[1]:02d}-{t[2]:02d}T{t[3]:02d}:{t[4]:02d}:{t[5]:02d}+00:00"
+
+
+def sync_ntp():
+    try:
+        import ntptime
+        ntptime.settime()
+        print(f"NTP sync ok: {iso_utc_now()}")
+    except Exception as e:
+        print(f"NTP sync failed: {type(e).__name__}: {e}")
+
 # Initialize watchdog timer if enabled
 if config.WATCHDOG_TIMEOUT > 0:
     wdt = WDT(timeout=config.WATCHDOG_TIMEOUT)
@@ -29,6 +48,7 @@ else:
 def initialize_components():
     """Initialize all system components"""
     print_startup_banner()
+    settings.load(config)
     print("Initializing display and LED...")
 
     # Initialize Display and LED Managers (split from UIManager)
@@ -50,6 +70,9 @@ def initialize_components():
     print(f"  SSID: {config.WIFI_SSID}")
     print(f"  IP: {wifi.get_ip()}")
     print(f"  Signal: {wifi.get_rssi()} dBm")
+
+    # Set the system clock so timestamp-class HA entities work
+    sync_ntp()
 
     # Initialize other components
     purple_air = PurpleAirClient()
@@ -85,8 +108,18 @@ def main():
     # Initialize all components
     display, led, wifi, purple_air, ventilation, logger = initialize_components()
 
+    # Force-refresh flag toggled by the HA "Refresh AQI" button
+    refresh_requested = [False]
+
+    def on_refresh():
+        refresh_requested[0] = True
+
     # MQTT for Home Assistant remote control (best-effort, never blocks main loop)
-    mqtt = MQTTManager(command_callback=ventilation.set_mode)
+    mqtt = MQTTManager(
+        mode_callback=ventilation.set_mode,
+        threshold_callback=lambda name, value: settings.save(name, value, config),
+        refresh_callback=on_refresh,
+    )
     if mqtt.is_enabled():
         mqtt.connect()
 
@@ -101,6 +134,9 @@ def main():
     prev_indoor_aqi = None
     prev_vent_state = None
     prev_mode = None
+    prev_thr_enable = None
+    prev_thr_disable = None
+    last_aqi_update = None
 
     # Print initial WiFi info
     if wifi.is_connected():
@@ -126,9 +162,11 @@ def main():
                 else:
                     led.set_status_led("error")
 
-            # Get AQI data
-            outdoor_aqi = purple_air.get_outdoor_aqi()
-            indoor_aqi = purple_air.get_indoor_aqi()
+            # Get AQI data (force_update if HA Refresh button was pressed)
+            force = refresh_requested[0]
+            refresh_requested[0] = False
+            outdoor_aqi = purple_air.get_outdoor_aqi(force_update=force)
+            indoor_aqi = purple_air.get_indoor_aqi(force_update=force)
 
             # Ensure AQI values are numbers, not tuples
             if isinstance(outdoor_aqi, tuple):
@@ -142,10 +180,18 @@ def main():
             ventilation.update(outdoor_aqi, indoor_aqi)
             current_status = ventilation.get_status()
 
+            # Refresh the last-update timestamp on any successful AQI read
+            if outdoor_aqi >= 0 or indoor_aqi >= 0:
+                ts = iso_utc_now()
+                if ts:
+                    last_aqi_update = ts
+
             # EVENT-BASED LOGGING: Check for changes
             sensor_data_changed = outdoor_aqi != prev_outdoor_aqi or indoor_aqi != prev_indoor_aqi
             vent_state_changed = current_status['enabled'] != prev_vent_state
             mode_changed = current_status['mode'] != prev_mode
+            threshold_changed = (config.AQI_ENABLE_THRESHOLD != prev_thr_enable
+                                 or config.AQI_DISABLE_THRESHOLD != prev_thr_disable)
 
             # Print status on any change (like Arduino event-based logging)
             if sensor_data_changed:
@@ -168,13 +214,16 @@ def main():
                 print_sensor_status(outdoor_aqi, indoor_aqi, ventilation.get_status(), "Mode changed")
 
             # Publish state to MQTT on any change
-            if sensor_data_changed or vent_state_changed or mode_changed:
+            if sensor_data_changed or vent_state_changed or mode_changed or threshold_changed:
                 mqtt.publish_state(
                     current_status['mode'],
                     current_status['enabled'],
                     outdoor_aqi,
                     indoor_aqi,
                     current_status['reason'],
+                    aqi_enable_threshold=config.AQI_ENABLE_THRESHOLD,
+                    aqi_disable_threshold=config.AQI_DISABLE_THRESHOLD,
+                    last_update=last_aqi_update,
                 )
 
             # Service MQTT (process incoming commands, reconnect if needed)
@@ -219,6 +268,8 @@ def main():
             prev_indoor_aqi = indoor_aqi
             prev_vent_state = current_status['enabled']
             prev_mode = current_status['mode']
+            prev_thr_enable = config.AQI_ENABLE_THRESHOLD
+            prev_thr_disable = config.AQI_DISABLE_THRESHOLD
 
             # Reset error count on successful iteration
             error_count = 0

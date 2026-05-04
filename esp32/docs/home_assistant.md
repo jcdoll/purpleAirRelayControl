@@ -122,15 +122,79 @@ On boot the ESP32:
 
 Entities that appear in Home Assistant after first boot:
 
-| Entity | Type | Direction | Notes |
-|---|---|---|---|
-| `select.purpleair_relay_mode` | select | read/write | `OFF` / `ON` / `PURPLEAIR` — same modes as the D1 button |
-| `binary_sensor.purpleair_relay_vent` | binary_sensor | read | actual relay state |
-| `sensor.purpleair_relay_outdoor_aqi` | sensor | read | latest outdoor AQI |
-| `sensor.purpleair_relay_indoor_aqi` | sensor | read | latest indoor AQI |
-| `sensor.purpleair_relay_reason` | sensor | read | human-readable reason for the current state |
+| Entity                                       | Type          | Direction  | Notes                                                                              |
+|----------------------------------------------|---------------|------------|------------------------------------------------------------------------------------|
+| `select.purpleair_relay_mode`                | select        | read/write | `OFF` / `ON` / `PURPLEAIR` -- same modes as the D1 button                          |
+| `binary_sensor.purpleair_relay_ventilation`  | binary_sensor | read       | actual relay state                                                                 |
+| `sensor.purpleair_relay_outdoor_aqi`         | sensor        | read       | latest outdoor AQI (device_class `aqi`, unit `AQI`)                                |
+| `sensor.purpleair_relay_indoor_aqi`          | sensor        | read       | latest indoor AQI                                                                  |
+| `sensor.purpleair_relay_reason`              | sensor        | read       | human-readable reason for the current state                                        |
+| `sensor.purpleair_relay_last_aqi_update`     | sensor        | read       | timestamp of the last successful PurpleAir poll (diagnostic)                       |
+| `number.purpleair_relay_aqi_enable_threshold`| number        | read/write | AQI below which ventilation turns ON in PURPLEAIR mode (config; persisted)         |
+| `number.purpleair_relay_aqi_disable_threshold`| number       | read/write | AQI at/above which ventilation turns OFF in PURPLEAIR mode (config; persisted)     |
+| `button.purpleair_relay_refresh_aqi`         | button        | write      | Force an immediate PurpleAir poll                                                  |
 
-If MQTT is misconfigured or unreachable the ESP32 keeps running normally — MQTT is best-effort and never blocks the main control loop.
+Threshold values are persisted to `/settings.json` on the ESP32 filesystem and survive reboot.
+
+If MQTT is misconfigured or unreachable the ESP32 keeps running normally -- MQTT is best-effort and never blocks the main control loop.
+
+## Using it in Home Assistant
+
+After the device shows up under **Settings -> Devices & services -> MQTT -> 1 device -> PurpleAir Relay**, you have three things you'll want to do regularly:
+
+### Change the mode (remote control)
+
+Two ways:
+
+1. **From the device page**: Settings -> Devices & services -> MQTT -> 1 device -> PurpleAir Relay. The "Controls" section shows the **Mode** dropdown. Click it, pick `OFF` / `ON` / `PURPLEAIR`. The change reaches the firmware in <1 s.
+2. **From a dashboard** (much faster after setup, see below).
+
+### View the AQI history graph
+
+Recorder + statistics are on by default in HA, so the AQI sensors are already being logged. To view:
+
+- Sidebar -> **History**. Filter by entity `sensor.purpleair_relay_outdoor_aqi` (and the indoor one). Pick a date range top-right.
+- Or sidebar -> **Statistics** for hourly aggregated charts going back further.
+
+To pin a graph to a dashboard, see the next section.
+
+### Build a one-card dashboard
+
+Most useful starting point:
+
+1. Sidebar -> **Overview** (the default dashboard). Top-right three-dot menu -> **Edit dashboard** -> **Add card**.
+2. Pick **Entities**, then add: `select.purpleair_relay_mode`, `binary_sensor.purpleair_relay_ventilation`, `sensor.purpleair_relay_outdoor_aqi`, `sensor.purpleair_relay_indoor_aqi`, `sensor.purpleair_relay_reason`.
+3. **Add card** -> **History graph**. Add the two AQI sensors. Set "Hours to show" to 168 for a week's view.
+4. (Optional) **Add card** -> **Statistics graph**. Add the AQI sensors with period "hour" or "day" for longer-term trend.
+
+Save. You can now glance at the dashboard, change the mode, and see AQI trends in one place. The mobile app reuses the same dashboard.
+
+### Tune the AQI thresholds without re-flashing
+
+`number.purpleair_relay_aqi_enable_threshold` and `..._aqi_disable_threshold` show as sliders in the device page. Change them and the firmware:
+
+1. Saves the new value to `/settings.json` on the ESP32.
+2. Reloads the value into `config.AQI_ENABLE_THRESHOLD` / `config.AQI_DISABLE_THRESHOLD` immediately.
+3. The next ventilation update uses the new threshold.
+
+The values persist across reboots. To revert to the firmware defaults, delete `/settings.json` on the device (`mpremote rm settings.json`).
+
+Keep `enable < disable`. Hysteresis prevents the relay from chattering near the threshold.
+
+### Force an AQI refresh
+
+`button.purpleair_relay_refresh_aqi` triggers an immediate poll of the PurpleAir API and the local sensors, bypassing the normal poll interval. Useful for testing or after a known AQI change in your area.
+
+### Set up an automation
+
+Example: text yourself when outdoor AQI exceeds 150.
+
+1. Settings -> **Automations & scenes** -> **+ Create automation** -> **Create new automation**.
+2. Trigger -> **State** -> Entity `sensor.purpleair_relay_outdoor_aqi`, "Above" 150.
+3. Action -> pick a notify service (mobile app, email, etc).
+4. Save.
+
+Other useful patterns: switch mode to `OFF` between 22:00 and 06:00; switch to `PURPLEAIR` otherwise; trigger a fan based on the indoor AQI.
 
 ## Verification
 
